@@ -10,12 +10,45 @@ project_root = os.path.abspath(os.path.dirname(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+def detect_system_theme():
+    """Rileva il tema del sistema operativo."""
+    try:
+        import sys
+        if sys.platform == "win32":
+            # Su Windows, controlla il registro per il tema
+            try:
+                import winreg
+                registry = winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER)
+                key = winreg.OpenKey(registry, r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
+                value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')
+                winreg.CloseKey(key)
+                # 0 = dark theme, 1 = light theme
+                return "light" if value == 1 else "dark"
+            except Exception:
+                # Fallback: usa il palette di Qt
+                pass
+
+        # Per altri sistemi o se il registro fallisce, usa il palette di Qt
+        from PyQt5.QtWidgets import QApplication
+        palette = QApplication.palette()
+        # Se il colore del testo è chiaro, il tema è scuro
+        text_color = palette.color(palette.WindowText)
+        is_dark = text_color.lightness() > 128
+        return "dark" if is_dark else "light"
+    except Exception as e:
+        print(f"Errore nel rilevamento del tema di sistema: {e}")
+        return "dark"  # Default fallback
+
 def apply_theme_to_app(app):
     """Applica il tema salvato nelle impostazioni all'applicazione."""
     try:
         from src.settings import Settings
         settings = Settings()
         theme = settings.get_theme()
+
+        # Se il tema è "system", rileva il tema del sistema
+        if theme == "system":
+            theme = detect_system_theme()
 
         if theme == "dark":
             # Tema scuro

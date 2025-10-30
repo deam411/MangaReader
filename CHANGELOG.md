@@ -1,5 +1,41 @@
 # Changelog - Manga Reader
 
+## [0.0.4] - 2025-10-30
+
+### Nuove Funzionalità
+- **Zoom e Pan nel Lettore**:
+  - Zoom in con freccia SU (↑) e zoom out con freccia GIÙ (↓)
+  - Zoom fluido del 10% per pressione
+  - Pan/trascinamento con click sinistro e drag
+  - Scroll pagine con rotella del mouse o trackpad
+  - Zoom fluido con limiti (0.1x - 5.0x)
+  - Zoom centrato sul centro della viewport
+  - **Pagine sempre centrate orizzontalmente** durante lo zoom
+  - Transizione fluida senza flash grigio (ridimensionamento intelligente)
+  - Cache automaticamente aggiornata durante lo zoom
+  - Le frecce non scrollano più la pagina, sono dedicate allo zoom
+
+- **Tema di Sistema**:
+  - Rilevamento automatico del tema del sistema operativo
+  - Supporto nativo per Windows (registro di sistema)
+  - Fallback multi-piattaforma con Qt palette
+  - Nuova opzione "Sistema" nelle impostazioni
+  - Tema di sistema impostato come default
+
+### Miglioramenti UI/UX
+- **Icona Impostazioni Ingrandita**: L'icona ⚙ ora è più grande (40x40px) e più visibile
+- **Cursore Visibile nel Lettore**: Rimosso il cursore nascosto per migliorare l'usabilità con zoom/pan
+- **Interazione Migliorata**: Cursore cambia in "mano chiusa" durante il panning
+
+### Modifiche Tecniche
+- Aggiornata versione a 0.0.4 in tutti i file
+- Modificato `src/chapter_reader_window.py` per supportare zoom e pan
+- Modificato `main.py` con funzione `detect_system_theme()`
+- Aggiornato `src/settings.py` per supportare tema "system"
+- Aggiornato `src/settings_dialog.py` con opzione tema di sistema
+
+---
+
 ## [0.0.3] - 2025-10-30
 
 ### Nuove Funzionalità

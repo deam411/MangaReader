@@ -9,7 +9,7 @@ from src.settings import Settings
 from src.settings_dialog import SettingsDialog
 
 # App version
-APP_VERSION = "0.0.3"
+APP_VERSION = "0.0.4"
 
 class MangaItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -127,7 +127,8 @@ class LibraryView(QWidget):
         controls_layout.addWidget(self.add_manga_button)
 
         self.settings_button = QPushButton('⚙', self)
-        self.settings_button.setFixedSize(30, 30)
+        self.settings_button.setFixedSize(40, 40)
+        self.settings_button.setStyleSheet("font-size: 20px;")
         self.settings_button.setToolTip('Impostazioni (Temi, Libreria, Performance)')
         self.settings_button.clicked.connect(self.open_settings)
         controls_layout.addWidget(self.settings_button)

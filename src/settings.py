@@ -30,9 +30,9 @@ class Settings:
     def _get_default_settings(self):
         """Restituisce le impostazioni di default."""
         return {
-            "version": "0.0.3",
+            "version": "0.0.4",
             "library_path": None,  # None = usa percorso di default
-            "theme": "dark",  # dark o light
+            "theme": "system",  # system, dark o light
             "language": "it",
             "last_opened_manga": None,
             "window_geometry": None,
@@ -126,11 +126,11 @@ class Settings:
 
     def get_theme(self):
         """Restituisce il tema corrente."""
-        return self.get("theme", "dark")
+        return self.get("theme", "system")
 
     def set_theme(self, theme):
         """Imposta il tema."""
-        if theme in ["dark", "light"]:
+        if theme in ["system", "dark", "light"]:
             self.set("theme", theme)
             return True
         return False

@@ -124,9 +124,14 @@ class SettingsDialog(QDialog):
         theme_layout.addWidget(theme_label)
 
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Scuro", "Chiaro"])
+        self.theme_combo.addItems(["Sistema", "Scuro", "Chiaro"])
         current_theme = self.settings.get_theme()
-        self.theme_combo.setCurrentText("Scuro" if current_theme == "dark" else "Chiaro")
+        if current_theme == "system":
+            self.theme_combo.setCurrentText("Sistema")
+        elif current_theme == "dark":
+            self.theme_combo.setCurrentText("Scuro")
+        else:
+            self.theme_combo.setCurrentText("Chiaro")
         self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
         theme_layout.addWidget(self.theme_combo)
 
@@ -216,7 +221,12 @@ class SettingsDialog(QDialog):
 
     def on_theme_changed(self, text):
         """Gestisce il cambio di tema."""
-        theme = "dark" if text == "Scuro" else "light"
+        if text == "Sistema":
+            theme = "system"
+        elif text == "Scuro":
+            theme = "dark"
+        else:
+            theme = "light"
         self.settings.set_theme(theme)
         self.settings_changed.emit()
 
