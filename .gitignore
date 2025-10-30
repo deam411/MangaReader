@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec.orig
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Manga Files (don't commit manga files)
+*.manga
+manga/
+!manga/.gitkeep
+
+# Build artifacts
+dist/
+build/
+*.exe
+*.app
+*.dmg
+*.AppImage
+
+# User data
+data/
+.manga/
+logs/
+*.log
+
+# Settings (optional - keep if you want to share default settings)
+# data/settings.json
+
+# Icon temporary files
+*.iconset/
+assets/*.iconset/

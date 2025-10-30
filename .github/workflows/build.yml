@@ -1,0 +1,147 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build Windows executable
+      run: |
+        cd BuildTools
+        ./build.bat
+      shell: cmd
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: MangaReader-Windows
+        path: dist/MangaReader.exe
+        retention-days: 90
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install -r requirements.txt
+        pip3 install pyinstaller
+
+    - name: Convert iconset to .icns
+      run: |
+        if [ -d "assets/icon.iconset" ]; then
+          iconutil -c icns assets/icon.iconset -o assets/icon.icns
+          echo "Icon converted successfully"
+        else
+          echo "Warning: iconset not found"
+        fi
+
+    - name: Build macOS app
+      run: |
+        chmod +x BuildTools/build_mac.sh
+        ./BuildTools/build_mac.sh
+
+    - name: Create DMG
+      run: |
+        hdiutil create -volname "Manga Reader" -srcfolder dist/MangaReader.app -ov -format UDZO dist/MangaReader.dmg
+
+    - name: Upload macOS artifact (app)
+      uses: actions/upload-artifact@v3
+      with:
+        name: MangaReader-macOS-app
+        path: dist/MangaReader.app
+        retention-days: 90
+
+    - name: Upload macOS artifact (dmg)
+      uses: actions/upload-artifact@v3
+      with:
+        name: MangaReader-macOS-dmg
+        path: dist/MangaReader.dmg
+        retention-days: 90
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pyqt5 python3-pyqt5.qtsvg libxcb-xinerama0
+
+    - name: Install Python dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install -r requirements.txt
+        pip3 install pyinstaller
+
+    - name: Build Linux executable
+      run: |
+        chmod +x BuildTools/build_linux.sh
+        ./BuildTools/build_linux.sh
+
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: MangaReader-Linux
+        path: dist/MangaReader
+        retention-days: 90
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          MangaReader-Windows/MangaReader.exe
+          MangaReader-macOS-dmg/MangaReader.dmg
+          MangaReader-Linux/MangaReader
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
