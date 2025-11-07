@@ -1,22 +1,27 @@
 import sqlite3
 import os
 from PIL import Image # Importa la libreria Pillow
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 class MangaDatabaseManager:
     def __init__(self, db_path):
         self.db_path = db_path
-        print(f"MangaDatabaseManager: __init__ called for db_path: {db_path}") # DEBUG
-        print(f"DEBUG: Loading database.py from: {__file__}") # DEBUG PRINT
+        logger.debug(f"MangaDatabaseManager: __init__ called for db_path: {db_path}")
+        logger.debug(f"Loading database.py from: {__file__}")
         # create_manga_db_schema is called here to ensure the database is ready
         self.create_manga_db_schema()
         self.migrate_schema_to_v2() # Chiama la funzione di migrazione dello schema
+        self.create_performance_indexes() # Crea indici per performance ottimali
+        self.optimize_database_settings() # Ottimizza le impostazioni del database
 
     def create_manga_db_schema(self):
         """
         Crea lo schema del database per un file .manga.
         Restituisce True in caso di successo, False altrimenti.
         """
-        print(f"MangaDatabaseManager: create_manga_db_schema called for db_path: {self.db_path}") # DEBUG
+        logger.debug(f"MangaDatabaseManager: create_manga_db_schema called for db_path: {self.db_path}")
         try:
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
@@ -77,18 +82,149 @@ class MangaDatabaseManager:
                     )
                 ''')
 
+                # Tabella bookmarks
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS bookmarks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user TEXT DEFAULT 'default',
+                        chapter_id INTEGER,
+                        page_number INTEGER,
+                        name TEXT,
+                        timestamp INTEGER,
+                        FOREIGN KEY (chapter_id) REFERENCES chapters (id)
+                    )
+                ''')
+
                 conn.commit()
-                print(f"MangaDatabaseManager: create_manga_db_schema successful for db_path: {self.db_path}") # DEBUG
+                logger.debug(f"MangaDatabaseManager: create_manga_db_schema successful for db_path: {self.db_path}")
                 return True
         except sqlite3.Error as e:
-            print(f"MangaDatabaseManager: Errore durante la creazione dello schema del database per {self.db_path}: {e}") # DEBUG
+            logger.error(f"MangaDatabaseManager: Errore durante la creazione dello schema del database per {self.db_path}: {e}")
+            return False
+
+    def create_performance_indexes(self):
+        """
+        Crea indici per ottimizzare le performance delle query.
+        Gli indici vengono creati solo se non esistono già.
+        """
+        logger.debug(f"MangaDatabaseManager: create_performance_indexes called for db_path: {self.db_path}")
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+
+                # Indice su chapters.volume_id (FK usata nei JOIN)
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_chapters_volume_id
+                    ON chapters(volume_id)
+                ''')
+
+                # Indice su pages.chapter_id (FK usata per caricare pagine)
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_pages_chapter_id
+                    ON pages(chapter_id)
+                ''')
+
+                # Indice composito su pages per query ordinate
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_pages_chapter_page
+                    ON pages(chapter_id, page_number)
+                ''')
+
+                # Indice su bookmarks.chapter_id (FK usata per caricare segnalibri)
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_bookmarks_chapter_id
+                    ON bookmarks(chapter_id)
+                ''')
+
+                # Indice composito su bookmarks per query per utente
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_bookmarks_user_chapter
+                    ON bookmarks(user, chapter_id)
+                ''')
+
+                # Fix: Indice su bookmarks.timestamp per ordinamento veloce
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_bookmarks_timestamp
+                    ON bookmarks(timestamp DESC)
+                ''')
+
+                # Indice su history.chapter_id (per calcolare progresso)
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_history_chapter_id
+                    ON history(chapter_id)
+                ''')
+
+                # Indice composito su history per query per utente
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_history_user_chapter
+                    ON history(user, chapter_id, timestamp DESC)
+                ''')
+
+                # Indice su chapters.order per ordinamento veloce
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_chapters_order
+                    ON chapters("order")
+                ''')
+
+                # Indice su volumes.order per ordinamento veloce
+                c.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_volumes_order
+                    ON volumes("order")
+                ''')
+
+                conn.commit()
+                logger.info(f"Indici di performance creati con successo per {self.db_path}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante la creazione degli indici per {self.db_path}: {e}")
+            return False
+
+    def optimize_database_settings(self):
+        """
+        Ottimizza le impostazioni SQLite per performance migliori.
+        Abilita WAL mode, aumenta cache size, e ottimizza altri parametri.
+        """
+        logger.debug(f"MangaDatabaseManager: optimize_database_settings called for db_path: {self.db_path}")
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+
+                # Abilita WAL mode per migliori performance di lettura concorrente
+                # WAL permette letture mentre si scrive, e migliora le performance generali
+                c.execute('PRAGMA journal_mode=WAL')
+
+                # Aumenta dimensione cache (default 2MB -> 10MB)
+                # Più cache = meno accessi disco = più veloce
+                c.execute('PRAGMA cache_size=-10000')  # Negativo = kilobytes (10MB)
+
+                # Abilita memory-mapped I/O per file fino a 256MB
+                # Accesso diretto alla memoria invece di chiamate di sistema
+                c.execute('PRAGMA mmap_size=268435456')  # 256MB
+
+                # Ottimizza il numero di pagine nel pool di cache temporaneo
+                c.execute('PRAGMA temp_store=MEMORY')
+
+                # Sincronizzazione NORMAL è più veloce e ancora sicura
+                # (FULL è troppo lento, OFF è pericoloso)
+                c.execute('PRAGMA synchronous=NORMAL')
+
+                # Analizza il database per ottimizzare il query planner
+                # Questo aiuta SQLite a scegliere i migliori indici
+                c.execute('ANALYZE')
+
+                conn.commit()
+                logger.info(f"Impostazioni database ottimizzate per {self.db_path}")
+                return True
+        except sqlite3.Error as e:
+            logger.warning(f"Errore durante l'ottimizzazione delle impostazioni database: {e}")
+            # Non è un errore critico, continua comunque
             return False
 
     def migrate_schema_to_v2(self):
         """
         Migra lo schema del database alla versione 2: aggiunge la colonna volume_id alla tabella chapters.
         """
-        print(f"MangaDatabaseManager: migrate_schema_to_v2 called for db_path: {self.db_path}") # DEBUG
+        logger.debug(f"MangaDatabaseManager: migrate_schema_to_v2 called for db_path: {self.db_path}")
         try:
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
@@ -97,7 +233,7 @@ class MangaDatabaseManager:
                 c.execute("PRAGMA table_info(chapters)")
                 columns = [col[1] for col in c.fetchall()]
                 if 'volume_id' not in columns:
-                    print(f"MangaDatabaseManager: Aggiunta colonna 'volume_id' alla tabella 'chapters' in {self.db_path}") # DEBUG
+                    logger.info(f"Aggiunta colonna 'volume_id' alla tabella 'chapters' in {self.db_path}")
                     c.execute("ALTER TABLE chapters ADD COLUMN volume_id INTEGER")
 
                     # Crea un volume di default se non esiste
@@ -106,21 +242,21 @@ class MangaDatabaseManager:
                     if not default_volume_id:
                         c.execute("INSERT INTO volumes (name, 'order') VALUES ('Default Volume', 1)")
                         default_volume_id = c.lastrowid
-                        print(f"MangaDatabaseManager: Creato 'Default Volume' con ID: {default_volume_id}") # DEBUG
+                        logger.info(f"Creato 'Default Volume' con ID: {default_volume_id}")
                     else:
                         default_volume_id = default_volume_id[0]
-                        print(f"MangaDatabaseManager: 'Default Volume' esistente con ID: {default_volume_id}") # DEBUG
+                        logger.debug(f"'Default Volume' esistente con ID: {default_volume_id}")
 
                     # Assegna tutti i capitoli esistenti al volume di default
                     c.execute("UPDATE chapters SET volume_id = ? WHERE volume_id IS NULL", (default_volume_id,))
-                    print(f"MangaDatabaseManager: Capitoli esistenti assegnati a 'Default Volume'.") # DEBUG
+                    logger.info("Capitoli esistenti assegnati a 'Default Volume'")
                 else:
-                    print(f"MangaDatabaseManager: Colonna 'volume_id' già presente nella tabella 'chapters'. Nessuna migrazione necessaria.") # DEBUG
+                    logger.debug("Colonna 'volume_id' già presente nella tabella 'chapters'. Nessuna migrazione necessaria")
 
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"MangaDatabaseManager: Errore durante la migrazione dello schema del database per {self.db_path}: {e}") # DEBUG
+            logger.error(f"Errore durante la migrazione dello schema del database per {self.db_path}: {e}")
             return False
 
     def insert_metadata(self, title, author=None, description=None, language=None, cover=None, year=None, tags=None):
@@ -138,7 +274,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'inserimento dei metadati: {e}")
+            logger.error(f"Errore durante l'inserimento dei metadati: {e}")
             return False
 
     def update_metadata(self, title, author=None, description=None, language=None, cover=None, year=None, tags=None):
@@ -162,7 +298,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'aggiornamento dei metadati: {e}")
+            logger.error(f"Errore durante l'aggiornamento dei metadati: {e}")
             return False
 
     def get_metadata(self):
@@ -180,7 +316,7 @@ class MangaDatabaseManager:
                     return dict(metadata)
                 return None
         except sqlite3.Error as e:
-            print(f"Errore durante il recupero dei metadati: {e}")
+            logger.error(f"Errore durante il recupero dei metadati: {e}")
             return None
 
     def insert_volume(self, name, order, cover=None):
@@ -198,7 +334,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return c.lastrowid
         except sqlite3.Error as e:
-            print(f"Errore durante l'inserimento del volume: {e}")
+            logger.error(f"Errore durante l'inserimento del volume: {e}")
             return None
 
     def update_volume(self, volume_id, name, order, cover=None):
@@ -219,7 +355,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'aggiornamento del volume: {e}")
+            logger.error(f"Errore durante l'aggiornamento del volume: {e}")
             return False
 
     def delete_volume(self, volume_id):
@@ -243,7 +379,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'eliminazione del volume {volume_id}: {e}")
+            logger.error(f"Errore durante l'eliminazione del volume {volume_id}: {e}")
             return False
 
     def get_volumes(self):
@@ -258,7 +394,7 @@ class MangaDatabaseManager:
                 c.execute('SELECT id, name, "order", cover FROM volumes ORDER BY "order"')
                 return c.fetchall()
         except sqlite3.Error as e:
-            print(f"Errore durante il recupero dei volumi: {e}")
+            logger.error(f"Errore durante il recupero dei volumi: {e}")
             return []
 
     def insert_chapter(self, name, order, volume_id, description=None):
@@ -276,7 +412,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return c.lastrowid
         except sqlite3.Error as e:
-            print(f"Errore durante l'inserimento del capitolo: {e}")
+            logger.error(f"Errore durante l'inserimento del capitolo: {e}")
             return None
 
     def get_chapters_for_volume(self, volume_id):
@@ -291,7 +427,7 @@ class MangaDatabaseManager:
                 c.execute('SELECT id, name, "order", description FROM chapters WHERE volume_id = ? ORDER BY "order"', (volume_id,))
                 return c.fetchall()
         except sqlite3.Error as e:
-            print(f"Errore durante il recupero dei capitoli per il volume {volume_id}: {e}")
+            logger.error(f"Errore durante il recupero dei capitoli per il volume {volume_id}: {e}")
             return []
 
     def get_all_chapters(self):
@@ -306,7 +442,7 @@ class MangaDatabaseManager:
                 c.execute('SELECT id, name, "order", description FROM chapters ORDER BY "order"')
                 return c.fetchall()
         except sqlite3.Error as e:
-            print(f"Errore durante il recupero dei capitoli: {e}")
+            logger.error(f"Errore durante il recupero dei capitoli: {e}")
             return []
 
     def get_pages_for_chapter(self, chapter_id):
@@ -321,26 +457,53 @@ class MangaDatabaseManager:
                 c.execute('SELECT page_number, image_data FROM pages WHERE chapter_id = ? ORDER BY page_number', (chapter_id,))
                 return c.fetchall()
         except sqlite3.Error as e:
-            print(f"Errore durante il recupero delle pagine per il capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante il recupero delle pagine per il capitolo {chapter_id}: {e}")
             return []
 
     def insert_page(self, chapter_id, page_number, image_path):
         """
         Inserisce una nuova pagina in un capitolo.
         image_path è il percorso del file immagine.
+        Converte automaticamente .webp e .jfif in formato compatibile.
         Restituisce True in caso di successo, False altrimenti.
         """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
-                with open(image_path, 'rb') as f:
-                    image_data = f.read()
+
+                # Controlla se il file è webp o jfif e convertilo
+                file_ext = os.path.splitext(image_path)[1].lower()
+                if file_ext in ['.webp', '.jfif']:
+                    # Converti usando Pillow
+                    from io import BytesIO
+                    img = Image.open(image_path)
+                    # Converti in RGB se necessario (per PNG con trasparenza)
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        # Mantieni trasparenza se presente
+                        buffer = BytesIO()
+                        img.save(buffer, format='PNG')
+                        image_data = buffer.getvalue()
+                    else:
+                        # Converti in JPEG per immagini senza trasparenza (più efficiente)
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        buffer = BytesIO()
+                        img.save(buffer, format='JPEG', quality=95)
+                        image_data = buffer.getvalue()
+                else:
+                    # Formati standard, leggi direttamente
+                    with open(image_path, 'rb') as f:
+                        image_data = f.read()
+
                 c.execute('INSERT INTO pages (chapter_id, page_number, image_data) VALUES (?, ?, ?)',
                           (chapter_id, page_number, image_data))
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'inserimento della pagina: {e}")
+            logger.error(f"Errore durante l'inserimento della pagina: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Errore durante la conversione dell'immagine: {e}")
             return False
 
     def delete_chapter_and_pages(self, chapter_id):
@@ -358,7 +521,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'eliminazione del capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante l'eliminazione del capitolo {chapter_id}: {e}")
             return False
 
     def update_chapter_name(self, chapter_id, new_name):
@@ -373,7 +536,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'aggiornamento del nome del capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante l'aggiornamento del nome del capitolo {chapter_id}: {e}")
             return False
 
     def update_chapters_order(self, chapter_ids):
@@ -389,7 +552,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'aggiornamento dell'ordine dei capitoli: {e}")
+            logger.error(f"Errore durante l'aggiornamento dell'ordine dei capitoli: {e}")
             return False
 
     def delete_page(self, chapter_id, page_number):
@@ -404,7 +567,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'eliminazione della pagina {page_number} dal capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante l'eliminazione della pagina {page_number} dal capitolo {chapter_id}: {e}")
             return False
 
     def update_page_order(self, chapter_id, ordered_pages_data):
@@ -426,7 +589,7 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante l'aggiornamento dell'ordine delle pagine per il capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante l'aggiornamento dell'ordine delle pagine per il capitolo {chapter_id}: {e}")
             return False
 
     def swap_page_order(self, chapter_id, page_number1, page_number2):
@@ -448,7 +611,306 @@ class MangaDatabaseManager:
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Errore durante lo scambio di pagine per il capitolo {chapter_id}: {e}")
+            logger.error(f"Errore durante lo scambio di pagine per il capitolo {chapter_id}: {e}")
+            return False
+
+    def save_reading_position(self, chapter_id: int, page_number: int, user: str = "default") -> bool:
+        """
+        Salva la posizione di lettura corrente.
+
+        Args:
+            chapter_id: ID del capitolo
+            page_number: Numero della pagina corrente
+            user: Nome utente (default: "default")
+
+        Returns:
+            True se il salvataggio è riuscito, False altrimenti
+        """
+        try:
+            import time
+            timestamp = int(time.time())
+
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+
+                # Controlla se esiste già una entry per questo utente
+                c.execute('SELECT rowid FROM history WHERE user = ? LIMIT 1', (user,))
+                existing = c.fetchone()
+
+                if existing:
+                    # Aggiorna posizione esistente
+                    c.execute('''
+                        UPDATE history
+                        SET chapter_id = ?, page_number = ?, timestamp = ?
+                        WHERE user = ?
+                    ''', (chapter_id, page_number, timestamp, user))
+                    logger.debug(f"Aggiornata posizione di lettura: capitolo {chapter_id}, pagina {page_number}")
+                else:
+                    # Inserisci nuova posizione
+                    c.execute('''
+                        INSERT INTO history (user, chapter_id, page_number, timestamp)
+                        VALUES (?, ?, ?, ?)
+                    ''', (user, chapter_id, page_number, timestamp))
+                    logger.debug(f"Salvata nuova posizione di lettura: capitolo {chapter_id}, pagina {page_number}")
+
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante il salvataggio della posizione di lettura: {e}")
+            return False
+
+    def get_last_reading_position(self, user: str = "default"):
+        """
+        Recupera l'ultima posizione di lettura salvata.
+
+        Args:
+            user: Nome utente (default: "default")
+
+        Returns:
+            Dizionario con chapter_id, page_number, timestamp, e informazioni del capitolo
+            None se non ci sono posizioni salvate
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+
+                # Recupera ultima posizione con info capitolo
+                c.execute('''
+                    SELECT h.chapter_id, h.page_number, h.timestamp,
+                           ch.name as chapter_name, ch.volume_id,
+                           v.name as volume_name
+                    FROM history h
+                    LEFT JOIN chapters ch ON h.chapter_id = ch.id
+                    LEFT JOIN volumes v ON ch.volume_id = v.id
+                    WHERE h.user = ?
+                    ORDER BY h.timestamp DESC
+                    LIMIT 1
+                ''', (user,))
+
+                result = c.fetchone()
+
+                if result:
+                    logger.debug(f"Recuperata posizione: capitolo {result['chapter_id']}, pagina {result['page_number']}")
+                    return dict(result)
+                else:
+                    logger.debug("Nessuna posizione di lettura salvata")
+                    return None
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante il recupero della posizione di lettura: {e}")
+            return None
+
+    def get_reading_progress(self, user: str = "default"):
+        """
+        Calcola il progresso di lettura (percentuale completamento).
+        Ottimizzato per evitare subquery annidate.
+
+        Args:
+            user: Nome utente (default: "default")
+
+        Returns:
+            Dizionario con total_pages, read_pages, percentage
+            None se non ci sono dati
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+
+                # Conta totale pagine
+                c.execute('SELECT COUNT(*) FROM pages')
+                total_pages = c.fetchone()[0]
+
+                if total_pages == 0:
+                    return None
+
+                # Recupera ultima posizione
+                position = self.get_last_reading_position(user)
+
+                if not position:
+                    return {
+                        'total_pages': total_pages,
+                        'read_pages': 0,
+                        'percentage': 0.0
+                    }
+
+                # OTTIMIZZATO: Pre-calcola l'order del capitolo corrente
+                # invece di usare una subquery annidata
+                c.execute('SELECT "order" FROM chapters WHERE id = ?', (position['chapter_id'],))
+                current_chapter_order_row = c.fetchone()
+
+                if not current_chapter_order_row:
+                    return {
+                        'total_pages': total_pages,
+                        'read_pages': 0,
+                        'percentage': 0.0
+                    }
+
+                current_chapter_order = current_chapter_order_row[0]
+
+                # Conta pagine lette fino alla posizione corrente
+                # Query ottimizzata senza subquery annidata
+                c.execute('''
+                    SELECT COUNT(*) FROM pages p
+                    JOIN chapters ch ON p.chapter_id = ch.id
+                    WHERE ch."order" < ?
+                       OR (ch.id = ? AND p.page_number <= ?)
+                ''', (current_chapter_order, position['chapter_id'], position['page_number']))
+
+                read_pages = c.fetchone()[0]
+                percentage = (read_pages / total_pages) * 100
+
+                logger.debug(f"Progresso lettura: {read_pages}/{total_pages} ({percentage:.1f}%)")
+
+                return {
+                    'total_pages': total_pages,
+                    'read_pages': read_pages,
+                    'percentage': percentage
+                }
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante il calcolo del progresso: {e}")
+            return None
+
+    def clear_reading_history(self, user: str = "default") -> bool:
+        """
+        Cancella la cronologia di lettura per un utente.
+
+        Args:
+            user: Nome utente (default: "default")
+
+        Returns:
+            True se la cancellazione è riuscita, False altrimenti
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute('DELETE FROM history WHERE user = ?', (user,))
+                conn.commit()
+                logger.info(f"Cronologia di lettura cancellata per utente: {user}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante la cancellazione della cronologia: {e}")
+            return False
+
+    # ===== BOOKMARKS METHODS =====
+
+    def add_bookmark(self, chapter_id: int, page_number: int, name: str, user: str = "default") -> int:
+        """
+        Aggiunge un bookmark alla posizione specificata.
+
+        Args:
+            chapter_id: ID del capitolo
+            page_number: Numero della pagina
+            name: Nome del bookmark
+            user: Nome utente (default: "default")
+
+        Returns:
+            ID del bookmark creato, o -1 in caso di errore
+        """
+        try:
+            import time
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                timestamp = int(time.time())
+                c.execute('''
+                    INSERT INTO bookmarks (user, chapter_id, page_number, name, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (user, chapter_id, page_number, name, timestamp))
+                conn.commit()
+                bookmark_id = c.lastrowid
+                logger.info(f"Bookmark creato: {name} (ID: {bookmark_id})")
+                return bookmark_id
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante la creazione del bookmark: {e}")
+            return -1
+
+    def get_bookmarks(self, user: str = "default"):
+        """
+        Ottiene tutti i bookmarks dell'utente con informazioni capitolo/volume.
+
+        Args:
+            user: Nome utente (default: "default")
+
+        Returns:
+            Lista di dizionari con info bookmark, o lista vuota
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+                c.execute('''
+                    SELECT
+                        b.id,
+                        b.chapter_id,
+                        b.page_number,
+                        b.name,
+                        b.timestamp,
+                        c.name as chapter_name,
+                        v.name as volume_name
+                    FROM bookmarks b
+                    JOIN chapters c ON b.chapter_id = c.id
+                    JOIN volumes v ON c.volume_id = v.id
+                    WHERE b.user = ?
+                    ORDER BY b.timestamp DESC
+                ''', (user,))
+
+                bookmarks = []
+                for row in c.fetchall():
+                    bookmarks.append({
+                        'id': row['id'],
+                        'chapter_id': row['chapter_id'],
+                        'page_number': row['page_number'],
+                        'name': row['name'],
+                        'timestamp': row['timestamp'],
+                        'chapter_name': row['chapter_name'],
+                        'volume_name': row['volume_name']
+                    })
+
+                return bookmarks
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante il recupero dei bookmarks: {e}")
+            return []
+
+    def delete_bookmark(self, bookmark_id: int) -> bool:
+        """
+        Elimina un bookmark.
+
+        Args:
+            bookmark_id: ID del bookmark da eliminare
+
+        Returns:
+            True se eliminazione riuscita, False altrimenti
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute('DELETE FROM bookmarks WHERE id = ?', (bookmark_id,))
+                conn.commit()
+                logger.info(f"Bookmark eliminato (ID: {bookmark_id})")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante l'eliminazione del bookmark: {e}")
+            return False
+
+    def update_bookmark_name(self, bookmark_id: int, new_name: str) -> bool:
+        """
+        Rinomina un bookmark.
+
+        Args:
+            bookmark_id: ID del bookmark
+            new_name: Nuovo nome
+
+        Returns:
+            True se rinominazione riuscita, False altrimenti
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                c = conn.cursor()
+                c.execute('UPDATE bookmarks SET name = ? WHERE id = ?', (new_name, bookmark_id))
+                conn.commit()
+                logger.info(f"Bookmark rinominato (ID: {bookmark_id}) -> {new_name}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore durante la rinominazione del bookmark: {e}")
             return False
 
 if __name__ == '__main__':

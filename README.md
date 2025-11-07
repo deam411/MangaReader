@@ -1,6 +1,6 @@
 # 📚 Manga Reader
 
-![Version](https://img.shields.io/badge/version-0.0.3-blue.svg)
+![Version](https://img.shields.io/badge/version-0.0.6-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -12,35 +12,62 @@ Un lettore e gestore di manga moderno e performante con supporto multi-piattafor
 
 ### 📖 Lettura
 - **Lettore full-screen** con scrolling verticale fluido
+- **Vista Doppia Pagina** - Layout side-by-side per lettura manga tradizionale (Ctrl+D)
+- **Sistema Segnalibri** - Salva e gestisci le tue posizioni preferite (Ctrl+B)
+- **Supporto RTL** - Lettura Right-to-Left per manga giapponesi
+- **Zoom e Pan** - Frecce SU/GIÙ per zoom, trascinamento con mouse
+- **Cursore nascosto** durante la lettura per esperienza immersiva
 - **Lazy loading intelligente** per performance ottimali
 - **Cache LRU** configurabile per caricamento rapido
 - **Preloading** delle pagine successive
 
 ### 🎨 Interfaccia
-- **Temi Dark/Light** con persistenza
+- **Navigazione a 4 livelli** - Libreria → Manga → Volume → Reader
+- **VolumeView dedicata** - Schermata per selezione capitoli con cover grande
+- **Pannello Scorciatoie** - Premi Ctrl+? per vedere tutte le combinazioni
+- **Tooltips informativi** - Passaci sopra per scoprire come usare ogni pulsante
+- **Temi Dark/Light/Sistema** con persistenza
 - **Visualizzazione griglia/lista** per la libreria
 - **Ricerca istantanea** tra i manga
 - **Ordinamento** per titolo e autore
+- **Download cover** - Salva le copertine di manga e volumi
 
 ### ⚡ Performance
+- **Sistema cache a 2 livelli**: In-memory + Persistent disk cache per cover
+- **Cache persistent intelligente**: Cover salvate in AppData con invalidazione automatica
+- **9 indici database strategici**: Query 3-5x più veloci su JOIN e ordinamenti
+- **WAL mode SQLite**: Letture concorrenti senza blocchi
+- **Ottimizzazioni SQL avanzate**: Memory-mapped I/O, cache 10MB, query ottimizzate
+- **Caricamento threaded** della libreria con progress bar
 - **Cache immagini** configurabile (10-200 immagini)
-- **Caricamento threaded** per UI responsive
-- **Ottimizzazioni** per file manga di grandi dimensioni
+- **UI sempre responsiva** anche con librerie grandi
+- **Risultato**: Avvio 2-3x più veloce, scroll ultra-fluido, query < 10ms
+
+### 🖼️ Formati Supportati
+- **Immagini**: PNG, JPG, JPEG, GIF, BMP, **WebP**, **JFIF**
+- **Conversione automatica** di WebP e JFIF in formato compatibile
+- **Ottimizzazione qualità** - PNG per trasparenza, JPEG 95% per il resto
 
 ### ⌨️ Shortcuts
+- `Ctrl+?` - **Mostra pannello scorciatoie** (nuovo!)
 - `Ctrl+F` - Ricerca
 - `Ctrl+I` - Importa manga
 - `Ctrl+E` - Esporta manga
 - `Ctrl+N` - Nuovo manga
+- `Ctrl+D` - Toggle vista doppia pagina (nel reader)
+- `Ctrl+B` - Aggiungi segnalibro (nel reader)
 - `F5` - Aggiorna libreria
 - `F11` - Toggle fullscreen
 - `Backspace` - Indietro
+- `↑/↓` - Zoom in/out nel reader
 - `Esc` - Esci
 
 ### 🛠️ Gestione
 - **Import/Export** file .manga
 - **Editor integrato** per creare e modificare manga
+- **Segnalibri personalizzati** - Gestione completa con rinomina/elimina
 - **Libreria personalizzabile** - scegli dove salvare i tuoi manga
+- **Download cover** - Salva copertine manga e volumi
 - **Formato .manga** proprietario basato su SQLite
 
 ## 📦 Download
@@ -122,6 +149,164 @@ cd BuildTools
 chmod +x build_linux.sh
 ./build_linux.sh
 ```
+
+## 🧪 Testing
+
+### Setup Testing Environment
+
+```bash
+# Installa dipendenze di development
+pip install -r requirements-dev.txt
+```
+
+### Esecuzione Test
+
+```bash
+# Esegui tutti i test
+pytest
+
+# Esegui test con coverage
+pytest --cov=src --cov-report=html
+
+# Esegui test specifici
+pytest tests/test_database.py
+pytest tests/test_settings.py -v
+
+# Esegui test in parallelo
+pytest -n auto
+
+# Esegui solo test veloci (skip slow tests)
+pytest -m "not slow"
+```
+
+### Test Suite
+
+Il progetto include test completi per:
+- ✅ **Database** - CRUD operations, conversioni immagini, schema migration (20 test)
+- ✅ **Settings** - Singleton pattern, persistence, defaults (15 test)
+- ✅ **Paths** - Cross-platform path resolution, frozen/unfrozen mode (18 test)
+
+**Coverage Target**: 60%+ per moduli core
+
+### Scrivere Nuovi Test
+
+```python
+# tests/test_example.py
+import pytest
+
+def test_example(temp_dir):
+    """Esempio di test con fixture."""
+    # Usa fixture temp_dir, sample_image_path, etc.
+    assert True
+```
+
+## 🔍 Code Quality
+
+### Linting & Formatting
+
+```bash
+# Formatta codice con Black
+black src/ main.py views.py
+
+# Controlla stile con Pylint
+pylint src/ main.py views.py
+
+# Type checking con mypy
+mypy src/
+
+# Style guide con flake8
+flake8 src/ main.py views.py
+```
+
+### Pre-commit Hooks (Consigliato)
+
+```bash
+# Installa pre-commit
+pip install pre-commit
+
+# Setup hooks
+pre-commit install
+
+# Esegui manualmente
+pre-commit run --all-files
+```
+
+## 🏗️ Architettura
+
+### Struttura Progetto
+
+```
+MangaReader/
+├── main.py                 # Entry point, theme management, shortcuts
+├── views.py                # Main UI views (Library, Manga, Volume, Reader)
+├── src/
+│   ├── database.py         # SQLite ORM per file .manga
+│   ├── settings.py         # Settings singleton con persistence
+│   ├── paths.py            # Path management cross-platform
+│   ├── theme_manager.py    # Theme generation e applicazione
+│   ├── logger.py           # Logging centralizzato
+│   ├── constants.py        # Costanti centralizzate
+│   ├── themes.json         # Definizioni colori temi
+│   ├── chapter_reader_window.py  # Widget lettore con zoom/pan
+│   ├── settings_dialog.py  # Dialog impostazioni
+│   ├── tag_widget.py       # Smart tag selection widget
+│   └── creator/
+│       └── manga_creator_app.py  # Editor manga completo
+├── tests/
+│   ├── conftest.py         # Pytest fixtures
+│   ├── test_database.py    # Test database operations
+│   ├── test_settings.py    # Test settings management
+│   └── test_paths.py       # Test path resolution
+├── BuildTools/             # Build scripts per PyInstaller
+└── assets/                 # Icone e risorse
+
+```
+
+### Design Patterns
+
+- **Singleton**: `Settings` class per configurazione globale
+- **MVC-like**: Separazione model (database), view (UI), controller (logica)
+- **LRU Cache**: Gestione intelligente memoria per immagini
+- **Observer**: Qt signals/slots per comunicazione components
+- **Factory**: Theme generation da configurazioni JSON
+
+### Database Schema
+
+```sql
+-- metadata: Informazioni manga
+title, author, description, language, cover, year, tags
+
+-- volumes: Organizzazione volumi
+id, name, order, cover
+
+-- chapters: Capitoli per volume
+id, name, order, description, volume_id
+
+-- pages: Immagini pagine
+chapter_id, page_number, image_data (BLOB)
+
+-- history: Cronologia lettura (futuro)
+user, chapter_id, page_number, timestamp, notes
+```
+
+### Logging
+
+L'applicazione usa un sistema di logging centralizzato:
+
+```python
+from src.logger import get_logger
+
+logger = get_logger(__name__)
+logger.info("Informazione")
+logger.error("Errore")
+logger.debug("Debug info")
+```
+
+**Log Location**:
+- Windows: `%LOCALAPPDATA%\MangaReader\manga_reader.log`
+- Unix: `~/.mangareader/manga_reader.log`
+
+**Configurazione**: Rotazione automatica (10MB max, 5 backup)
 
 ## 📂 Struttura Dati
 

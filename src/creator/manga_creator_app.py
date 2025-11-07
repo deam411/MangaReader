@@ -2,11 +2,6 @@ import sys
 import os
 import importlib
 
-# Remove sys.path manipulation here, as it will be handled in main.py
-# project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-# if project_root not in sys.path:
-#     sys.path.insert(0, project_root)
-
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
@@ -14,11 +9,17 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap, QImage, QIcon
+from PIL import Image
+from io import BytesIO
 
 # Importa il gestore del database che abbiamo creato
 from .. import database # New relative import
 from ..database import MangaDatabaseManager # New relative import
 from ..paths import get_manga_dir # Import centralized path manager
+from ..tag_widget import SmartTagWidget # Import smart tag widget
+from ..logger import get_logger
+
+logger = get_logger(__name__)
 
 class MangaCreatorApp(QMainWindow):
     def __init__(self):
@@ -31,6 +32,35 @@ class MangaCreatorApp(QMainWindow):
         self.is_dirty = False # Flag per indicare se ci sono modifiche non salvate
 
         self.init_ui()
+
+    @staticmethod
+    def convert_image_to_compatible_format(file_path):
+        """
+        Converte immagini WebP e JFIF in formato compatibile (PNG/JPEG).
+        Ritorna i dati dell'immagine come bytes.
+        """
+        file_ext = os.path.splitext(file_path)[1].lower()
+
+        if file_ext in ['.webp', '.jfif']:
+            # Converti usando Pillow
+            img = Image.open(file_path)
+
+            # Mantieni trasparenza se presente
+            if img.mode in ('RGBA', 'LA', 'P'):
+                buffer = BytesIO()
+                img.save(buffer, format='PNG')
+                return buffer.getvalue()
+            else:
+                # Converti in JPEG per immagini senza trasparenza
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=95)
+                return buffer.getvalue()
+        else:
+            # Formati standard, leggi direttamente
+            with open(file_path, 'rb') as f:
+                return f.read()
 
     def init_ui(self):
         self.setWindowTitle('Manga Creator')
@@ -77,9 +107,9 @@ class MangaCreatorApp(QMainWindow):
         self.metadata_layout.addWidget(QLabel('Anno:'))
         self.metadata_layout.addWidget(self.year_input)
 
-        self.tags_input = QLineEdit()
-        self.tags_input.setPlaceholderText('Tag (separati da virgola)')
+        # Widget intelligente per i tag
         self.metadata_layout.addWidget(QLabel('Tag:'))
+        self.tags_input = SmartTagWidget()
         self.metadata_layout.addWidget(self.tags_input)
         self.metadata_layout.addStretch()
 
@@ -229,6 +259,7 @@ class MangaCreatorApp(QMainWindow):
         if file_path:
             if 'src.database' in sys.modules:
                 importlib.reload(sys.modules['src.database'])
+            self.current_manga_db = file_path # Set the current manga database path
             from src import database
             from src.database import MangaDatabaseManager
             self.db_manager = MangaDatabaseManager(self.current_manga_db)
@@ -280,7 +311,7 @@ class MangaCreatorApp(QMainWindow):
         description = self.description_input.toPlainText()
         language = self.language_input.text()
         year_text = self.year_input.text()
-        tags = self.tags_input.text()
+        tags = self.tags_input.get_tags_string()
 
         year = None
         if year_text:
@@ -314,7 +345,7 @@ class MangaCreatorApp(QMainWindow):
                 self.description_input.setText(metadata['description'] if metadata['description'] else '')
                 self.language_input.setText(metadata['language'] if metadata['language'] else '')
                 self.year_input.setText(str(metadata['year']) if metadata['year'] else '')
-                self.tags_input.setText(metadata['tags'] if metadata['tags'] else '')
+                self.tags_input.set_tags(metadata['tags'] if metadata['tags'] else '')
                 if metadata['cover']:
                     self.current_cover_data = metadata['cover']
                     pixmap = QPixmap()
@@ -467,11 +498,10 @@ class MangaCreatorApp(QMainWindow):
         selected_item = self.volume_list.currentItem()
         if selected_item:
             volume_id = selected_item.data(Qt.UserRole)
-            file_path, _ = QFileDialog.getOpenFileName(self, "Seleziona Copertina Volume", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp)")
+            file_path, _ = QFileDialog.getOpenFileName(self, "Seleziona Copertina Volume", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp *.webp *.jfif)")
             if file_path:
                 try:
-                    with open(file_path, 'rb') as f:
-                        cover_data = f.read()
+                    cover_data = self.convert_image_to_compatible_format(file_path)
                     
                     # Recupera nome e ordine corrente del volume
                     current_volumes = self.db_manager.get_volumes()
@@ -510,11 +540,10 @@ class MangaCreatorApp(QMainWindow):
             QMessageBox.warning(self, "Errore", "Nessun file .manga aperto.")
             return
 
-        file_path, _ = QFileDialog.getOpenFileName(self, "Seleziona Copertina Principale", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Seleziona Copertina Principale", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp *.webp *.jfif)")
         if file_path:
             try:
-                with open(file_path, 'rb') as f:
-                    cover_data = f.read()
+                cover_data = self.convert_image_to_compatible_format(file_path)
                 
                 # Recupera i metadati esistenti per aggiornare solo la copertina
                 metadata = self.db_manager.get_metadata()
@@ -645,7 +674,7 @@ class MangaCreatorApp(QMainWindow):
         if self.db_manager and chapter_id is not None:
             pages = self.db_manager.get_pages_for_chapter(chapter_id)
             for page in pages:
-                print(f"DEBUG: Page {page['page_number']} image_data length: {len(page['image_data'])} bytes") # DEBUG PRINT
+                logger.debug(f"Page {page['page_number']} image_data length: {len(page['image_data'])} bytes")
                 pixmap = QPixmap()
                 pixmap.loadFromData(page['image_data'])
                 pixmap = pixmap.scaled(QSize(100,100), Qt.KeepAspectRatio, Qt.SmoothTransformation) # Scala per l'icona
@@ -659,7 +688,7 @@ class MangaCreatorApp(QMainWindow):
             QMessageBox.warning(self, "Errore", "Seleziona prima un capitolo per aggiungere pagine.")
             return
 
-        file_paths, _ = QFileDialog.getOpenFileNames(self, "Aggiungi Pagine", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp)")
+        file_paths, _ = QFileDialog.getOpenFileNames(self, "Aggiungi Pagine", "", "Image Files (*.png *.jpg *.jpeg *.gif *.bmp *.webp *.jfif)")
         if file_paths:
             current_pages = self.db_manager.get_pages_for_chapter(self.current_chapter_id)
             if current_pages:
@@ -668,7 +697,7 @@ class MangaCreatorApp(QMainWindow):
                 next_page_number = 1
 
             for file_path in file_paths:
-                print(f"DEBUG: Methods available on db_manager: {dir(self.db_manager)}") # DEBUG PRINT
+                logger.debug(f"Methods available on db_manager: {dir(self.db_manager)}")
                 if self.db_manager.insert_page(self.current_chapter_id, next_page_number, file_path):
                     QMessageBox.information(self, "Successo", f"Pagina '{os.path.basename(file_path)}' aggiunta al capitolo ID {self.current_chapter_id}.")
                     next_page_number += 1
@@ -786,7 +815,7 @@ class MangaCreatorApp(QMainWindow):
                 self.image_scene.addPixmap(pixmap)
                 self.image_view.fitInView(self.image_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
             else:
-                print("Errore: Impossibile caricare l'immagine dai dati.")
+                logger.error("Impossibile caricare l'immagine dai dati")
 
 
 if __name__ == '__main__':

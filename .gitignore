@@ -9,6 +9,16 @@ dist/
 build/
 *.egg
 
+# Testing
+.pytest_cache/
+.coverage
+*.cover
+htmlcov/
+.tox/
+
+# Claude Code
+.claude/settings.local.json
+
 # PyInstaller
 *.manifest
 *.spec.orig
@@ -38,6 +48,7 @@ manga/
 # Build artifacts
 dist/
 build/
+BuildTools/manga_reader/
 *.exe
 *.app
 *.dmg

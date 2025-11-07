@@ -5,6 +5,15 @@ Le impostazioni vengono salvate in formato JSON nella directory dei dati dell'ap
 import json
 import os
 from .paths import get_data_dir
+from .constants import (
+    APP_VERSION,
+    DEFAULT_CACHE_SIZE,
+    DEFAULT_PRELOAD_PAGES,
+    DEFAULT_THEME
+)
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Settings:
@@ -30,9 +39,9 @@ class Settings:
     def _get_default_settings(self):
         """Restituisce le impostazioni di default."""
         return {
-            "version": "0.0.4",
+            "version": APP_VERSION,
             "library_path": None,  # None = usa percorso di default
-            "theme": "system",  # system, dark o light
+            "theme": DEFAULT_THEME,  # system, dark o light
             "language": "it",
             "last_opened_manga": None,
             "window_geometry": None,
@@ -49,9 +58,14 @@ class Settings:
                 "refresh": "F5"
             },
             "performance": {
-                "image_cache_size": 50,  # Numero di immagini in cache
+                "image_cache_size": DEFAULT_CACHE_SIZE,  # Numero di immagini in cache
                 "lazy_loading": True,
-                "preload_pages": 2  # Numero di pagine da precaricare
+                "preload_pages": DEFAULT_PRELOAD_PAGES  # Numero di pagine da precaricare
+            },
+            "reader": {
+                "reading_direction": "ltr",  # "ltr" (left-to-right) o "rtl" (right-to-left)
+                "view_mode": "single",  # "single" o "double" (doppia pagina)
+                "zoom_level": 1.0  # Livello zoom di default
             }
         }
 
@@ -68,7 +82,7 @@ class Settings:
                             settings[key] = value
                     return settings
             except Exception as e:
-                print(f"Error loading settings: {e}")
+                logger.error(f"Error loading settings: {e}")
                 return self._get_default_settings()
         else:
             return self._get_default_settings()

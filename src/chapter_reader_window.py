@@ -58,68 +58,237 @@ class PageDisplayWidget(QWidget):
         self.preload_pages = settings.get("performance.preload_pages", 2)
         self.lazy_loading = settings.get("performance.lazy_loading", True)
 
-        self.pages_data = [] # List of image_data
+        self.pages_data = [] # List of image_data (legacy)
+        self.page_metadata = [] # List of metadata for on-demand loading
+        self.db_conn = None  # Database connection for on-demand loading
+        self.loaded_pages_cache = {}  # Cache per i dati raw delle pagine caricate
         self.image_cache = LRUCache(capacity=cache_size)  # Cache LRU per i pixmap
         self.page_positions = [] # List of (x, y, width, height) for each page
         self.total_height = 0
         self.current_width = 0
         self.page_spacing = 10 # Add 10px spacing between pages
         self.thread_pool = QThreadPool()
+        self.thread_pool.setMaxThreadCount(4)  # Limita thread concorrenti
         self.image_loader_signals = ImageLoaderSignals()
         self.image_loader_signals.image_loaded.connect(self.handle_image_loaded)
         self.loading_pages = set()  # Traccia le pagine in caricamento
+        self.window_size = 10  # Numero di pagine da tenere in memoria prima/dopo quella corrente
+        self.initial_pages_loaded = 0  # Contatore per le prime pagine
+        self.initial_page_count = 5  # Numero di pagine iniziali da caricare velocemente
 
         # Zoom and Pan support
-        self.zoom_factor = 1.0
+        self.zoom_factor = settings.get("reader.zoom_level", 1.0) # Carica lo zoom globale
         self.min_zoom = 0.1
         self.max_zoom = 5.0
         self.is_panning = False
         self.last_pan_point = QPoint()
         self.setMouseTracking(True)
 
+        # Reading direction and view mode
+        self.reading_direction = settings.get("reader.reading_direction", "ltr")
+        self.view_mode = settings.get("reader.view_mode", "single")  # "single" o "double"
+
+        # Abilita il focus per ricevere eventi tastiera
+        self.setFocusPolicy(Qt.StrongFocus)
+
+        # Nascondi il cursore durante la lettura
+        self.setCursor(Qt.BlankCursor)
+
     def handle_image_loaded(self, page_index, pixmap):
-        if 0 <= page_index < len(self.pages_data):
+        num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
+        if 0 <= page_index < num_pages:
             self.image_cache.put(page_index, pixmap)  # Salva nella cache LRU
             self.loading_pages.discard(page_index)  # Rimuovi dal set di loading
+
+            # Conta le prime pagine caricate
+            if page_index < self.initial_page_count:
+                self.initial_pages_loaded += 1
+
+                # Dopo le prime 5, riduci i thread per risparmiare risorse
+                if self.initial_pages_loaded >= self.initial_page_count:
+                    self.thread_pool.setMaxThreadCount(2)  # Riduci a 2 thread
+
             self.update() # Request repaint
 
+    def set_view_mode(self, mode):
+        """Cambia la modalità di visualizzazione (single/double)."""
+        if mode in ["single", "double"]:
+            self.view_mode = mode
+            # Salva la preferenza
+            settings = Settings()
+            settings.set("reader.view_mode", mode)
+            # Aggiorna il layout
+            self.update_layout()
+            return True
+        return False
+
+    def toggle_view_mode(self):
+        """Alterna tra modalità singola e doppia pagina."""
+        new_mode = "double" if self.view_mode == "single" else "single"
+        self.set_view_mode(new_mode)
+        return new_mode
+
+    def set_pages_metadata(self, metadata_list, db_conn):
+        """Imposta i metadati delle pagine per caricamento on-demand."""
+        # Fix: Attendi che tutti i thread precedenti finiscano per prevenire race condition
+        self.thread_pool.waitForDone()
+
+        # Se RTL, inverti l'ordine delle pagine
+        if self.reading_direction == "rtl":
+            self.page_metadata = list(reversed(metadata_list))
+        else:
+            self.page_metadata = metadata_list
+
+        self.db_conn = db_conn
+        self.loaded_pages_cache = {}
+        self.image_cache.clear()
+        self.loading_pages.clear()
+        self.initial_pages_loaded = 0  # Reset contatore
+        self.thread_pool.setMaxThreadCount(4)  # Reset a 4 thread per le prime pagine
+        self.update_layout()
+        self.setFocus()
+
+        # Carica immediatamente le prime 5 pagine
+        self.preload_initial_pages()
+
     def set_pages_data(self, pages_data_list):
-        self.pages_data = pages_data_list  # Solo i dati raw
-        self.image_cache.clear()  # Pulisce la cache
+        """Legacy method - carica tutte le pagine in memoria."""
+        # Fix: Attendi che tutti i thread precedenti finiscano per prevenire race condition
+        self.thread_pool.waitForDone()
+
+        self.pages_data = pages_data_list
+        self.page_metadata = []  # Disabilita caricamento on-demand
+        self.image_cache.clear()
         self.loading_pages.clear()
         self.update_layout()
+        self.setFocus()
+
+    def get_page_data(self, page_index):
+        """Ottiene i dati di una pagina, caricandoli dal DB se necessario."""
+        # Legacy mode: tutte le pagine già in memoria
+        if not self.page_metadata and page_index < len(self.pages_data):
+            return self.pages_data[page_index]
+
+        # On-demand mode
+        if page_index >= len(self.page_metadata):
+            return None
+
+        # Controlla se è già in cache
+        if page_index in self.loaded_pages_cache:
+            return self.loaded_pages_cache[page_index]
+
+        # Carica dal database
+        metadata = self.page_metadata[page_index]
+
+        if metadata['type'] == 'separator':
+            # Genera il separatore
+            from PyQt5.QtGui import QImage, QPainter, QFont, QColor
+            from PyQt5.QtCore import QBuffer, QByteArray, QIODevice
+
+            image = QImage(800, 400, QImage.Format_RGB32)
+            image.fill(QColor(40, 40, 40))
+
+            painter = QPainter(image)
+            painter.setPen(QColor(255, 255, 255))
+            font = QFont("Arial", 32, QFont.Bold)
+            painter.setFont(font)
+            painter.drawText(image.rect(), Qt.AlignCenter, metadata['chapter_name'])
+            painter.end()
+
+            byte_array = QByteArray()
+            buffer = QBuffer(byte_array)
+            buffer.open(QIODevice.WriteOnly)
+            image.save(buffer, "PNG")
+            buffer.close()
+
+            data = byte_array.data()
+            self.loaded_pages_cache[page_index] = data
+            return data
+
+        elif metadata['type'] == 'page':
+            # Carica dal database
+            if self.db_conn:
+                cursor = self.db_conn.cursor()
+                cursor.execute(
+                    "SELECT image_data FROM pages WHERE chapter_id = ? AND page_number = ?",
+                    (metadata['chapter_id'], metadata['page_number'])
+                )
+                result = cursor.fetchone()
+                if result:
+                    data = result['image_data']
+                    self.loaded_pages_cache[page_index] = data
+                    return data
+
+        return None
+
+    def preload_initial_pages(self):
+        """Carica immediatamente le prime pagine per visualizzazione rapida."""
+        num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
+        pages_to_load = min(self.initial_page_count, num_pages)
+
+        for i in range(pages_to_load):
+            if i not in self.loading_pages:
+                image_data = self.get_page_data(i)
+                if image_data:
+                    self.loading_pages.add(i)
+                    runnable = ImageLoaderRunnable(i, image_data, self.current_width, self.image_loader_signals)
+                    self.thread_pool.start(runnable)
+
+    def cleanup_distant_pages(self, current_page):
+        """Rimuove dalla cache le pagine lontane dalla posizione corrente."""
+        pages_to_remove = []
+        for page_idx in list(self.loaded_pages_cache.keys()):
+            if abs(page_idx - current_page) > self.window_size:
+                pages_to_remove.append(page_idx)
+
+        for page_idx in pages_to_remove:
+            del self.loaded_pages_cache[page_idx]
 
     def update_layout(self):
         self.page_positions = []
         self.total_height = 0
         parent_width = self.parent().width() if self.parent() else 800
+        scroll_area_width = self.parent().parent().viewport().width() if self.parent() and self.parent().parent() else parent_width
+
+        if self.view_mode == "single":
+            self._update_layout_single(parent_width, scroll_area_width)
+        else:
+            self._update_layout_double(parent_width, scroll_area_width)
+
+    def _update_layout_single(self, parent_width, scroll_area_width):
+        """Layout per vista singola pagina (verticale)."""
         self.current_width = int(parent_width * self.zoom_factor)
 
         if self.current_width <= 0:
             return
 
         # Calcola l'offset X per centrare le pagine
-        scroll_area_width = self.parent().parent().viewport().width() if self.parent() and self.parent().parent() else parent_width
         x_offset = max(0, (scroll_area_width - self.current_width) // 2)
 
-        y_offset = 0
-        for i, image_data in enumerate(self.pages_data):
-            if image_data:
-                # Load a temporary pixmap to get original size for aspect ratio calculation
-                temp_image = QImage()
-                temp_image.loadFromData(image_data)
-                if not temp_image.isNull():
-                    original_size = temp_image.size()
-                    scaled_height = int(original_size.height() * (self.current_width / original_size.width()))
+        # Determina il numero di pagine
+        num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
 
-                    self.page_positions.append(QRect(x_offset, y_offset, self.current_width, scaled_height))
-                    y_offset += scaled_height + int(self.page_spacing * self.zoom_factor)
-                else:
-                    self.page_positions.append(QRect(x_offset, y_offset, self.current_width, 100)) # Placeholder height
-                    y_offset += 100 + int(self.page_spacing * self.zoom_factor)
-            else:
-                self.page_positions.append(QRect(x_offset, y_offset, self.current_width, 100)) # Placeholder height
-                y_offset += 100 + int(self.page_spacing * self.zoom_factor)
+        y_offset = 0
+        for i in range(num_pages):
+            # Carica solo la prima pagina per determinare le dimensioni
+            # Le altre pagine assumono dimensioni standard
+            if i == 0 or i in self.loaded_pages_cache:
+                image_data = self.get_page_data(i)
+                if image_data:
+                    temp_image = QImage()
+                    temp_image.loadFromData(image_data)
+                    if not temp_image.isNull():
+                        original_size = temp_image.size()
+                        scaled_height = int(original_size.height() * (self.current_width / original_size.width()))
+
+                        self.page_positions.append(QRect(x_offset, y_offset, self.current_width, scaled_height))
+                        y_offset += scaled_height + int(self.page_spacing * self.zoom_factor)
+                        continue
+
+            # Placeholder per pagine non caricate (usa dimensioni standard manga)
+            standard_height = int(self.current_width * 1.4)  # Ratio tipico manga
+            self.page_positions.append(QRect(x_offset, y_offset, self.current_width, standard_height))
+            y_offset += standard_height + int(self.page_spacing * self.zoom_factor)
 
         self.total_height = y_offset
         # Imposta la larghezza minima alla larghezza della scroll area per permettere il centraggio
@@ -127,66 +296,199 @@ class PageDisplayWidget(QWidget):
         self.setMinimumSize(min_width, self.total_height)
         self.update() # Request a repaint
 
+    def _update_layout_double(self, parent_width, scroll_area_width):
+        """Layout per vista doppia pagina (side-by-side)."""
+        # In modalità doppia, ogni pagina occupa metà larghezza (meno spacing)
+        page_width = int((parent_width * self.zoom_factor) / 2) - int(self.page_spacing * self.zoom_factor)
+        self.current_width = page_width
+
+        if self.current_width <= 0:
+            return
+
+        # Larghezza totale per due pagine
+        total_double_width = page_width * 2 + int(self.page_spacing * self.zoom_factor)
+
+        # Calcola l'offset X per centrare le due pagine
+        x_offset_base = max(0, (scroll_area_width - total_double_width) // 2)
+
+        # Determina il numero di pagine
+        num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
+
+        y_offset = 0
+        i = 0
+
+        while i < num_pages:
+            # Controlla se la pagina corrente è un separatore
+            metadata = None
+            if self.page_metadata and i < len(self.page_metadata):
+                metadata = self.page_metadata[i]
+
+            is_separator = metadata and metadata.get('type') == 'separator'
+
+            if is_separator:
+                # Separatore occupa l'intera larghezza
+                separator_height = int(400 * self.zoom_factor)
+                x_offset = x_offset_base
+                self.page_positions.append(QRect(x_offset, y_offset, total_double_width, separator_height))
+                y_offset += separator_height + int(self.page_spacing * self.zoom_factor)
+                i += 1
+                continue
+
+            # Pagine normali - side by side
+            # Determina posizioni per pagina sinistra e destra (o destra e sinistra se RTL)
+            if self.reading_direction == "rtl":
+                # RTL: prima pagina a destra, seconda a sinistra
+                left_page_idx = i + 1 if i + 1 < num_pages else None
+                right_page_idx = i
+            else:
+                # LTR: prima pagina a sinistra, seconda a destra
+                left_page_idx = i
+                right_page_idx = i + 1 if i + 1 < num_pages else None
+
+            # Ottieni altezze delle pagine
+            left_height = self._get_page_height(left_page_idx, page_width) if left_page_idx is not None else 0
+            right_height = self._get_page_height(right_page_idx, page_width) if right_page_idx is not None else 0
+
+            # Usa l'altezza massima tra le due pagine
+            max_height = max(left_height, right_height)
+
+            if max_height == 0:
+                max_height = int(page_width * 1.4)  # Fallback
+
+            # Crea posizioni per entrambe le pagine
+            # Importante: aggiungiamo nell'ordine originale delle pagine
+            if self.reading_direction == "rtl":
+                # RTL: aggiungi prima right (indice i), poi left (indice i+1)
+                x_right = x_offset_base + page_width + int(self.page_spacing * self.zoom_factor)
+                self.page_positions.append(QRect(x_right, y_offset, page_width, max_height))
+                if left_page_idx is not None:
+                    x_left = x_offset_base
+                    self.page_positions.append(QRect(x_left, y_offset, page_width, max_height))
+            else:
+                # LTR: aggiungi prima left (indice i), poi right (indice i+1)
+                x_left = x_offset_base
+                self.page_positions.append(QRect(x_left, y_offset, page_width, max_height))
+                if right_page_idx is not None:
+                    x_right = x_offset_base + page_width + int(self.page_spacing * self.zoom_factor)
+                    self.page_positions.append(QRect(x_right, y_offset, page_width, max_height))
+
+            y_offset += max_height + int(self.page_spacing * self.zoom_factor)
+
+            # Avanza di 2 pagine (o 1 se è l'ultima)
+            if right_page_idx is not None:
+                i += 2
+            else:
+                i += 1
+
+        self.total_height = y_offset
+        min_width = max(total_double_width, scroll_area_width)
+        self.setMinimumSize(min_width, self.total_height)
+        self.update()
+
+    def _get_page_height(self, page_idx, target_width):
+        """Calcola l'altezza di una pagina dato un target width."""
+        if page_idx is None or page_idx >= (len(self.page_metadata) if self.page_metadata else len(self.pages_data)):
+            return 0
+
+        # Controlla se è un separatore
+        if self.page_metadata and page_idx < len(self.page_metadata):
+            metadata = self.page_metadata[page_idx]
+            if metadata.get('type') == 'separator':
+                return int(400 * self.zoom_factor)
+
+        # Prova a caricare i dati dell'immagine per ottenere dimensioni reali
+        if page_idx == 0 or page_idx in self.loaded_pages_cache:
+            image_data = self.get_page_data(page_idx)
+            if image_data:
+                temp_image = QImage()
+                temp_image.loadFromData(image_data)
+                if not temp_image.isNull():
+                    original_size = temp_image.size()
+                    return int(original_size.height() * (target_width / original_size.width()))
+
+        # Usa dimensioni standard se non disponibili
+        return int(target_width * 1.4)  # Ratio tipico manga
+
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.black) # Background for the widget
+        painter.fillRect(self.rect(), Qt.black)
 
-        visible_rect = event.rect() # The visible area of the widget (viewport)
+        visible_rect = event.rect()
+        num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
+
+        # Trova la pagina corrente visibile per il cleanup
+        current_page = -1
+        for i in range(num_pages):
+            if i >= len(self.page_positions):
+                continue
+            page_rect = self.page_positions[i]
+            if page_rect.intersects(visible_rect):
+                current_page = i
+                break
+
+        # Cleanup delle pagine lontane (solo in modalità on-demand)
+        if self.page_metadata and current_page >= 0:
+            self.cleanup_distant_pages(current_page)
 
         # Lista delle pagine da precaricare
         pages_to_preload = []
 
-        for i, image_data in enumerate(self.pages_data):
+        for i in range(num_pages):
             if i >= len(self.page_positions):
                 continue
 
             page_rect = self.page_positions[i]
 
-            if page_rect.intersects(visible_rect): # Only draw visible pages
+            if page_rect.intersects(visible_rect):
                 cached_pixmap = self.image_cache.get(i)
 
                 if cached_pixmap is None:
                     # Image not in cache
                     if i not in self.loading_pages:
-                        # Inizia il caricamento
-                        self.loading_pages.add(i)
-                        runnable = ImageLoaderRunnable(i, image_data, self.current_width, self.image_loader_signals)
-                        self.thread_pool.start(runnable)
-
-                    # Draw a placeholder while loading - usa nero invece di grigio
-                    painter.fillRect(page_rect, Qt.black)
-                else:
-                    # Image is cached, draw it
-                    # Se la dimensione cached non corrisponde, ridimensiona al volo
-                    if cached_pixmap.width() != self.current_width:
-                        # Ridimensiona temporaneamente mentre ricarica
-                        scaled_pixmap = cached_pixmap.scaledToWidth(self.current_width, Qt.SmoothTransformation)
-                        painter.drawPixmap(page_rect.topLeft(), scaled_pixmap)
-
-                        # Ricarica in background con la dimensione corretta se non già in loading
-                        if i not in self.loading_pages:
+                        # Carica i dati della pagina on-demand
+                        image_data = self.get_page_data(i)
+                        if image_data:
                             self.loading_pages.add(i)
                             runnable = ImageLoaderRunnable(i, image_data, self.current_width, self.image_loader_signals)
                             self.thread_pool.start(runnable)
+
+                    # Mostra placeholder con messaggio "Caricamento..."
+                    painter.fillRect(page_rect, Qt.black)
+                    from PyQt5.QtGui import QFont, QColor
+                    painter.setPen(QColor(150, 150, 150))
+                    font = QFont("Arial", 16)
+                    painter.setFont(font)
+                    painter.drawText(page_rect, Qt.AlignCenter, "Caricamento...")
+                else:
+                    if cached_pixmap.width() != self.current_width:
+                        scaled_pixmap = cached_pixmap.scaledToWidth(self.current_width, Qt.SmoothTransformation)
+                        painter.drawPixmap(page_rect.topLeft(), scaled_pixmap)
+
+                        if i not in self.loading_pages:
+                            image_data = self.get_page_data(i)
+                            if image_data:
+                                self.loading_pages.add(i)
+                                runnable = ImageLoaderRunnable(i, image_data, self.current_width, self.image_loader_signals)
+                                self.thread_pool.start(runnable)
                     else:
-                        # Dimensione corretta, disegna normalmente
                         painter.drawPixmap(page_rect.topLeft(), cached_pixmap)
 
                 # Aggiungi pagine successive da precaricare
                 for j in range(1, self.preload_pages + 1):
                     next_page = i + j
-                    if next_page < len(self.pages_data):
+                    if next_page < num_pages:
                         pages_to_preload.append(next_page)
 
-        # Precarica le pagine successive se non sono già in cache o in loading
+        # Precarica le pagine successive
         if self.lazy_loading:
             for page_idx in pages_to_preload:
                 cached = self.image_cache.get(page_idx)
                 if (cached is None or cached.width() != self.current_width) and page_idx not in self.loading_pages:
-                    self.loading_pages.add(page_idx)
-                    runnable = ImageLoaderRunnable(page_idx, self.pages_data[page_idx],
-                                                   self.current_width, self.image_loader_signals)
-                    self.thread_pool.start(runnable)
+                    image_data = self.get_page_data(page_idx)
+                    if image_data:
+                        self.loading_pages.add(page_idx)
+                        runnable = ImageLoaderRunnable(page_idx, image_data, self.current_width, self.image_loader_signals)
+                        self.thread_pool.start(runnable)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -206,49 +508,28 @@ class PageDisplayWidget(QWidget):
 
     def keyPressEvent(self, event):
         """Gestisce lo zoom con le frecce su/giù della tastiera"""
+        old_zoom = self.zoom_factor
+        zoom_changed = False
+
         if event.key() == Qt.Key_Up:
             # Freccia su = Zoom in
-            zoom_change = 1.1  # Zoom in del 10%
-            old_zoom = self.zoom_factor
-            self.zoom_factor *= zoom_change
-
-            # Limita lo zoom tra min e max
-            self.zoom_factor = max(self.min_zoom, min(self.max_zoom, self.zoom_factor))
-
-            # Se lo zoom è effettivamente cambiato
-            if self.zoom_factor != old_zoom:
-                # NON svuotare la cache - le immagini vecchie vengono ridimensionate al volo
-                # e ricaricate in background
-
-                # Calcola il punto di zoom relativo alla viewport
-                scroll_area = self.parent().parent()
-                if isinstance(scroll_area, QScrollArea):
-                    # Calcola la posizione centrale della viewport
-                    viewport_center_y = scroll_area.verticalScrollBar().value() + scroll_area.viewport().height() // 2
-                    old_ratio = viewport_center_y / max(1, self.total_height)
-
-                    # Aggiorna il layout con il nuovo zoom
-                    self.update_layout()
-
-                    # Mantieni la stessa posizione relativa dopo lo zoom
-                    new_pos_y = int(old_ratio * self.total_height - scroll_area.viewport().height() // 2)
-                    scroll_area.verticalScrollBar().setValue(new_pos_y)
-
-            event.accept()
+            self.zoom_factor *= 1.1  # Zoom in del 10%
+            zoom_changed = True
 
         elif event.key() == Qt.Key_Down:
             # Freccia giù = Zoom out
-            zoom_change = 0.9  # Zoom out del 10%
-            old_zoom = self.zoom_factor
-            self.zoom_factor *= zoom_change
+            self.zoom_factor *= 0.9  # Zoom out del 10%
+            zoom_changed = True
 
+        if zoom_changed:
             # Limita lo zoom tra min e max
             self.zoom_factor = max(self.min_zoom, min(self.max_zoom, self.zoom_factor))
 
             # Se lo zoom è effettivamente cambiato
             if self.zoom_factor != old_zoom:
-                # NON svuotare la cache - le immagini vecchie vengono ridimensionate al volo
-                # e ricaricate in background
+                # Salva il nuovo zoom nelle impostazioni globali
+                settings = Settings()
+                settings.set("reader.zoom_level", self.zoom_factor)
 
                 # Calcola il punto di zoom relativo alla viewport
                 scroll_area = self.parent().parent()
@@ -265,7 +546,6 @@ class PageDisplayWidget(QWidget):
                     scroll_area.verticalScrollBar().setValue(new_pos_y)
 
             event.accept()
-
         else:
             # Altri tasti vengono gestiti normalmente
             super().keyPressEvent(event)
@@ -276,6 +556,8 @@ class PageDisplayWidget(QWidget):
             self.is_panning = True
             self.last_pan_point = event.pos()
             self.setCursor(Qt.ClosedHandCursor)
+            # Assicura che il widget abbia il focus per lo zoom con tastiera
+            self.setFocus()
             event.accept()
 
     def mouseMoveEvent(self, event):
@@ -300,7 +582,7 @@ class PageDisplayWidget(QWidget):
         """Termina il panning"""
         if event.button() == Qt.LeftButton:
             self.is_panning = False
-            self.setCursor(Qt.ArrowCursor)
+            self.setCursor(Qt.BlankCursor)  # Nascondi di nuovo il cursore
             event.accept()
 
 class ChapterReaderWindow(QMainWindow):
@@ -311,21 +593,19 @@ class ChapterReaderWindow(QMainWindow):
         self.db_conn = sqlite3.connect(manga_file)
         self.db_conn.row_factory = sqlite3.Row
         self.setWindowTitle("Lettore Capitolo")
-        self.setGeometry(100, 100, 800, 1000) # Default size, will adjust to content
+        self.setGeometry(100, 100, 800, 1000)
 
         self.scroll_area = QScrollArea(self)
         self.setCentralWidget(self.scroll_area)
         self.scroll_area.setWidgetResizable(True)
-        # Disabilita la navigazione con le frecce nella scroll area
         self.scroll_area.verticalScrollBar().setFocusPolicy(Qt.NoFocus)
         self.scroll_area.horizontalScrollBar().setFocusPolicy(Qt.NoFocus)
 
         self.page_display_widget = PageDisplayWidget()
         self.scroll_area.setWidget(self.page_display_widget)
-        self.scroll_area.verticalScrollBar().setSingleStep(100) # Aumenta la velocità di scorrimento
+        self.scroll_area.verticalScrollBar().setSingleStep(100)
         self.scroll_area.verticalScrollBar().valueChanged.connect(self.page_display_widget.update)
 
-        # Installa event filter per intercettare le frecce
         self.scroll_area.installEventFilter(self)
 
         QTimer.singleShot(0, self.load_chapter_pages)
