@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
      - name: Install Claude Code
-       uses: pleaseai/setup-claude-code@v1.1.2
+  uses: pleaseai/setup-claude-code@v1.1.2
 
     - name: Set up Python
       uses: actions/setup-python@v5
