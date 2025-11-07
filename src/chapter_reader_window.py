@@ -4,6 +4,14 @@ from PyQt5.QtWidgets import QMainWindow, QScrollArea, QVBoxLayout, QLabel, QWidg
 from PyQt5.QtGui import QPainter, QPixmap, QImage, QCursor
 from PyQt5.QtCore import Qt, QSize, QTimer, QRect, QRunnable, QThreadPool, pyqtSignal, QObject, QPoint
 from .settings import Settings
+from .constants import (
+    PAGE_CACHE_CAPACITY,
+    THREAD_POOL_MAX_THREADS,
+    THREAD_POOL_MIN_THREADS,
+    PAGE_SPACING,
+    INITIAL_PAGE_COUNT,
+    WINDOW_SIZE
+)
 
 class LRUCache:
     """Cache LRU (Least Recently Used) per le immagini."""
@@ -61,20 +69,20 @@ class PageDisplayWidget(QWidget):
         self.pages_data = [] # List of image_data (legacy)
         self.page_metadata = [] # List of metadata for on-demand loading
         self.db_conn = None  # Database connection for on-demand loading
-        self.loaded_pages_cache = {}  # Cache per i dati raw delle pagine caricate
+        self.loaded_pages_cache = LRUCache(capacity=PAGE_CACHE_CAPACITY)  # Cache LRU per i dati raw delle pagine
         self.image_cache = LRUCache(capacity=cache_size)  # Cache LRU per i pixmap
         self.page_positions = [] # List of (x, y, width, height) for each page
         self.total_height = 0
         self.current_width = 0
-        self.page_spacing = 10 # Add 10px spacing between pages
+        self.page_spacing = PAGE_SPACING  # Spaziatura tra pagine
         self.thread_pool = QThreadPool()
-        self.thread_pool.setMaxThreadCount(4)  # Limita thread concorrenti
+        self.thread_pool.setMaxThreadCount(THREAD_POOL_MAX_THREADS)  # Limita thread concorrenti
         self.image_loader_signals = ImageLoaderSignals()
         self.image_loader_signals.image_loaded.connect(self.handle_image_loaded)
         self.loading_pages = set()  # Traccia le pagine in caricamento
-        self.window_size = 10  # Numero di pagine da tenere in memoria prima/dopo quella corrente
+        self.window_size = WINDOW_SIZE  # Numero di pagine da tenere in memoria prima/dopo quella corrente
         self.initial_pages_loaded = 0  # Contatore per le prime pagine
-        self.initial_page_count = 5  # Numero di pagine iniziali da caricare velocemente
+        self.initial_page_count = INITIAL_PAGE_COUNT  # Numero di pagine iniziali da caricare velocemente
 
         # Zoom and Pan support
         self.zoom_factor = settings.get("reader.zoom_level", 1.0) # Carica lo zoom globale
@@ -104,9 +112,9 @@ class PageDisplayWidget(QWidget):
             if page_index < self.initial_page_count:
                 self.initial_pages_loaded += 1
 
-                # Dopo le prime 5, riduci i thread per risparmiare risorse
+                # Dopo le prime pagine iniziali, riduci i thread per risparmiare risorse
                 if self.initial_pages_loaded >= self.initial_page_count:
-                    self.thread_pool.setMaxThreadCount(2)  # Riduci a 2 thread
+                    self.thread_pool.setMaxThreadCount(THREAD_POOL_MIN_THREADS)  # Riduci thread
 
             self.update() # Request repaint
 
@@ -140,11 +148,11 @@ class PageDisplayWidget(QWidget):
             self.page_metadata = metadata_list
 
         self.db_conn = db_conn
-        self.loaded_pages_cache = {}
+        self.loaded_pages_cache.clear()
         self.image_cache.clear()
         self.loading_pages.clear()
         self.initial_pages_loaded = 0  # Reset contatore
-        self.thread_pool.setMaxThreadCount(4)  # Reset a 4 thread per le prime pagine
+        self.thread_pool.setMaxThreadCount(THREAD_POOL_MAX_THREADS)  # Reset thread per le prime pagine
         self.update_layout()
         self.setFocus()
 
@@ -174,8 +182,9 @@ class PageDisplayWidget(QWidget):
             return None
 
         # Controlla se è già in cache
-        if page_index in self.loaded_pages_cache:
-            return self.loaded_pages_cache[page_index]
+        cached_data = self.loaded_pages_cache.get(page_index)
+        if cached_data is not None:
+            return cached_data
 
         # Carica dal database
         metadata = self.page_metadata[page_index]
@@ -202,7 +211,7 @@ class PageDisplayWidget(QWidget):
             buffer.close()
 
             data = byte_array.data()
-            self.loaded_pages_cache[page_index] = data
+            self.loaded_pages_cache.put(page_index, data)
             return data
 
         elif metadata['type'] == 'page':
@@ -216,7 +225,7 @@ class PageDisplayWidget(QWidget):
                 result = cursor.fetchone()
                 if result:
                     data = result['image_data']
-                    self.loaded_pages_cache[page_index] = data
+                    self.loaded_pages_cache.put(page_index, data)
                     return data
 
         return None
@@ -235,14 +244,20 @@ class PageDisplayWidget(QWidget):
                     self.thread_pool.start(runnable)
 
     def cleanup_distant_pages(self, current_page):
-        """Rimuove dalla cache le pagine lontane dalla posizione corrente."""
-        pages_to_remove = []
-        for page_idx in list(self.loaded_pages_cache.keys()):
-            if abs(page_idx - current_page) > self.window_size:
-                pages_to_remove.append(page_idx)
+        """Rimuove dalla cache le pagine lontane dalla posizione corrente.
+        Nota: Con LRUCache questo metodo è meno critico, ma mantiene la logica di window."""
+        # LRUCache gestisce automaticamente la rimozione, ma possiamo ancora
+        # fare cleanup esplicito per rispettare la window size
+        # Nota: LRUCache.cache è un OrderedDict, possiamo accedere alle chiavi
+        if hasattr(self.loaded_pages_cache, 'cache'):
+            pages_to_remove = []
+            for page_idx in list(self.loaded_pages_cache.cache.keys()):
+                if abs(page_idx - current_page) > self.window_size:
+                    pages_to_remove.append(page_idx)
 
-        for page_idx in pages_to_remove:
-            del self.loaded_pages_cache[page_idx]
+            for page_idx in pages_to_remove:
+                if page_idx in self.loaded_pages_cache.cache:
+                    del self.loaded_pages_cache.cache[page_idx]
 
     def update_layout(self):
         self.page_positions = []
@@ -272,7 +287,7 @@ class PageDisplayWidget(QWidget):
         for i in range(num_pages):
             # Carica solo la prima pagina per determinare le dimensioni
             # Le altre pagine assumono dimensioni standard
-            if i == 0 or i in self.loaded_pages_cache:
+            if i == 0 or self.loaded_pages_cache.get(i) is not None:
                 image_data = self.get_page_data(i)
                 if image_data:
                     temp_image = QImage()
@@ -397,7 +412,7 @@ class PageDisplayWidget(QWidget):
                 return int(400 * self.zoom_factor)
 
         # Prova a caricare i dati dell'immagine per ottenere dimensioni reali
-        if page_idx == 0 or page_idx in self.loaded_pages_cache:
+        if page_idx == 0 or self.loaded_pages_cache.get(page_idx) is not None:
             image_data = self.get_page_data(page_idx)
             if image_data:
                 temp_image = QImage()
@@ -584,6 +599,30 @@ class PageDisplayWidget(QWidget):
             self.is_panning = False
             self.setCursor(Qt.BlankCursor)  # Nascondi di nuovo il cursore
             event.accept()
+
+    def cleanup(self):
+        """Pulisce le risorse del widget."""
+        # Attendi che tutti i thread finiscano
+        if hasattr(self, 'thread_pool'):
+            self.thread_pool.waitForDone(msecs=5000)  # Timeout di 5 secondi
+            self.thread_pool.clear()
+        # Pulisci le cache
+        if hasattr(self, 'image_cache'):
+            self.image_cache.clear()
+        if hasattr(self, 'loaded_pages_cache'):
+            self.loaded_pages_cache.clear()
+
+    def closeEvent(self, event):
+        """Cleanup quando il widget viene chiuso."""
+        self.cleanup()
+        super().closeEvent(event)
+
+    def hideEvent(self, event):
+        """Cleanup quando il widget viene nascosto."""
+        # Ferma i thread in background quando il widget è nascosto
+        if hasattr(self, 'thread_pool'):
+            self.thread_pool.waitForDone(msecs=1000)  # Timeout breve
+        super().hideEvent(event)
 
 class ChapterReaderWindow(QMainWindow):
     def __init__(self, manga_file, chapter_id, parent=None):

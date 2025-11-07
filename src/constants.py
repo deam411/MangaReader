@@ -92,6 +92,18 @@ SUPPORTED_LANGUAGES = [
 
 # Limiti UI
 MAX_RECENT_FILES = 10  # Numero massimo di file recenti
+COVER_CACHE_MAX = 100  # Numero massimo di cover in cache
+GRID_SPACING = 10  # Spaziatura tra gli elementi della griglia (px)
+GRID_ITEM_WIDTH = 280  # Larghezza item griglia (px)
+GRID_ITEM_HEIGHT = 420  # Altezza item griglia (px)
+
+# Cache e performance
+PAGE_CACHE_CAPACITY = 100  # Capacità cache pagine caricate
+THREAD_POOL_MAX_THREADS = 4  # Thread massimi per caricamento immagini
+THREAD_POOL_MIN_THREADS = 2  # Thread minimi per caricamento immagini
+PAGE_SPACING = 10  # Spaziatura tra pagine nel reader (px)
+INITIAL_PAGE_COUNT = 5  # Numero di pagine iniziali da caricare velocemente
+WINDOW_SIZE = 10  # Numero di pagine da tenere in memoria prima/dopo quella corrente
 
 # Shortcut keyboard default
 DEFAULT_SHORTCUTS = {

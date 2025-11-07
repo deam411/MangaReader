@@ -7,13 +7,44 @@ from src.chapter_reader_window import PageDisplayWidget, LRUCache # Importa il w
 from src.paths import get_manga_dir
 from src.settings import Settings
 from src.settings_dialog import SettingsDialog
-from src.constants import APP_VERSION, APP_NAME
+from src.constants import (
+    APP_VERSION,
+    APP_NAME,
+    COVER_CACHE_MAX,
+    GRID_ITEM_WIDTH,
+    GRID_ITEM_HEIGHT
+)
 from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
 from src.cache_manager import CacheManager
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def sanitize_filename(filename: str, replacement: str = '_') -> str:
+    """
+    Sanitizza un nome file rimuovendo caratteri pericolosi e riservati.
+
+    Supporta Unicode ma rimuove caratteri di controllo e riservati da filesystem.
+
+    Args:
+        filename: Il nome file da sanitizzare
+        replacement: Carattere con cui sostituire i caratteri invalidi
+
+    Returns:
+        Nome file sanitizzato
+    """
+    import re
+    # Rimuovi caratteri riservati Windows/Linux: < > : " / \ | ? * e caratteri di controllo (0x00-0x1F)
+    invalid_chars = r'[<>:"/\\|?*\x00-\x1f]'
+    sanitized = re.sub(invalid_chars, replacement, filename)
+    # Rimuovi punti e spazi finali (problematici su Windows)
+    sanitized = sanitized.strip('. ')
+    # Se il risultato è vuoto, usa un fallback
+    if not sanitized:
+        sanitized = 'unnamed'
+    return sanitized
 
 
 class ArchiveImportDialog(QDialog):
@@ -290,7 +321,7 @@ class MangaItemDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.is_grid_view = True
         # Fix: Usa LRUCache con limite per prevenire memory leak
-        self.cover_cache = LRUCache(capacity=100)  # Cache in-memory per le cover ridimensionate (max 100)
+        self.cover_cache = LRUCache(capacity=COVER_CACHE_MAX)  # Cache in-memory per le cover ridimensionate
         self.cache_manager = CacheManager()  # Cache persistent su disco
 
     def setViewMode(self, is_grid):
@@ -447,7 +478,7 @@ class MangaItemDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         if self.is_grid_view:
-            return QSize(280, 420)
+            return QSize(GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT)
         else:
             return QSize(650, 400)
 
@@ -574,7 +605,7 @@ class LibraryView(QWidget):
         self.manga_grid_view.setViewMode(QListWidget.IconMode)
         self.manga_grid_view.setFlow(QListWidget.LeftToRight)
         self.manga_grid_view.setResizeMode(QListWidget.Adjust)
-        self.manga_grid_view.setGridSize(QSize(280, 420))
+        self.manga_grid_view.setGridSize(QSize(GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT))
         # Fix: Disabilita drag and drop per prevenire duplicazione icone
         self.manga_grid_view.setDragEnabled(False)
         self.manga_grid_view.setAcceptDrops(False)
@@ -612,7 +643,7 @@ class LibraryView(QWidget):
             self.manga_grid_view.setViewMode(QListWidget.IconMode)
             self.manga_grid_view.setFlow(QListWidget.LeftToRight)
             self.manga_grid_view.setResizeMode(QListWidget.Adjust)
-            self.manga_grid_view.setGridSize(QSize(280, 420))
+            self.manga_grid_view.setGridSize(QSize(GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT))
             # Fix: Assicura che drag drop sia disabilitato anche in IconMode
             self.manga_grid_view.setDragEnabled(False)
             self.manga_grid_view.setAcceptDrops(False)
@@ -715,6 +746,9 @@ class LibraryView(QWidget):
 
         self.progress_bar.setVisible(False)
 
+        # Ottimizzazione: Crea dizionario per lookup O(1) in filter_manga
+        self.manga_data_map = {manga['file_name']: manga for manga in self.all_manga_data}
+
         # Mostra pulsante Riprendi se c'è almeno un manga in corso
         has_in_progress = any(
             manga.get('progress') and 0 < manga['progress']['percentage'] < 100
@@ -771,16 +805,17 @@ class LibraryView(QWidget):
         search_text = self.search_input.text().lower()
         selected_tag = self.tag_filter_combo.currentText()
 
+        # Ottimizzazione: Usa il dizionario per lookup O(1) invece di loop O(n)
+        if not hasattr(self, 'manga_data_map'):
+            self.manga_data_map = {manga['file_name']: manga for manga in self.all_manga_data}
+
         for i in range(self.manga_grid_view.count()):
             item = self.manga_grid_view.item(i)
             manga_title = item.text().lower()
+            file_name = item.data(Qt.UserRole)
 
-            # Ottieni i tags del manga dai dati
-            manga_data = None
-            for manga in self.all_manga_data:
-                if manga['file_name'] == item.data(Qt.UserRole):
-                    manga_data = manga
-                    break
+            # Ottieni i dati del manga con lookup O(1)
+            manga_data = self.manga_data_map.get(file_name)
 
             # Filtro testo
             text_match = search_text in manga_title
@@ -1006,8 +1041,8 @@ class LibraryView(QWidget):
             # Determina percorso output
             manga_dir = get_manga_dir()
             output_name = metadata['title'] or os.path.splitext(os.path.basename(file_path))[0]
-            # Rimuovi caratteri non validi
-            output_name = "".join(c for c in output_name if c.isalnum() or c in (' ', '-', '_')).strip()
+            # Sanitizza il nome file
+            output_name = sanitize_filename(output_name)
             output_path = os.path.join(manga_dir, f"{output_name}.manga")
 
             # Controlla se esiste già
@@ -1189,51 +1224,68 @@ class MangaView(QWidget):
 
         self.setLayout(main_layout)
 
+    def _cleanup_connection(self):
+        """Chiude in modo sicuro la connessione database."""
+        if self.db_conn:
+            try:
+                self.db_conn.close()
+            except Exception as e:
+                logger.warning(f"Error closing database connection: {e}")
+            finally:
+                self.db_conn = None
+
+    def closeEvent(self, event):
+        """Chiudi la connessione database quando il widget viene distrutto."""
+        self._cleanup_connection()
+        super().closeEvent(event)
+
     def hideEvent(self, event):
         """Fix: Chiudi la connessione database quando la view viene nascosta."""
-        if self.db_conn:
-            self.db_conn.close()
-            self.db_conn = None
+        self._cleanup_connection()
         super().hideEvent(event)
 
     def load_manga(self, file_name):
-        if self.db_conn:
-            self.db_conn.close()
+        self._cleanup_connection()
 
         self.manga_file = file_name
-        self.db_conn = sqlite3.connect(file_name)
-        self.db_conn.row_factory = sqlite3.Row
-        cursor = self.db_conn.cursor()
+        try:
+            self.db_conn = sqlite3.connect(file_name)
+            self.db_conn.row_factory = sqlite3.Row
+            cursor = self.db_conn.cursor()
 
-        cursor.execute("SELECT * FROM metadata")
-        metadata = cursor.fetchone()
-        if metadata:
-            self.title_label.setText(metadata['title'])
-            self.author_label.setText(f"Author: {metadata['author']}" if metadata['author'] else "Author: N/A")
+            cursor.execute("SELECT * FROM metadata")
+            metadata = cursor.fetchone()
+            if metadata:
+                self.title_label.setText(metadata['title'])
+                self.author_label.setText(f"Author: {metadata['author']}" if metadata['author'] else "Author: N/A")
 
-            self.language_label.setText(f"Language: {metadata['language']}" if metadata['language'] else "Language: N/A")
-            self.year_label.setText(f"Year: {metadata['year']}" if metadata['year'] else "Year: N/A")
-            self.tags_label.setText(f"Tags: {metadata['tags']}" if metadata['tags'] else "Tags: N/A")
+                self.language_label.setText(f"Language: {metadata['language']}" if metadata['language'] else "Language: N/A")
+                self.year_label.setText(f"Year: {metadata['year']}" if metadata['year'] else "Year: N/A")
+                self.tags_label.setText(f"Tags: {metadata['tags']}" if metadata['tags'] else "Tags: N/A")
 
-            self.description_label.setText(metadata['description'])
-            if metadata['cover']:
-                self.cover_data = metadata['cover']  # Salva i dati della cover
-                pixmap = QPixmap()
-                pixmap.loadFromData(metadata['cover'])
-                self.cover_label.setPixmap(pixmap.scaledToWidth(500)) # Increased size
-            else:
-                self.cover_data = None
+                self.description_label.setText(metadata['description'])
+                if metadata['cover']:
+                    self.cover_data = metadata['cover']  # Salva i dati della cover
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(metadata['cover'])
+                    self.cover_label.setPixmap(pixmap.scaledToWidth(500)) # Increased size
+                else:
+                    self.cover_data = None
 
-        self.volume_list.clear()
-        cursor.execute("SELECT * FROM volumes ORDER BY `order`")
-        volumes = cursor.fetchall()
-        for volume in volumes:
-            item = QListWidgetItem(volume['name'])
-            item.setData(Qt.UserRole, volume['id'])
-            self.volume_list.addItem(item)
+            self.volume_list.clear()
+            cursor.execute("SELECT * FROM volumes ORDER BY `order`")
+            volumes = cursor.fetchall()
+            for volume in volumes:
+                item = QListWidgetItem(volume['name'])
+                item.setData(Qt.UserRole, volume['id'])
+                self.volume_list.addItem(item)
 
-        # Carica i segnalibri
-        self.load_bookmarks()
+            # Carica i segnalibri
+            self.load_bookmarks()
+        except Exception as e:
+            logger.error(f"Error loading manga {file_name}: {e}")
+            self._cleanup_connection()
+            raise
 
     def load_bookmarks(self):
         """Carica i segnalibri del manga."""
@@ -1346,7 +1398,7 @@ class MangaView(QWidget):
         # Ottieni il titolo del manga per il nome file
         title = self.title_label.text() if self.title_label.text() else "manga_cover"
         # Rimuovi caratteri non validi dal nome file
-        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = sanitize_filename(title)
 
         # Apri dialog per salvare il file
         file_path, _ = QFileDialog.getSaveFileName(
@@ -1452,61 +1504,78 @@ class VolumeView(QWidget):
         layout.addLayout(content_layout)
         self.setLayout(layout)
 
+    def _cleanup_connection(self):
+        """Chiude in modo sicuro la connessione database."""
+        if self.db_conn:
+            try:
+                self.db_conn.close()
+            except Exception as e:
+                logger.warning(f"Error closing database connection: {e}")
+            finally:
+                self.db_conn = None
+
+    def closeEvent(self, event):
+        """Chiudi la connessione database quando il widget viene distrutto."""
+        self._cleanup_connection()
+        super().closeEvent(event)
+
     def hideEvent(self, event):
         """Fix: Chiudi la connessione database quando la view viene nascosta."""
-        if self.db_conn:
-            self.db_conn.close()
-            self.db_conn = None
+        self._cleanup_connection()
         super().hideEvent(event)
 
     def load_volume(self, manga_file, volume_id):
         """Carica i dati del volume e i suoi capitoli."""
-        if self.db_conn:
-            self.db_conn.close()
+        self._cleanup_connection()
 
         self.manga_file = manga_file
         self.volume_id = volume_id
-        self.db_conn = sqlite3.connect(manga_file)
-        self.db_conn.row_factory = sqlite3.Row
-        cursor = self.db_conn.cursor()
+        try:
+            self.db_conn = sqlite3.connect(manga_file)
+            self.db_conn.row_factory = sqlite3.Row
+            cursor = self.db_conn.cursor()
 
-        # Carica i dati del volume
-        cursor.execute("SELECT * FROM volumes WHERE id = ?", (volume_id,))
-        volume = cursor.fetchone()
+            # Carica i dati del volume
+            cursor.execute("SELECT * FROM volumes WHERE id = ?", (volume_id,))
+            volume = cursor.fetchone()
 
-        if volume:
-            self.volume_name = volume['name']
-            self.volume_title.setText(volume['name'])
+            if volume:
+                self.volume_name = volume['name']
+                self.volume_title.setText(volume['name'])
 
-            # Carica la cover del volume se presente
-            if volume['cover']:
-                self.cover_data = volume['cover']  # Salva i dati della cover
-                pixmap = QPixmap()
-                pixmap.loadFromData(volume['cover'])
-                self.cover_label.setPixmap(pixmap.scaledToWidth(450, Qt.SmoothTransformation))
-            else:
-                # Se non c'è cover del volume, prova a usare quella del manga
-                cursor.execute("SELECT cover FROM metadata")
-                metadata = cursor.fetchone()
-                if metadata and metadata['cover']:
-                    self.cover_data = metadata['cover']  # Salva i dati della cover del manga
+                # Carica la cover del volume se presente
+                if volume['cover']:
+                    self.cover_data = volume['cover']  # Salva i dati della cover
                     pixmap = QPixmap()
-                    pixmap.loadFromData(metadata['cover'])
+                    pixmap.loadFromData(volume['cover'])
                     self.cover_label.setPixmap(pixmap.scaledToWidth(450, Qt.SmoothTransformation))
                 else:
-                    self.cover_data = None
-                    self.cover_label.setText("No cover available")
-                    self.cover_label.setStyleSheet("font-size: 16px; color: gray;")
+                    # Se non c'è cover del volume, prova a usare quella del manga
+                    cursor.execute("SELECT cover FROM metadata")
+                    metadata = cursor.fetchone()
+                    if metadata and metadata['cover']:
+                        self.cover_data = metadata['cover']  # Salva i dati della cover del manga
+                        pixmap = QPixmap()
+                        pixmap.loadFromData(metadata['cover'])
+                        self.cover_label.setPixmap(pixmap.scaledToWidth(450, Qt.SmoothTransformation))
+                    else:
+                        self.cover_data = None
+                        self.cover_label.setText("No cover available")
+                        self.cover_label.setStyleSheet("font-size: 16px; color: gray;")
 
-        # Carica i capitoli del volume
-        cursor.execute("SELECT id, name FROM chapters WHERE volume_id = ? ORDER BY `order`", (volume_id,))
-        chapters = cursor.fetchall()
+            # Carica i capitoli del volume
+            cursor.execute("SELECT id, name FROM chapters WHERE volume_id = ? ORDER BY `order`", (volume_id,))
+            chapters = cursor.fetchall()
 
-        self.chapter_list.clear()
-        for chapter in chapters:
-            item = QListWidgetItem(chapter['name'])
-            item.setData(Qt.UserRole, chapter['id'])
-            self.chapter_list.addItem(item)
+            self.chapter_list.clear()
+            for chapter in chapters:
+                item = QListWidgetItem(chapter['name'])
+                item.setData(Qt.UserRole, chapter['id'])
+                self.chapter_list.addItem(item)
+        except Exception as e:
+            logger.error(f"Error loading volume {volume_id} from {manga_file}: {e}")
+            self._cleanup_connection()
+            raise
 
     def on_chapter_selected(self, item):
         """Apre il reader con il capitolo selezionato."""
@@ -1521,7 +1590,7 @@ class VolumeView(QWidget):
             return
 
         # Usa il nome del volume per il nome file
-        safe_name = "".join(c for c in self.volume_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = sanitize_filename(self.volume_name)
         if not safe_name:
             safe_name = "volume_cover"
 
@@ -1608,98 +1677,119 @@ class ReaderView(QWidget):
         self.page_display_widget = PageDisplayWidget()
         self.scroll_area.setWidget(self.page_display_widget)
 
-    def hideEvent(self, event):
-        """Fix: Chiudi le connessioni database e ferma il timer quando la view viene nascosta."""
+    def _cleanup_connections(self):
+        """Chiude in modo sicuro le connessioni database."""
         self.autosave_timer.stop()
         if self.db_conn:
-            self.db_conn.close()
-            self.db_conn = None
+            try:
+                self.db_conn.close()
+            except Exception as e:
+                logger.warning(f"Error closing database connection: {e}")
+            finally:
+                self.db_conn = None
         if self.db_manager:
-            self.db_manager.close()
-            self.db_manager = None
+            try:
+                self.db_manager.close()
+            except Exception as e:
+                logger.warning(f"Error closing database manager: {e}")
+            finally:
+                self.db_manager = None
+
+    def closeEvent(self, event):
+        """Chiudi le connessioni database quando il widget viene distrutto."""
+        self._cleanup_connections()
+        super().closeEvent(event)
+
+    def hideEvent(self, event):
+        """Fix: Chiudi le connessioni database e ferma il timer quando la view viene nascosta."""
+        self._cleanup_connections()
         super().hideEvent(event)
 
     def load_chapter(self, manga_file, chapter_id):
         """Carica i metadati del volume per caricamento on-demand."""
-        if self.db_conn:
-            self.db_conn.close()
+        self._cleanup_connections()
 
         self.manga_file = manga_file
         self.current_chapter_id = chapter_id
-        self.db_conn = sqlite3.connect(manga_file)
-        self.db_conn.row_factory = sqlite3.Row
-
-        # Inizializza database manager per storia lettura
-        self.db_manager = MangaDatabaseManager(manga_file)
-
-        # Avvia timer auto-save
-        self.autosave_timer.start()
-
-        cursor = self.db_conn.cursor()
-
-        # Trova il volume_id del capitolo selezionato
-        cursor.execute("SELECT volume_id FROM chapters WHERE id = ?", (chapter_id,))
-        chapter_info = cursor.fetchone()
-
-        if not chapter_info:
-            return
-
-        volume_id = chapter_info['volume_id']
-
-        # Carica tutti i capitoli del volume in ordine
-        cursor.execute("SELECT id, name FROM chapters WHERE volume_id = ? ORDER BY `order`", (volume_id,))
-        all_chapters = cursor.fetchall()
-
-        # Trova l'indice del capitolo selezionato
-        # Converti entrambi a int per garantire il match corretto
-        chapter_ids = [int(ch['id']) for ch in all_chapters]
         try:
-            start_index = chapter_ids.index(int(chapter_id))
-        except ValueError:
-            print(f"WARNING: Chapter ID {chapter_id} not found in volume chapters {chapter_ids}")
-            start_index = 0
+            self.db_conn = sqlite3.connect(manga_file)
+            self.db_conn.row_factory = sqlite3.Row
 
-        # Crea una lista di metadati per ogni pagina (tutti i capitoli del volume)
-        page_metadata = []
-        selected_chapter_page_index = 0  # Indice della prima pagina del capitolo selezionato
+            # Inizializza database manager per storia lettura
+            self.db_manager = MangaDatabaseManager(manga_file)
 
-        for i in range(0, len(all_chapters)):  # Carica TUTTI i capitoli dall'inizio
-            chapter = all_chapters[i]
+            # Avvia timer auto-save
+            self.autosave_timer.start()
 
-            # Aggiungi separatore (tranne per il primo capitolo)
-            if i > 0:
-                page_metadata.append({
-                    'type': 'separator',
-                    'chapter_name': chapter['name'],
-                    'chapter_id': None,
-                    'page_number': None
-                })
+            cursor = self.db_conn.cursor()
 
-            # Se questo è il capitolo selezionato, salva l'indice della sua prima pagina
-            if i == start_index:
-                selected_chapter_page_index = len(page_metadata)
+            # Trova il volume_id del capitolo selezionato
+            cursor.execute("SELECT volume_id FROM chapters WHERE id = ?", (chapter_id,))
+            chapter_info = cursor.fetchone()
 
-            # Conta le pagine del capitolo
-            cursor.execute("SELECT COUNT(*) as count FROM pages WHERE chapter_id = ?", (chapter['id'],))
-            page_count = cursor.fetchone()['count']
+            if not chapter_info:
+                return
 
-            # Aggiungi metadati per ogni pagina
-            for page_num in range(1, page_count + 1):
-                page_metadata.append({
-                    'type': 'page',
-                    'chapter_id': chapter['id'],
-                    'page_number': page_num,
-                    'chapter_name': chapter['name']
-                })
+            volume_id = chapter_info['volume_id']
 
-        # Passa i metadati al widget con il database
-        self.page_display_widget.set_pages_metadata(page_metadata, self.db_conn)
+            # Carica tutti i capitoli del volume in ordine
+            cursor.execute("SELECT id, name FROM chapters WHERE volume_id = ? ORDER BY `order`", (volume_id,))
+            all_chapters = cursor.fetchall()
 
-        # Scrolla alla prima pagina del capitolo selezionato
-        if selected_chapter_page_index > 0:
-            QTimer.singleShot(100, lambda: self.scroll_to_page_index(selected_chapter_page_index))
+            # Trova l'indice del capitolo selezionato
+            # Converti entrambi a int per garantire il match corretto
+            chapter_ids = [int(ch['id']) for ch in all_chapters]
+            try:
+                start_index = chapter_ids.index(int(chapter_id))
+            except ValueError:
+                logger.warning(f"Chapter ID {chapter_id} not found in volume chapters {chapter_ids}")
+                start_index = 0
 
-        self.progress_bar.setVisible(False)
+            # Crea una lista di metadati per ogni pagina (tutti i capitoli del volume)
+            page_metadata = []
+            selected_chapter_page_index = 0  # Indice della prima pagina del capitolo selezionato
+
+            for i in range(0, len(all_chapters)):  # Carica TUTTI i capitoli dall'inizio
+                chapter = all_chapters[i]
+
+                # Aggiungi separatore (tranne per il primo capitolo)
+                if i > 0:
+                    page_metadata.append({
+                        'type': 'separator',
+                        'chapter_name': chapter['name'],
+                        'chapter_id': None,
+                        'page_number': None
+                    })
+
+                # Se questo è il capitolo selezionato, salva l'indice della sua prima pagina
+                if i == start_index:
+                    selected_chapter_page_index = len(page_metadata)
+
+                # Conta le pagine del capitolo
+                cursor.execute("SELECT COUNT(*) as count FROM pages WHERE chapter_id = ?", (chapter['id'],))
+                page_count = cursor.fetchone()['count']
+
+                # Aggiungi metadati per ogni pagina
+                for page_num in range(1, page_count + 1):
+                    page_metadata.append({
+                        'type': 'page',
+                        'chapter_id': chapter['id'],
+                        'page_number': page_num,
+                        'chapter_name': chapter['name']
+                    })
+
+            # Passa i metadati al widget con il database
+            self.page_display_widget.set_pages_metadata(page_metadata, self.db_conn)
+
+            # Scrolla alla prima pagina del capitolo selezionato
+            if selected_chapter_page_index > 0:
+                QTimer.singleShot(100, lambda: self.scroll_to_page_index(selected_chapter_page_index))
+
+            self.progress_bar.setVisible(False)
+        except Exception as e:
+            logger.error(f"Error loading chapter {chapter_id} from {manga_file}: {e}")
+            self._cleanup_connections()
+            raise
 
     def scroll_to_page_index(self, page_index):
         """Scrolla la scroll area alla pagina specificata."""
