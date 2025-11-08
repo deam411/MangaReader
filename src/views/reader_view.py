@@ -311,39 +311,22 @@ class ReaderView(QWidget):
         """
         Applica le impostazioni di sfondo personalizzato al ReaderView.
 
-        Legge da reader.background_color e reader.background_image e applica
-        lo sfondo allo scroll_area (area di visualizzazione pagine manga).
+        Legge da reader.background_color e applica il colore di sfondo
+        allo scroll_area (area di visualizzazione pagine manga).
         """
-        # Leggi impostazioni sfondo
+        # Leggi impostazione colore sfondo
         bg_color = self.settings.get("reader.background_color", None)
-        bg_image = self.settings.get("reader.background_image", None)
 
-        # Costruisci stylesheet
-        stylesheet_parts = []
-
-        # Priorità 1: Immagine di sfondo (se presente e valida)
-        if bg_image and os.path.exists(bg_image):
-            # Converti path Windows in formato URL se necessario
-            bg_image_url = bg_image.replace('\\', '/')
-            stylesheet_parts.append(f"""
-                QScrollArea {{
-                    background-image: url({bg_image_url});
-                    background-repeat: no-repeat;
-                    background-position: center;
-                    background-attachment: fixed;
-                }}
-            """)
-            logger.info(f"Applied reader background image: {bg_image}")
-
-        # Priorità 2: Colore di sfondo
-        elif bg_color:
-            stylesheet_parts.append(f"""
+        # Applica colore di sfondo se presente
+        if bg_color:
+            stylesheet = f"""
                 QScrollArea {{
                     background-color: {bg_color};
                 }}
-            """)
+            """
+            self.scroll_area.setStyleSheet(stylesheet)
             logger.info(f"Applied reader background color: {bg_color}")
-
-        # Applica stylesheet se presente
-        if stylesheet_parts:
-            self.scroll_area.setStyleSheet(''.join(stylesheet_parts))
+        else:
+            # Reset stylesheet se non c'è colore
+            self.scroll_area.setStyleSheet("")
+            logger.debug("No reader background color set")

@@ -38,8 +38,10 @@ class LibraryView(QWidget):
         self.is_grid_view = True
         self.delegate = MangaItemDelegate(self)
         self.first_load = True  # Per mostrare il messaggio solo al primo caricamento
+        self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.initUI()
         self.load_library()
+        self.apply_background_settings()  # Applica sfondo personalizzato home
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -686,9 +688,43 @@ class LibraryView(QWidget):
         """Callback quando le impostazioni cambiano."""
         # Applica il tema usando la funzione centralizzata
         self.apply_theme()
+        # Riapplica lo sfondo personalizzato
+        self.apply_background_settings()
 
     def apply_theme(self):
         """Applica il tema corrente all'applicazione usando la funzione di main.py"""
         import main
         main.apply_theme_to_app(QApplication.instance())
+
+    def apply_background_settings(self):
+        """
+        Applica le impostazioni di sfondo personalizzato alla LibraryView.
+
+        Legge da library.background_image e applica l'immagine di sfondo
+        alla home/libreria.
+        """
+        # Leggi impostazione sfondo immagine
+        bg_image = self.settings.get("library.background_image", None)
+
+        # Applica immagine di sfondo se presente e valida
+        if bg_image and os.path.exists(bg_image):
+            # Converti path Windows in formato URL se necessario
+            bg_image_url = bg_image.replace('\\', '/')
+
+            # Imposta object name per targetizzare con stylesheet
+            self.setObjectName("library_view")
+
+            stylesheet = f"""
+                QWidget#library_view {{
+                    background-image: url({bg_image_url});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                }}
+            """
+            self.setStyleSheet(stylesheet)
+            logger.info(f"Applied library background image: {bg_image}")
+        else:
+            # Reset stylesheet se non c'è immagine
+            self.setStyleSheet("")
+            logger.debug("No library background image set")
 
