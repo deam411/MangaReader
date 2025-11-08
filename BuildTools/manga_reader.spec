@@ -32,7 +32,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[os.path.join(spec_root, 'runtime_hook_wait.py')],  # Delay for antivirus
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -58,7 +58,7 @@ exe = EXE(
     strip=False,
     upx=False,  # CRITICAL: UPX disabled to prevent DLL corruption
     upx_exclude=[],
-    runtime_tmpdir='.',  # Extract to current dir instead of Temp to avoid DLL issues
+    runtime_tmpdir=None,
     console=False,  # No console window
     disable_windowed_traceback=False,
     argv_emulation=False,

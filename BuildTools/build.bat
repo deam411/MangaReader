@@ -37,7 +37,11 @@ if errorlevel 1 (
 echo.
 echo ====================================
 echo Build completed successfully!
-echo Executable location: dist\MangaReader.exe
+echo.
+echo Executable: dist\MangaReader.exe
+echo.
+echo Note: First launch may take 2-3 seconds
+echo (antivirus scanning - this is normal)
 echo ====================================
 echo.
 pause
