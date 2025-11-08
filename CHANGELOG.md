@@ -3,7 +3,12 @@
 ## [0.1.5] - 2025-11-08
 
 ### 📊 Summary
-Release di stabilità con focus su **Auto-Update Fix** e miglioramenti **UX**.
+Release di stabilità con focus su **Auto-Update Fix**, **Refactoring Architetturale** e miglioramenti **UX**.
+
+**Highlights**:
+- ✅ views.py (1695 righe) refactorizzato in moduli MVC separati
+- ✅ Auto-update Windows fixed con error handling robusto
+- ✅ Scorciatoia help cambiata a F1 (standard universale)
 
 ---
 
@@ -35,13 +40,52 @@ Release di stabilità con focus su **Auto-Update Fix** e miglioramenti **UX**.
 
 ---
 
+### 🏗️ Refactoring Architetturale
+
+**1. Split views.py in Moduli MVC Separati**
+- **Prima**: Monolitico `views.py` con 1695 righe
+- **Dopo**: Struttura modulare organizzata:
+  ```
+  src/views/
+  ├── __init__.py          # Exports centrali
+  ├── widgets.py           # Helper widgets (LibraryLoaderThread, MangaItemDelegate, etc.)
+  ├── library_view.py      # Vista libreria manga (663 righe)
+  ├── manga_view.py        # Vista dettagli manga (295 righe)
+  ├── volume_view.py       # Vista selezione capitoli (182 righe)
+  ├── reader_view.py       # Vista lettore pagine (280 righe)
+  ├── dialogs.py           # Dialog modali (existing)
+  └── utils.py             # Utility functions (existing)
+  ```
+- **Benefici**:
+  - 📦 Separazione responsabilità (Single Responsibility Principle)
+  - 🔍 Manutenibilità migliorata (ogni view <700 righe)
+  - 🧪 Testing più facile (moduli isolati)
+  - 📚 Onboarding più semplice per nuovi developer
+  - 🚀 Preparazione per future feature (v0.2.0)
+- **Backward Compatibility**: `views.py` ora è proxy module, import esistenti funzionano
+- **File**: `src/views/`, `views.py` (proxy)
+
+---
+
 ### 📝 Files Changed
+
+**Refactoring:**
+- `src/views/widgets.py` - NEW: Helper widgets extracted
+- `src/views/library_view.py` - NEW: LibraryView module (663 righe)
+- `src/views/manga_view.py` - NEW: MangaView module (295 righe)
+- `src/views/volume_view.py` - NEW: VolumeView module (182 righe)
+- `src/views/reader_view.py` - NEW: ReaderView module (280 righe)
+- `src/views/__init__.py` - Updated exports
+- `views.py` - Converted to proxy module for backward compatibility
+- `views_legacy.py` - Old monolithic file (backup)
+
+**Bugfix & UX:**
 - `src/updater.py` - Script batch robusto con error handling
 - `BuildTools/manga_reader.spec` - Hidden imports PyQt5/Pillow
 - `main.py` - Scorciatoia F1
-- `views.py` - Label info aggiornata
 - `src/views/dialogs.py` - Dialog scorciatoie aggiornato
 - `README.md` - Documentazione shortcuts
+- `src/constants.py` - Version bump to 0.1.5
 
 ---
 
