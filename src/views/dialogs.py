@@ -122,7 +122,7 @@ class ShortcutsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Titolo
-        title = QLabel("<h2>📋 Scorciatoie da Tastiera</h2>")
+        title = QLabel("<h2>Scorciatoie da Tastiera</h2>")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
@@ -138,12 +138,12 @@ class ShortcutsDialog(QDialog):
 
         # Definisci tutte le scorciatoie organizzate per categoria
         shortcuts_data = {
-            "🌐 Navigazione Generale": [
+            "Navigazione Generale": [
                 ("Esc", "Chiudi applicazione / Esci dalla schermata"),
                 ("Backspace", "Torna alla schermata precedente"),
                 ("F11", "Toggle fullscreen"),
             ],
-            "📚 Libreria": [
+            "Libreria": [
                 ("Ctrl+F", "Focus sulla barra di ricerca"),
                 ("Ctrl+I", "Importa manga (.manga)"),
                 ("Ctrl+E", "Esporta manga selezionato"),
@@ -151,7 +151,7 @@ class ShortcutsDialog(QDialog):
                 ("F5", "Aggiorna libreria"),
                 ("Z", "Importa archivio CBZ/CBR"),
             ],
-            "📖 Lettore": [
+            "Lettore": [
                 ("↑", "Zoom in (10%)"),
                 ("↓", "Zoom out (10%)"),
                 ("Mouse Drag", "Pan/sposta immagine (tenere click sinistro)"),
@@ -159,8 +159,8 @@ class ShortcutsDialog(QDialog):
                 ("Ctrl+D", "Toggle vista doppia pagina"),
                 ("Ctrl+B", "Aggiungi segnalibro alla pagina corrente"),
             ],
-            "⚙️ Impostazioni": [
-                ("Icona ⚙", "Apri pannello impostazioni"),
+            "Impostazioni": [
+                ("Pulsante Impostazioni", "Apri pannello impostazioni"),
                 ("Ctrl+?", "Mostra questo pannello scorciatoie"),
             ],
         }

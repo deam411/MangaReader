@@ -380,7 +380,7 @@ class LibraryView(QWidget):
         self.add_manga_button.clicked.connect(self.launch_manga_creator)
         controls_layout.addWidget(self.add_manga_button)
 
-        self.settings_button = QPushButton('⚙', self)
+        self.settings_button = QPushButton('Impostazioni', self)
         self.settings_button.setFixedSize(40, 40)
         self.settings_button.setStyleSheet("font-size: 20px;")
         self.settings_button.setToolTip('Impostazioni (Temi, Libreria, Performance)')
@@ -407,8 +407,8 @@ class LibraryView(QWidget):
         # Info bar at bottom
         info_layout = QHBoxLayout()
 
-        # Shortcuts help
-        self.shortcuts_label = QLabel("Scorciatoie: F5=Aggiorna | F11=Fullscreen | Esc=Esci")
+        # Commands help
+        self.shortcuts_label = QLabel("Premi Ctrl+? per vedere tutti i comandi")
         self.shortcuts_label.setStyleSheet("color: gray; font-size: 9px;")
         info_layout.addWidget(self.shortcuts_label)
 
@@ -570,7 +570,7 @@ class LibraryView(QWidget):
                 'Puoi:\n'
                 '• Importare file .manga esistenti (pulsante ↓ o Ctrl+I)\n'
                 '• Creare un nuovo manga (pulsante + o Ctrl+N)\n'
-                '• Cambiare la directory della libreria nelle Impostazioni (⚙)\n\n'
+                '• Cambiare la directory della libreria nelle Impostazioni\n\n'
                 f'Directory corrente: {get_manga_dir()}'
             )
 

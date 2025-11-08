@@ -126,7 +126,7 @@ class SettingsDialog(QDialog):
         update_layout.addWidget(version_label)
 
         # Pulsante controlla aggiornamenti
-        check_update_btn = QPushButton("🔍 Controlla aggiornamenti")
+        check_update_btn = QPushButton("Controlla aggiornamenti")
         check_update_btn.clicked.connect(self.check_for_updates)
         check_update_btn.setToolTip("Controlla su GitHub se è disponibile una nuova versione")
         update_layout.addWidget(check_update_btn)
@@ -386,7 +386,7 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout()
 
         # Titolo
-        title = QLabel(f"📦 Nuova versione disponibile: v{update_info['version']}")
+        title = QLabel(f"Nuova versione disponibile: v{update_info['version']}")
         title.setStyleSheet("font-size: 14px; font-weight: bold;")
         layout.addWidget(title)
 
@@ -399,11 +399,11 @@ class SettingsDialog(QDialog):
         # Pulsanti
         buttons_layout = QHBoxLayout()
 
-        download_btn = QPushButton("⬇️ Scarica e installa")
+        download_btn = QPushButton("Scarica e installa")
         download_btn.clicked.connect(lambda: self._download_and_install(update_info, dialog))
         buttons_layout.addWidget(download_btn)
 
-        view_github_btn = QPushButton("👁️ Vedi su GitHub")
+        view_github_btn = QPushButton("Vedi su GitHub")
         view_github_btn.clicked.connect(lambda: self._open_github_release(update_info))
         buttons_layout.addWidget(view_github_btn)
 

@@ -375,8 +375,8 @@ def get_update_info_text(update_info: Dict) -> str:
     if len(notes) > 500:
         notes = notes[:500] + "...\n\n(Vedi release completa su GitHub)"
 
-    text = f"📦 Nuova versione disponibile: v{version}\n\n"
-    text += f"📅 Pubblicata: {published[:10]}\n\n"
-    text += f"📝 Note di rilascio:\n{notes}\n"
+    text = f"Nuova versione disponibile: v{version}\n\n"
+    text += f"Pubblicata: {published[:10]}\n\n"
+    text += f"Note di rilascio:\n{notes}\n"
 
     return text
