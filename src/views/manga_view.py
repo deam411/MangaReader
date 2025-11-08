@@ -17,7 +17,6 @@ from PyQt5.QtCore import Qt, QSize
 from src.paths import get_manga_dir
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
-from src.tag_widget import TagWidget
 from src.creator.manga_creator_app import MangaCreatorApp
 
 logger = get_logger(__name__)
