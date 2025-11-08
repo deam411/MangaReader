@@ -9,6 +9,7 @@ Gestisce:
 - Zoom e pan
 """
 
+import os
 import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
                               QScrollArea, QMessageBox, QProgressBar, QDialog)
@@ -17,6 +18,7 @@ from PyQt5.QtCore import Qt, QTimer, QRect
 
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
+from src.settings import Settings
 from src.chapter_reader_window import PageDisplayWidget
 from src.views.dialogs import BookmarkDialog
 
@@ -30,6 +32,7 @@ class ReaderView(QWidget):
         self.manga_file = None
         self.current_chapter_id = None
         self.db_manager = None
+        self.settings = Settings()  # Per accedere alle impostazioni di sfondo
 
         # Timer per auto-save posizione lettura ogni 30 secondi
         self.autosave_timer = QTimer(self)
@@ -37,6 +40,7 @@ class ReaderView(QWidget):
         self.autosave_timer.setInterval(30000)  # 30 secondi
 
         self.initUI()
+        self.apply_background_settings()  # Applica sfondo personalizzato reader
 
     def initUI(self):
         main_layout = QVBoxLayout(self)
@@ -302,3 +306,44 @@ class ReaderView(QWidget):
             self.back_to_manga_details()
         else:
             super().keyPressEvent(event)
+
+    def apply_background_settings(self):
+        """
+        Applica le impostazioni di sfondo personalizzato al ReaderView.
+
+        Legge da reader.background_color e reader.background_image e applica
+        lo sfondo allo scroll_area (area di visualizzazione pagine manga).
+        """
+        # Leggi impostazioni sfondo
+        bg_color = self.settings.get("reader.background_color", None)
+        bg_image = self.settings.get("reader.background_image", None)
+
+        # Costruisci stylesheet
+        stylesheet_parts = []
+
+        # Priorità 1: Immagine di sfondo (se presente e valida)
+        if bg_image and os.path.exists(bg_image):
+            # Converti path Windows in formato URL se necessario
+            bg_image_url = bg_image.replace('\\', '/')
+            stylesheet_parts.append(f"""
+                QScrollArea {{
+                    background-image: url({bg_image_url});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-attachment: fixed;
+                }}
+            """)
+            logger.info(f"Applied reader background image: {bg_image}")
+
+        # Priorità 2: Colore di sfondo
+        elif bg_color:
+            stylesheet_parts.append(f"""
+                QScrollArea {{
+                    background-color: {bg_color};
+                }}
+            """)
+            logger.info(f"Applied reader background color: {bg_color}")
+
+        # Applica stylesheet se presente
+        if stylesheet_parts:
+            self.scroll_area.setStyleSheet(''.join(stylesheet_parts))
