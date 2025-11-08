@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QLineEdit, QFileDialog, QComboBox,
                               QGroupBox, QMessageBox, QTabWidget, QWidget,
                               QCheckBox, QSpinBox, QProgressDialog, QTextEdit,
-                              QApplication, QListWidget, QInputDialog)
+                              QApplication, QListWidget, QInputDialog, QColorDialog)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
+from PyQt5.QtGui import QColor
 from .settings import Settings
 from .updater import (check_for_updates, download_update, install_update,
                       get_current_version, get_update_info_text)
@@ -280,9 +281,92 @@ class SettingsDialog(QDialog):
         reading_group.setLayout(reading_layout)
         layout.addWidget(reading_group)
 
+        # Gruppo Personalizzazione Sfondo
+        background_group = QGroupBox("Sfondo Lettore")
+        background_layout = QVBoxLayout()
+
+        # Colore sfondo
+        color_layout = QHBoxLayout()
+        color_label = QLabel("Colore sfondo:")
+        color_layout.addWidget(color_label)
+
+        self.bg_color_button = QPushButton("Seleziona Colore")
+        self.current_bg_color = self.settings.get("reader.background_color", "#2b2b2b")
+        self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+        self.bg_color_button.clicked.connect(self._select_bg_color)
+        color_layout.addWidget(self.bg_color_button)
+
+        self.bg_color_label = QLabel(self.current_bg_color)
+        self.bg_color_label.setStyleSheet("color: gray; font-size: 10px;")
+        color_layout.addWidget(self.bg_color_label)
+        color_layout.addStretch()
+        background_layout.addLayout(color_layout)
+
+        # Immagine sfondo
+        image_layout = QHBoxLayout()
+        image_label = QLabel("Immagine sfondo:")
+        image_layout.addWidget(image_label)
+
+        self.bg_image_input = QLineEdit()
+        current_bg_image = self.settings.get("reader.background_image", "")
+        self.bg_image_input.setText(current_bg_image if current_bg_image else "Nessuna")
+        self.bg_image_input.setReadOnly(True)
+        image_layout.addWidget(self.bg_image_input)
+
+        select_image_btn = QPushButton("Seleziona")
+        select_image_btn.clicked.connect(self._select_bg_image)
+        image_layout.addWidget(select_image_btn)
+
+        clear_image_btn = QPushButton("Rimuovi")
+        clear_image_btn.clicked.connect(self._clear_bg_image)
+        image_layout.addWidget(clear_image_btn)
+
+        background_layout.addLayout(image_layout)
+
+        # Info
+        bg_info_label = QLabel(
+            "L'immagine di sfondo ha priorità sul colore.\n"
+            "Formati supportati: PNG, JPG, JPEG, BMP"
+        )
+        bg_info_label.setWordWrap(True)
+        bg_info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
+        background_layout.addWidget(bg_info_label)
+
+        background_group.setLayout(background_layout)
+        layout.addWidget(background_group)
+
         layout.addStretch()
         widget.setLayout(layout)
         return widget
+
+    def _select_bg_color(self):
+        """Apre il dialog per selezionare il colore di sfondo."""
+        color = QColorDialog.getColor(
+            QColor(self.current_bg_color),
+            self,
+            "Seleziona Colore Sfondo"
+        )
+
+        if color.isValid():
+            self.current_bg_color = color.name()
+            self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+            self.bg_color_label.setText(self.current_bg_color)
+
+    def _select_bg_image(self):
+        """Apre il dialog per selezionare l'immagine di sfondo."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleziona Immagine Sfondo",
+            os.path.expanduser("~"),
+            "Immagini (*.png *.jpg *.jpeg *.bmp)"
+        )
+
+        if file_path:
+            self.bg_image_input.setText(file_path)
+
+    def _clear_bg_image(self):
+        """Rimuove l'immagine di sfondo."""
+        self.bg_image_input.setText("Nessuna")
 
     def _create_shortcuts_tab(self):
         """Crea il tab delle scorciatoie tastiera."""
@@ -610,6 +694,16 @@ class SettingsDialog(QDialog):
         # Salva reader settings
         reading_direction = self.reading_direction_combo.currentData()
         self.settings.set("reader.reading_direction", reading_direction)
+
+        # Salva background settings
+        if hasattr(self, 'current_bg_color'):
+            self.settings.set("reader.background_color", self.current_bg_color)
+        if hasattr(self, 'bg_image_input'):
+            bg_image = self.bg_image_input.text()
+            if bg_image == "Nessuna" or not bg_image:
+                self.settings.set("reader.background_image", None)
+            else:
+                self.settings.set("reader.background_image", bg_image)
 
         # Salva shortcuts
         if hasattr(self, 'shortcut_inputs'):
