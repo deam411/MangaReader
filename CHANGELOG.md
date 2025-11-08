@@ -3,13 +3,17 @@
 ## [0.1.6] - 2025-11-08
 
 ### 📊 Summary
-Hotfix critico per risolvere errore **"Failed to load python DLL"** durante primo avvio e auto-update.
+Release major con **DLL fix critico** + **4 nuove feature** di personalizzazione e gestione.
 
 **Highlights**:
 - ✅ Risolto errore python311.dll al primo avvio
 - ✅ Auto-update con rilancio manuale (no riavvio automatico)
 - ✅ UPX disabilitato per prevenire corruzione DLL
 - ✅ Hidden imports PyQt5/PIL completi
+- ✨ Export/Import configurazioni utente
+- ✨ Scorciatoie tastiera personalizzabili
+- ✨ Gestione bookmarks con categorie custom
+- ✨ Temi personalizzabili con sfondi custom
 
 ---
 
@@ -60,6 +64,8 @@ LoadLibrary: impossibile trovare il modulo specifico
 - `BuildTools/manga_reader.spec`: upx=False, hidden imports completi
 - `src/constants.py`: Version bump to 0.1.6
 - `BuildTools/build.bat`: Versione 0.1.6
+- `src/settings.py`: Aggiunti export/import, shortcuts management, bookmarks categories
+- `src/settings_dialog.py`: Nuovi tab Scorciatoie + Segnalibri, background customization nel Reader tab
 
 ---
 
@@ -100,6 +106,68 @@ LoadLibrary: impossibile trovare il modulo specifico
 - Utente rilancia dopo che script è terminato
 - File già scansionati, nessun lock
 - Caricamento DLL istantaneo
+
+---
+
+### ✨ New Features
+
+**1. Export/Import Configurazioni Utente**
+- **Funzionalità**: Salva e ripristina tutte le impostazioni in un file JSON
+  - Pulsante "Esporta Configurazione" in Settings Dialog
+  - Pulsante "Importa Configurazione" con conferma sovrascrittura
+  - Formato JSON leggibile e modificabile manualmente
+  - Merge automatico con default per compatibilità versioni
+- **Use Cases**:
+  - Backup impostazioni prima di reinstallare
+  - Condivisione configurazione tra dispositivi
+  - Reset selettivo (importa solo alcune settings)
+- **File**: `src/settings.py:193-247`, `src/settings_dialog.py:504-586`
+
+**2. Scorciatoie Tastiera Personalizzabili**
+- **Funzionalità**: Nuovo tab "Scorciatoie" in Settings Dialog
+  - Personalizzazione completa di tutte le shortcut
+  - Organizzate in 3 gruppi logici:
+    - **Navigazione**: next_page, prev_page, back, quit
+    - **Interfaccia**: fullscreen, settings, help, search, bookmarks
+    - **Gestione Manga**: new_manga, import, export, refresh
+  - Pulsante "Ripristina Scorciatoie Default"
+  - Supporto formati: Ctrl+K, Alt+F, F11, Backspace, etc.
+- **Shortcuts Predefinite**:
+  - F1: Help, F5: Refresh, F11: Fullscreen
+  - Ctrl+F: Search, Ctrl+B: Bookmarks, Ctrl+,: Settings
+  - Ctrl+N: New Manga, Ctrl+I: Import, Ctrl+E: Export
+  - Left/Right: Prev/Next Page, Backspace: Back, Esc: Quit
+- **File**: `src/settings.py:249-260`, `src/settings_dialog.py:283-424`
+
+**3. Gestione Bookmarks Migliorata**
+- **Funzionalità**: Nuovo tab "Segnalibri" in Settings Dialog
+  - Gestione categorie bookmarks personalizzate
+  - Lista visuale categorie esistenti (QListWidget)
+  - Pulsante "Aggiungi Categoria" con dialog input
+  - Pulsante "Rimuovi Categoria" con conferma
+  - Protezione categoria "Default" (non rimovibile)
+  - Checkbox "Salva automaticamente ultima pagina letta"
+- **Categorie Default**: Default, To Read, Favorites
+- **Use Cases**:
+  - Organizza manga per genere (Azione, Romance, Horror)
+  - Crea liste lettura (Da leggere, Preferiti, Completati)
+  - Tracciamento progresso con auto-bookmark
+- **File**: `src/settings.py:261-283`, `src/settings_dialog.py:426-562`
+
+**4. Temi Personalizzabili con Sfondi Custom**
+- **Funzionalità**: Nuovo gruppo "Sfondo Lettore" nel tab Reader
+  - Selezione colore sfondo con QColorDialog
+  - Anteprima colore in tempo reale sul pulsante
+  - Selezione immagine sfondo custom
+  - Formati supportati: PNG, JPG, JPEG, BMP
+  - Pulsante "Rimuovi" per cancellare immagine
+  - Priorità rendering: immagine > colore
+- **Use Cases**:
+  - Lettura notturna: sfondo nero (#000000)
+  - Lettura diurna: sfondo chiaro (#f5f5f5)
+  - Personalizzazione estetica con texture/pattern custom
+- **Default**: #2b2b2b (grigio scuro)
+- **File**: `src/settings.py:70-76`, `src/settings_dialog.py:284-369`
 
 ---
 
