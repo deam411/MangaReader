@@ -10,15 +10,15 @@ Gestisce:
 
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
-                              QListView, QListWidget, QLineEdit, QComboBox, QFileDialog,
-                              QMessageBox, QProgressBar, QMenu)
+                              QListView, QListWidget, QListWidgetItem, QLineEdit, QComboBox,
+                              QFileDialog, QMessageBox, QProgressBar, QMenu, QApplication, QDialog)
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QPalette, QColor
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTimer
+from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer
 
 from src.paths import get_manga_dir
 from src.settings import Settings
 from src.settings_dialog import SettingsDialog
-from src.constants import APP_VERSION, APP_NAME, DIALOG_MIN_WIDTH
+from src.constants import APP_VERSION, APP_NAME, DIALOG_MIN_WIDTH, GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT
 from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
 from src.logger import get_logger
@@ -26,6 +26,7 @@ from src.views.dialogs import ArchiveImportDialog
 from src.views.widgets import LibraryLoaderThread, MangaItemDelegate, DeselectableListWidget
 from src.creator.manga_creator_app import MangaCreatorApp
 from src.updater import check_for_updates, download_update, install_update, get_update_info_text
+from src.views.utils import sanitize_filename
 
 logger = get_logger(__name__)
 
@@ -81,7 +82,6 @@ class LibraryView(QWidget):
             }
         """)
         # Forza il colore resettando la palette
-        from PyQt5.QtGui import QPalette
         palette = self.progress_bar.palette()
         palette.setColor(QPalette.Highlight, QColor(74, 158, 255))
         self.progress_bar.setPalette(palette)

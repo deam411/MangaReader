@@ -28,6 +28,15 @@ Release di stabilità con focus su **Auto-Update Fix**, **Refactoring Architettu
 - **Impatto**: Auto-update ora funziona correttamente senza errori di riavvio
 - **File**: `src/updater.py:274-340`, `BuildTools/manga_reader.spec:18-28`
 
+**2. Import Mancanti nei Moduli Refactored**
+- **Fix**: Aggiunta tutti gli import PyQt5 e moduli interni mancanti dopo refactoring
+  - `manga_view.py`: sqlite3, QColor, QMenu, QDialog, QTimer, BookmarkDialog, sanitize_filename
+  - `reader_view.py`: sqlite3, QColor, QDialog, QPalette (rimosso import inline ridondante)
+  - `volume_view.py`: sqlite3, QFileDialog, QMessageBox, sanitize_filename
+  - `library_view.py`: QDialog, sanitize_filename (rimosso import inline ridondante)
+- **Impatto**: Risolti tutti i NameError durante runtime, app avvia correttamente
+- **File**: `src/views/manga_view.py`, `src/views/reader_view.py`, `src/views/volume_view.py`, `src/views/library_view.py`
+
 ---
 
 ### ✨ UX Improvements
@@ -67,17 +76,52 @@ Release di stabilità con focus su **Auto-Update Fix**, **Refactoring Architettu
 
 ---
 
+### 🔧 Infrastructure & Quality
+
+**1. Type Checking con mypy**
+- **New**: Configurazione mypy per gradual typing approach
+  - Check su funzioni esistenti senza richiedere type hints ovunque
+  - Regole strict per moduli core (constants, logger, paths, exceptions)
+  - Regole moderate per database, settings, cache_manager
+  - Regole basic per views refactored (large files)
+- **Impatto**: Migliore type safety senza blocking development
+- **File**: `mypy.ini`
+
+**2. Test Coverage Expansion**
+- **New**: Test suite per utility views refactored
+  - `test_views_utils.py`: 15+ unit tests per sanitize_filename e calculate_reading_progress_fast
+  - Test edge cases (unicode, empty strings, invalid chars, etc.)
+  - Test integration workflows
+- **Impatto**: Maggiore confidenza nel refactoring
+- **File**: `tests/test_views_utils.py`
+
+**3. Test Script per Validazione Refactoring**
+- **New**: Script automatico per validare il refactoring
+  - Test import da views.py (proxy) e src.views (direct)
+  - Test struttura file e presenza moduli
+  - Test sintassi Python con py_compile
+  - Test attributi classi e versione
+- **Impatto**: Veloce validazione prima del merge
+- **File**: `test_refactoring.py`
+
+---
+
 ### 📝 Files Changed
 
 **Refactoring:**
 - `src/views/widgets.py` - NEW: Helper widgets extracted
-- `src/views/library_view.py` - NEW: LibraryView module (663 righe)
-- `src/views/manga_view.py` - NEW: MangaView module (295 righe)
-- `src/views/volume_view.py` - NEW: VolumeView module (182 righe)
-- `src/views/reader_view.py` - NEW: ReaderView module (280 righe)
+- `src/views/library_view.py` - NEW: LibraryView module (663 righe) + import fixes
+- `src/views/manga_view.py` - NEW: MangaView module (295 righe) + import fixes
+- `src/views/volume_view.py` - NEW: VolumeView module (182 righe) + import fixes
+- `src/views/reader_view.py` - NEW: ReaderView module (280 righe) + import fixes
 - `src/views/__init__.py` - Updated exports
 - `views.py` - Converted to proxy module for backward compatibility
 - `views_legacy.py` - Old monolithic file (backup)
+
+**Infrastructure & Quality:**
+- `mypy.ini` - NEW: Configurazione type checking graduale
+- `tests/test_views_utils.py` - NEW: Test suite per utility views (15+ tests)
+- `test_refactoring.py` - NEW: Script validazione refactoring
 
 **Bugfix & UX:**
 - `src/updater.py` - Script batch robusto con error handling
@@ -86,6 +130,9 @@ Release di stabilità con focus su **Auto-Update Fix**, **Refactoring Architettu
 - `src/views/dialogs.py` - Dialog scorciatoie aggiornato
 - `README.md` - Documentazione shortcuts
 - `src/constants.py` - Version bump to 0.1.5
+- `CHANGELOG.md` - Documentazione completa release
+
+**Total**: 17 file modificati/creati (8 nuovi, 9 modificati)
 
 ---
 
