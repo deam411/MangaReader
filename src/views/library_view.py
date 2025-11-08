@@ -38,7 +38,9 @@ class LibraryView(QWidget):
         self.is_grid_view = True
         self.delegate = MangaItemDelegate(self)
         self.first_load = True  # Per mostrare il messaggio solo al primo caricamento
+        self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.initUI()
+        self.apply_background_settings()  # Applica sfondo personalizzato (v0.2.0)
         self.load_library()
 
     def initUI(self):
@@ -686,9 +688,53 @@ class LibraryView(QWidget):
         """Callback quando le impostazioni cambiano."""
         # Applica il tema usando la funzione centralizzata
         self.apply_theme()
+        # Riapplica le impostazioni di sfondo (v0.2.0)
+        self.apply_background_settings()
 
     def apply_theme(self):
         """Applica il tema corrente all'applicazione usando la funzione di main.py"""
         import main
         main.apply_theme_to_app(QApplication.instance())
+
+    def apply_background_settings(self):
+        """
+        Applica le impostazioni di sfondo personalizzato alla LibraryView.
+
+        v0.2.0: Sfondo personalizzabile per la schermata libreria.
+        Legge da library.background_color e library.background_image.
+        """
+        # Leggi impostazioni sfondo
+        bg_color = self.settings.get("library.background_color", None)
+        bg_image = self.settings.get("library.background_image", None)
+
+        # Costruisci stylesheet
+        stylesheet_parts = []
+
+        # Priorità 1: Immagine di sfondo (se presente e valida)
+        if bg_image and os.path.exists(bg_image):
+            # Converti path Windows in formato URL se necessario
+            bg_image_url = bg_image.replace('\\', '/')
+            stylesheet_parts.append(f"""
+                QWidget#library_view {{
+                    background-image: url({bg_image_url});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-attachment: fixed;
+                }}
+            """)
+            logger.info(f"Applied library background image: {bg_image}")
+
+        # Priorità 2: Colore di sfondo
+        elif bg_color:
+            stylesheet_parts.append(f"""
+                QWidget#library_view {{
+                    background-color: {bg_color};
+                }}
+            """)
+            logger.info(f"Applied library background color: {bg_color}")
+
+        # Applica stylesheet se presente
+        if stylesheet_parts:
+            self.setObjectName("library_view")  # Necessario per il selettore CSS
+            self.setStyleSheet(''.join(stylesheet_parts))
 
