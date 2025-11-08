@@ -38,7 +38,18 @@ class MangaCreatorApp(QMainWindow):
         """
         Converte immagini WebP e JFIF in formato compatibile (PNG/JPEG).
         Ritorna i dati dell'immagine come bytes.
+
+        Raises:
+            ValueError: Se il file è troppo grande (> MAX_IMAGE_SIZE_MB)
         """
+        # Importa la costante
+        from ..constants import MAX_IMAGE_SIZE_MB
+
+        # Valida dimensione file
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+        if file_size_mb > MAX_IMAGE_SIZE_MB:
+            raise ValueError(f"File troppo grande: {file_size_mb:.1f}MB. Massimo: {MAX_IMAGE_SIZE_MB}MB")
+
         file_ext = os.path.splitext(file_path)[1].lower()
 
         if file_ext in ['.webp', '.jfif']:

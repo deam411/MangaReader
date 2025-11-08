@@ -46,6 +46,9 @@ ZOOM_STEP = 0.1
 # Qualità conversione immagini
 IMAGE_CONVERSION_QUALITY = 95  # Per JPEG (0-100)
 
+# Limiti dimensione file
+MAX_IMAGE_SIZE_MB = 50  # Dimensione massima file immagine in MB
+
 # Dimensioni thumbnail
 THUMBNAIL_WIDTH = 150
 THUMBNAIL_HEIGHT = 200

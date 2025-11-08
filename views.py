@@ -262,45 +262,42 @@ class LibraryLoaderThread(QThread):
         for idx, file_name in enumerate(manga_files):
             full_path = os.path.join(self.manga_dir, file_name)
             try:
-                conn = sqlite3.connect(full_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+                with sqlite3.connect(full_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
 
-                # Carica solo i campi necessari
-                cursor.execute("SELECT title, author, description, cover, tags FROM metadata")
-                metadata = cursor.fetchone()
+                    # Carica solo i campi necessari
+                    cursor.execute("SELECT title, author, description, cover, tags FROM metadata")
+                    metadata = cursor.fetchone()
 
-                if metadata:
-                    # Calcola progresso di lettura usando database manager
-                    db_manager = MangaDatabaseManager(full_path)
-                    progress = db_manager.get_reading_progress()
+                    if metadata:
+                        # Calcola progresso di lettura usando database manager
+                        db_manager = MangaDatabaseManager(full_path)
+                        progress = db_manager.get_reading_progress()
 
-                    # Fix: sqlite3.Row supporta accesso con [] ma non ha .get()
-                    # Usa try-except per gestire campi mancanti
-                    try:
-                        manga_info = {
-                            'file_name': full_path,
-                            'title': metadata['title'] if metadata['title'] else file_name,
-                            'cover': metadata['cover'],
-                            'author': metadata['author'] if metadata['author'] else 'Sconosciuto',
-                            'description': metadata['description'] if metadata['description'] else '',
-                            'tags': metadata['tags'] if metadata['tags'] else '',
-                            'progress': progress  # Aggiunto: progresso di lettura
-                        }
-                        self.manga_loaded.emit(manga_info)
-                    except (KeyError, IndexError) as e:
-                        logger.error(f"Metadata incompleti per {full_path}: {e}")
+                        # Fix: sqlite3.Row supporta accesso con [] ma non ha .get()
+                        # Usa try-except per gestire campi mancanti
+                        try:
+                            manga_info = {
+                                'file_name': full_path,
+                                'title': metadata['title'] if metadata['title'] else file_name,
+                                'cover': metadata['cover'],
+                                'author': metadata['author'] if metadata['author'] else 'Sconosciuto',
+                                'description': metadata['description'] if metadata['description'] else '',
+                                'tags': metadata['tags'] if metadata['tags'] else '',
+                                'progress': progress  # Aggiunto: progresso di lettura
+                            }
+                            self.manga_loaded.emit(manga_info)
+                        except (KeyError, IndexError) as e:
+                            logger.error(f"Metadata incompleti per {full_path}: {e}")
+                            corrupted_files.append(file_name)
+                    else:
                         corrupted_files.append(file_name)
-                else:
-                    corrupted_files.append(file_name)
 
-                conn.close()
             except sqlite3.DatabaseError as e:
-                # Fix: Usa logger invece di print
                 logger.error(f"Database error loading manga {full_path}: {e}")
                 corrupted_files.append(file_name)
             except Exception as e:
-                # Fix: Usa logger invece di print
                 logger.error(f"Error loading manga {full_path}: {e}")
                 corrupted_files.append(file_name)
 
@@ -346,8 +343,9 @@ class MangaItemDelegate(QStyledItemDelegate):
 
         # Draw cover
         if cover_data:
-            # Usa un hash dei dati come chiave di cache in-memory
-            cache_key = (id(cover_data), option.rect.width(), option.rect.height())
+            # Usa file_path come chiave di cache stabile (invece di id(cover_data) che cambia)
+            # Dimensione fissa per le copertine, quindi non serve includerla nella key
+            cache_key = file_path if file_path else id(cover_data)
 
             # Fix: Usa metodo get() della LRUCache
             target_pixmap = self.cover_cache.get(cache_key)

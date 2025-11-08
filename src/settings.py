@@ -95,7 +95,7 @@ class Settings:
                 json.dump(self.settings, f, indent=4, ensure_ascii=False)
             return True
         except Exception as e:
-            print(f"Error saving settings: {e}")
+            logger.error(f"Error saving settings: {e}")
             return False
 
     def get(self, key, default=None):

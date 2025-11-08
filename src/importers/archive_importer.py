@@ -14,7 +14,7 @@ from typing import Optional, List, Tuple
 import mimetypes
 
 from ..database import MangaDatabaseManager
-from ..constants import SUPPORTED_IMAGE_FORMATS, MANGA_FILE_EXTENSION
+from ..constants import SUPPORTED_IMAGE_FORMATS, MANGA_FILE_EXTENSION, MAX_IMAGE_SIZE_MB
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -115,6 +115,13 @@ class ArchiveImporter:
                     if self.is_image_file(filename):
                         try:
                             image_data = zip_file.read(filename)
+
+                            # Valida dimensione immagine
+                            image_size_mb = len(image_data) / (1024 * 1024)
+                            if image_size_mb > MAX_IMAGE_SIZE_MB:
+                                logger.warning(f"Immagine troppo grande saltata: {filename} ({image_size_mb:.1f}MB)")
+                                continue
+
                             images.append((Path(filename).name, image_data))
                             logger.debug(f"Estratta immagine: {filename}")
                         except Exception as e:
@@ -159,6 +166,13 @@ class ArchiveImporter:
                     if self.is_image_file(filename):
                         try:
                             image_data = rar_file.read(filename)
+
+                            # Valida dimensione immagine
+                            image_size_mb = len(image_data) / (1024 * 1024)
+                            if image_size_mb > MAX_IMAGE_SIZE_MB:
+                                logger.warning(f"Immagine troppo grande saltata: {filename} ({image_size_mb:.1f}MB)")
+                                continue
+
                             images.append((Path(filename).name, image_data))
                             logger.debug(f"Estratta immagine: {filename}")
                         except Exception as e:
