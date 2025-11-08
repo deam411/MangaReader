@@ -10,20 +10,31 @@ from .constants import (
     THREAD_POOL_MIN_THREADS,
     PAGE_SPACING,
     INITIAL_PAGE_COUNT,
-    WINDOW_SIZE
+    WINDOW_SIZE,
+    CHAPTER_SEPARATOR_WIDTH,
+    CHAPTER_SEPARATOR_HEIGHT
 )
 
 class LRUCache:
-    """Cache LRU (Least Recently Used) per le immagini."""
+    """
+    Cache LRU (Least Recently Used) per le immagini con statistiche.
+
+    Traccia hits/misses per monitorare performance.
+    """
     def __init__(self, capacity=50):
         self.cache = OrderedDict()
         self.capacity = capacity
+        # Statistiche performance
+        self.hits = 0
+        self.misses = 0
 
     def get(self, key):
         if key not in self.cache:
+            self.misses += 1
             return None
         # Sposta l'elemento alla fine (più recente)
         self.cache.move_to_end(key)
+        self.hits += 1
         return self.cache[key]
 
     def put(self, key, value):
@@ -37,6 +48,29 @@ class LRUCache:
 
     def clear(self):
         self.cache.clear()
+        # Reset statistiche quando cache viene svuotata
+        self.hits = 0
+        self.misses = 0
+
+    def get_stats(self):
+        """
+        Restituisce statistiche cache.
+
+        Returns:
+            Dict con hits, misses, size, capacity, hit_rate
+        """
+        total_requests = self.hits + self.misses
+        hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0.0
+
+        return {
+            'hits': self.hits,
+            'misses': self.misses,
+            'total_requests': total_requests,
+            'hit_rate': hit_rate,
+            'size': len(self.cache),
+            'capacity': self.capacity,
+            'usage': (len(self.cache) / self.capacity * 100) if self.capacity > 0 else 0.0
+        }
 
 class ImageLoaderSignals(QObject):
     image_loaded = pyqtSignal(int, QPixmap) # page_index, pixmap
@@ -83,6 +117,7 @@ class PageDisplayWidget(QWidget):
         self.window_size = WINDOW_SIZE  # Numero di pagine da tenere in memoria prima/dopo quella corrente
         self.initial_pages_loaded = 0  # Contatore per le prime pagine
         self.initial_page_count = INITIAL_PAGE_COUNT  # Numero di pagine iniziali da caricare velocemente
+        self._is_loading = False  # Flag per prevenire race condition durante caricamento capitoli
 
         # Zoom and Pan support
         self.zoom_factor = settings.get("reader.zoom_level", 1.0) # Carica lo zoom globale
@@ -103,6 +138,10 @@ class PageDisplayWidget(QWidget):
         self.setCursor(Qt.BlankCursor)
 
     def handle_image_loaded(self, page_index, pixmap):
+        # Ignora eventi se siamo in fase di loading di un nuovo capitolo
+        if self._is_loading:
+            return
+
         num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
         if 0 <= page_index < num_pages:
             self.image_cache.put(page_index, pixmap)  # Salva nella cache LRU
@@ -138,38 +177,52 @@ class PageDisplayWidget(QWidget):
 
     def set_pages_metadata(self, metadata_list, db_conn):
         """Imposta i metadati delle pagine per caricamento on-demand."""
-        # Fix: Attendi che tutti i thread precedenti finiscano per prevenire race condition
-        self.thread_pool.waitForDone()
+        # Fix: Imposta flag loading per prevenire race condition
+        self._is_loading = True
 
-        # Se RTL, inverti l'ordine delle pagine
-        if self.reading_direction == "rtl":
-            self.page_metadata = list(reversed(metadata_list))
-        else:
-            self.page_metadata = metadata_list
+        try:
+            # Attendi che tutti i thread precedenti finiscano
+            self.thread_pool.waitForDone()
 
-        self.db_conn = db_conn
-        self.loaded_pages_cache.clear()
-        self.image_cache.clear()
-        self.loading_pages.clear()
-        self.initial_pages_loaded = 0  # Reset contatore
-        self.thread_pool.setMaxThreadCount(THREAD_POOL_MAX_THREADS)  # Reset thread per le prime pagine
-        self.update_layout()
-        self.setFocus()
+            # Se RTL, inverti l'ordine delle pagine
+            if self.reading_direction == "rtl":
+                self.page_metadata = list(reversed(metadata_list))
+            else:
+                self.page_metadata = metadata_list
 
-        # Carica immediatamente le prime 5 pagine
-        self.preload_initial_pages()
+            self.db_conn = db_conn
+            self.loaded_pages_cache.clear()
+            self.image_cache.clear()
+            self.loading_pages.clear()
+            self.initial_pages_loaded = 0  # Reset contatore
+            self.thread_pool.setMaxThreadCount(THREAD_POOL_MAX_THREADS)  # Reset thread per le prime pagine
+            self.update_layout()
+            self.setFocus()
+
+            # Carica immediatamente le prime 5 pagine
+            self.preload_initial_pages()
+        finally:
+            # Rilascia flag loading
+            self._is_loading = False
 
     def set_pages_data(self, pages_data_list):
         """Legacy method - carica tutte le pagine in memoria."""
-        # Fix: Attendi che tutti i thread precedenti finiscano per prevenire race condition
-        self.thread_pool.waitForDone()
+        # Fix: Imposta flag loading per prevenire race condition
+        self._is_loading = True
 
-        self.pages_data = pages_data_list
-        self.page_metadata = []  # Disabilita caricamento on-demand
-        self.image_cache.clear()
-        self.loading_pages.clear()
-        self.update_layout()
-        self.setFocus()
+        try:
+            # Attendi che tutti i thread precedenti finiscano
+            self.thread_pool.waitForDone()
+
+            self.pages_data = pages_data_list
+            self.page_metadata = []  # Disabilita caricamento on-demand
+            self.image_cache.clear()
+            self.loading_pages.clear()
+            self.update_layout()
+            self.setFocus()
+        finally:
+            # Rilascia flag loading
+            self._is_loading = False
 
     def get_page_data(self, page_index):
         """Ottiene i dati di una pagina, caricandoli dal DB se necessario."""
@@ -190,11 +243,11 @@ class PageDisplayWidget(QWidget):
         metadata = self.page_metadata[page_index]
 
         if metadata['type'] == 'separator':
-            # Genera il separatore
+            # Genera il separatore (dimensioni da constants)
             from PyQt5.QtGui import QImage, QPainter, QFont, QColor
             from PyQt5.QtCore import QBuffer, QByteArray, QIODevice
 
-            image = QImage(800, 400, QImage.Format_RGB32)
+            image = QImage(CHAPTER_SEPARATOR_WIDTH, CHAPTER_SEPARATOR_HEIGHT, QImage.Format_RGB32)
             image.fill(QColor(40, 40, 40))
 
             painter = QPainter(image)

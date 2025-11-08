@@ -4,6 +4,7 @@ Le impostazioni vengono salvate in formato JSON nella directory dei dati dell'ap
 """
 import json
 import os
+from typing import Dict, Any, Optional
 from .paths import get_data_dir
 from .constants import (
     APP_VERSION,
@@ -12,6 +13,7 @@ from .constants import (
     DEFAULT_THEME
 )
 from .logger import get_logger
+from .exceptions import SettingsLoadError, SettingsSaveError
 
 logger = get_logger(__name__)
 
@@ -36,7 +38,7 @@ class Settings:
         self.settings_file = os.path.join(get_data_dir(), "settings.json")
         self.settings = self._load_settings()
 
-    def _get_default_settings(self):
+    def _get_default_settings(self) -> Dict[str, Any]:
         """Restituisce le impostazioni di default."""
         return {
             "version": APP_VERSION,
@@ -69,8 +71,16 @@ class Settings:
             }
         }
 
-    def _load_settings(self):
-        """Carica le impostazioni dal file JSON."""
+    def _load_settings(self) -> Dict[str, Any]:
+        """
+        Carica le impostazioni dal file JSON.
+
+        Returns:
+            Dict con le impostazioni caricate o default
+
+        Raises:
+            SettingsLoadError: Se il caricamento fallisce criticamente
+        """
         if os.path.exists(self.settings_file):
             try:
                 with open(self.settings_file, 'r', encoding='utf-8') as f:
@@ -81,24 +91,37 @@ class Settings:
                         if key not in settings:
                             settings[key] = value
                     return settings
+            except json.JSONDecodeError as e:
+                logger.error(f"Settings file corrupted, using defaults: {e}")
+                # File corrotto, usa default invece di errore
+                return self._get_default_settings()
             except Exception as e:
                 logger.error(f"Error loading settings: {e}")
-                return self._get_default_settings()
+                # Errore critico lettura file
+                raise SettingsLoadError(f"Impossibile caricare impostazioni da {self.settings_file}") from e
         else:
             return self._get_default_settings()
 
-    def save(self):
-        """Salva le impostazioni nel file JSON."""
+    def save(self) -> bool:
+        """
+        Salva le impostazioni nel file JSON.
+
+        Returns:
+            True se salvato con successo
+
+        Raises:
+            SettingsSaveError: Se il salvataggio fallisce
+        """
         try:
             os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(self.settings, f, indent=4, ensure_ascii=False)
             return True
         except Exception as e:
-            print(f"Error saving settings: {e}")
-            return False
+            logger.error(f"Error saving settings: {e}")
+            raise SettingsSaveError(f"Impossibile salvare impostazioni in {self.settings_file}") from e
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Ottiene un valore dalle impostazioni."""
         keys = key.split('.')
         value = self.settings
@@ -109,7 +132,7 @@ class Settings:
                 return default
         return value if value is not None else default
 
-    def set(self, key, value):
+    def set(self, key: str, value: Any) -> None:
         """Imposta un valore nelle impostazioni."""
         keys = key.split('.')
         settings = self.settings
@@ -120,7 +143,7 @@ class Settings:
         settings[keys[-1]] = value
         self.save()
 
-    def get_library_path(self):
+    def get_library_path(self) -> Optional[str]:
         """
         Restituisce il percorso della libreria custom dall'utente.
         Restituisce None se non è stato impostato un percorso custom.
@@ -131,25 +154,25 @@ class Settings:
             return None
         return path
 
-    def set_library_path(self, path):
+    def set_library_path(self, path: str) -> bool:
         """Imposta il percorso della libreria."""
         if os.path.exists(path) or path == "":
             self.set("library_path", path)
             return True
         return False
 
-    def get_theme(self):
+    def get_theme(self) -> str:
         """Restituisce il tema corrente."""
         return self.get("theme", "system")
 
-    def set_theme(self, theme):
+    def set_theme(self, theme: str) -> bool:
         """Imposta il tema."""
         if theme in ["system", "dark", "light"]:
             self.set("theme", theme)
             return True
         return False
 
-    def reset_to_default(self):
+    def reset_to_default(self) -> None:
         """Resetta tutte le impostazioni ai valori di default."""
         self.settings = self._get_default_settings()
         self.save()

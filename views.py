@@ -12,236 +12,28 @@ from src.constants import (
     APP_NAME,
     COVER_CACHE_MAX,
     GRID_ITEM_WIDTH,
-    GRID_ITEM_HEIGHT
+    GRID_ITEM_HEIGHT,
+    DELEGATE_COVER_WIDTH,
+    DELEGATE_COVER_HEIGHT,
+    DIALOG_MIN_WIDTH
 )
 from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
 from src.cache_manager import CacheManager
 from src.logger import get_logger
+# v0.1.0 - Phase 3.1: Import from views package
+from src.views.dialogs import ArchiveImportDialog, BookmarkDialog, ShortcutsDialog
+from src.views.utils import sanitize_filename, calculate_reading_progress_fast
 
 logger = get_logger(__name__)
 
+# v0.1.0 - Phase 3.1: Functions and classes moved to src/views/
+# - sanitize_filename() -> src/views/utils.py
+# - calculate_reading_progress_fast() -> src/views/utils.py
+# - ArchiveImportDialog -> src/views/dialogs.py
+# - BookmarkDialog -> src/views/dialogs.py
+# - ShortcutsDialog -> src/views/dialogs.py
 
-def sanitize_filename(filename: str, replacement: str = '_') -> str:
-    """
-    Sanitizza un nome file rimuovendo caratteri pericolosi e riservati.
-
-    Supporta Unicode ma rimuove caratteri di controllo e riservati da filesystem.
-
-    Args:
-        filename: Il nome file da sanitizzare
-        replacement: Carattere con cui sostituire i caratteri invalidi
-
-    Returns:
-        Nome file sanitizzato
-    """
-    import re
-    # Rimuovi caratteri riservati Windows/Linux: < > : " / \ | ? * e caratteri di controllo (0x00-0x1F)
-    invalid_chars = r'[<>:"/\\|?*\x00-\x1f]'
-    sanitized = re.sub(invalid_chars, replacement, filename)
-    # Rimuovi punti e spazi finali (problematici su Windows)
-    sanitized = sanitized.strip('. ')
-    # Se il risultato è vuoto, usa un fallback
-    if not sanitized:
-        sanitized = 'unnamed'
-    return sanitized
-
-
-class ArchiveImportDialog(QDialog):
-    """Dialog per raccogliere metadata durante import di archivi CBZ/CBR."""
-
-    def __init__(self, archive_path, parent=None):
-        super().__init__(parent)
-        self.archive_path = archive_path
-        self.setWindowTitle('Import Archivio - Metadata')
-        self.setMinimumWidth(400)
-        self.initUI()
-
-    def initUI(self):
-        layout = QVBoxLayout(self)
-
-        # Info file
-        import os
-        file_name = os.path.basename(self.archive_path)
-        info_label = QLabel(f"Importazione: {file_name}")
-        info_label.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
-        layout.addWidget(info_label)
-
-        # Form per metadata
-        form_layout = QFormLayout()
-
-        self.title_input = QLineEdit()
-        self.title_input.setText(os.path.splitext(file_name)[0])  # Default: nome file
-        form_layout.addRow("Titolo:", self.title_input)
-
-        self.author_input = QLineEdit()
-        form_layout.addRow("Autore:", self.author_input)
-
-        self.volume_input = QLineEdit()
-        self.volume_input.setText("Volume 1")
-        form_layout.addRow("Nome Volume:", self.volume_input)
-
-        self.chapter_input = QLineEdit()
-        self.chapter_input.setText("Chapter 1")
-        form_layout.addRow("Nome Capitolo:", self.chapter_input)
-
-        layout.addLayout(form_layout)
-
-        # Buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-    def get_metadata(self):
-        """Restituisce i metadata inseriti."""
-        return {
-            'title': self.title_input.text() or None,
-            'author': self.author_input.text() or None,
-            'volume_name': self.volume_input.text() or "Volume 1",
-            'chapter_name': self.chapter_input.text() or "Chapter 1"
-        }
-
-
-class BookmarkDialog(QDialog):
-    """Dialog per aggiungere o rinominare un segnalibro."""
-
-    def __init__(self, title="Nuovo Segnalibro", default_name="", parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        self.setMinimumWidth(350)
-        self.initUI(default_name)
-
-    def initUI(self, default_name):
-        layout = QVBoxLayout(self)
-
-        # Label istruzioni
-        info_label = QLabel("Inserisci un nome per il segnalibro:")
-        layout.addWidget(info_label)
-
-        # Input nome
-        self.name_input = QLineEdit()
-        self.name_input.setText(default_name)
-        self.name_input.selectAll()
-        layout.addWidget(self.name_input)
-
-        # Buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-        # Focus sull'input
-        self.name_input.setFocus()
-
-    def get_name(self):
-        """Restituisce il nome inserito."""
-        return self.name_input.text().strip()
-
-
-class ShortcutsDialog(QDialog):
-    """Dialog che mostra tutte le scorciatoie da tastiera disponibili."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Scorciatoie da Tastiera")
-        self.setMinimumWidth(600)
-        self.setMinimumHeight(500)
-        self.initUI()
-
-    def initUI(self):
-        layout = QVBoxLayout(self)
-
-        # Titolo
-        title = QLabel("<h2>📋 Scorciatoie da Tastiera</h2>")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-
-        # Scroll area per le scorciatoie
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        layout.addWidget(scroll)
-
-        # Widget contenitore
-        container = QWidget()
-        scroll.setWidget(container)
-        shortcuts_layout = QVBoxLayout(container)
-
-        # Definisci tutte le scorciatoie organizzate per categoria
-        shortcuts_data = {
-            "🌐 Navigazione Generale": [
-                ("Esc", "Chiudi applicazione / Esci dalla schermata"),
-                ("Backspace", "Torna alla schermata precedente"),
-                ("F11", "Toggle fullscreen"),
-            ],
-            "📚 Libreria": [
-                ("Ctrl+F", "Focus sulla barra di ricerca"),
-                ("Ctrl+I", "Importa manga (.manga)"),
-                ("Ctrl+E", "Esporta manga selezionato"),
-                ("Ctrl+N", "Crea nuovo manga (apri editor)"),
-                ("F5", "Aggiorna libreria"),
-                ("Z", "Importa archivio CBZ/CBR"),
-            ],
-            "📖 Lettore": [
-                ("↑", "Zoom in (10%)"),
-                ("↓", "Zoom out (10%)"),
-                ("Mouse Drag", "Pan/sposta immagine (tenere click sinistro)"),
-                ("Scroll", "Scorri pagine verticalmente"),
-                ("Ctrl+D", "Toggle vista doppia pagina"),
-                ("Ctrl+B", "Aggiungi segnalibro alla pagina corrente"),
-            ],
-            "⚙️ Impostazioni": [
-                ("Icona ⚙", "Apri pannello impostazioni"),
-                ("Ctrl+?", "Mostra questo pannello scorciatoie"),
-            ],
-        }
-
-        # Crea sezioni per ogni categoria
-        for category, shortcuts in shortcuts_data.items():
-            # Titolo categoria
-            category_label = QLabel(f"<h3>{category}</h3>")
-            shortcuts_layout.addWidget(category_label)
-
-            # Tabella scorciatoie
-            for key, description in shortcuts:
-                shortcut_widget = QWidget()
-                shortcut_layout = QHBoxLayout(shortcut_widget)
-                shortcut_layout.setContentsMargins(20, 5, 20, 5)
-
-                # Tasto/combinazione
-                key_label = QLabel(f"<b>{key}</b>")
-                key_label.setMinimumWidth(150)
-                key_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #404040;
-                        padding: 5px 10px;
-                        border-radius: 5px;
-                        color: white;
-                    }
-                """)
-                shortcut_layout.addWidget(key_label)
-
-                # Descrizione
-                desc_label = QLabel(description)
-                desc_label.setWordWrap(True)
-                shortcut_layout.addWidget(desc_label, 1)
-
-                shortcuts_layout.addWidget(shortcut_widget)
-
-            # Spaziatore tra categorie
-            shortcuts_layout.addSpacing(10)
-
-        shortcuts_layout.addStretch()
-
-        # Pulsante Chiudi
-        close_button = QPushButton("Chiudi")
-        close_button.clicked.connect(self.accept)
-        close_button.setMaximumWidth(100)
-        layout.addWidget(close_button, alignment=Qt.AlignCenter)
 
 
 class LibraryLoaderThread(QThread):
@@ -262,45 +54,42 @@ class LibraryLoaderThread(QThread):
         for idx, file_name in enumerate(manga_files):
             full_path = os.path.join(self.manga_dir, file_name)
             try:
-                conn = sqlite3.connect(full_path)
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+                with sqlite3.connect(full_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
 
-                # Carica solo i campi necessari
-                cursor.execute("SELECT title, author, description, cover, tags FROM metadata")
-                metadata = cursor.fetchone()
+                    # Carica solo i campi necessari
+                    cursor.execute("SELECT title, author, description, cover, tags FROM metadata")
+                    metadata = cursor.fetchone()
 
-                if metadata:
-                    # Calcola progresso di lettura usando database manager
-                    db_manager = MangaDatabaseManager(full_path)
-                    progress = db_manager.get_reading_progress()
+                    if metadata:
+                        # Calcola progresso di lettura con query ottimizzata (no MangaDatabaseManager)
+                        # Questo evita di creare schema/indici/migrations per ogni manga
+                        progress = calculate_reading_progress_fast(cursor)
 
-                    # Fix: sqlite3.Row supporta accesso con [] ma non ha .get()
-                    # Usa try-except per gestire campi mancanti
-                    try:
-                        manga_info = {
-                            'file_name': full_path,
-                            'title': metadata['title'] if metadata['title'] else file_name,
-                            'cover': metadata['cover'],
-                            'author': metadata['author'] if metadata['author'] else 'Sconosciuto',
-                            'description': metadata['description'] if metadata['description'] else '',
-                            'tags': metadata['tags'] if metadata['tags'] else '',
-                            'progress': progress  # Aggiunto: progresso di lettura
-                        }
-                        self.manga_loaded.emit(manga_info)
-                    except (KeyError, IndexError) as e:
-                        logger.error(f"Metadata incompleti per {full_path}: {e}")
+                        # Fix: sqlite3.Row supporta accesso con [] ma non ha .get()
+                        # Usa try-except per gestire campi mancanti
+                        try:
+                            manga_info = {
+                                'file_name': full_path,
+                                'title': metadata['title'] if metadata['title'] else file_name,
+                                'cover': metadata['cover'],
+                                'author': metadata['author'] if metadata['author'] else 'Sconosciuto',
+                                'description': metadata['description'] if metadata['description'] else '',
+                                'tags': metadata['tags'] if metadata['tags'] else '',
+                                'progress': progress  # Aggiunto: progresso di lettura
+                            }
+                            self.manga_loaded.emit(manga_info)
+                        except (KeyError, IndexError) as e:
+                            logger.error(f"Metadata incompleti per {full_path}: {e}")
+                            corrupted_files.append(file_name)
+                    else:
                         corrupted_files.append(file_name)
-                else:
-                    corrupted_files.append(file_name)
 
-                conn.close()
             except sqlite3.DatabaseError as e:
-                # Fix: Usa logger invece di print
                 logger.error(f"Database error loading manga {full_path}: {e}")
                 corrupted_files.append(file_name)
             except Exception as e:
-                # Fix: Usa logger invece di print
                 logger.error(f"Error loading manga {full_path}: {e}")
                 corrupted_files.append(file_name)
 
@@ -346,14 +135,15 @@ class MangaItemDelegate(QStyledItemDelegate):
 
         # Draw cover
         if cover_data:
-            # Usa un hash dei dati come chiave di cache in-memory
-            cache_key = (id(cover_data), option.rect.width(), option.rect.height())
+            # Usa file_path come chiave di cache stabile (invece di id(cover_data) che cambia)
+            # Dimensione fissa per le copertine, quindi non serve includerla nella key
+            cache_key = file_path if file_path else id(cover_data)
 
             # Fix: Usa metodo get() della LRUCache
             target_pixmap = self.cover_cache.get(cache_key)
             if target_pixmap is None:
-                # Dimensione fissa per le copertine
-                fixed_size = QSize(250, 375)
+                # Dimensione fissa per le copertine (da constants)
+                fixed_size = QSize(DELEGATE_COVER_WIDTH, DELEGATE_COVER_HEIGHT)
 
                 # Prova a caricare dalla cache persistent
                 cached_path = None
@@ -590,7 +380,7 @@ class LibraryView(QWidget):
         self.add_manga_button.clicked.connect(self.launch_manga_creator)
         controls_layout.addWidget(self.add_manga_button)
 
-        self.settings_button = QPushButton('⚙', self)
+        self.settings_button = QPushButton('Impostazioni', self)
         self.settings_button.setFixedSize(40, 40)
         self.settings_button.setStyleSheet("font-size: 20px;")
         self.settings_button.setToolTip('Impostazioni (Temi, Libreria, Performance)')
@@ -617,8 +407,8 @@ class LibraryView(QWidget):
         # Info bar at bottom
         info_layout = QHBoxLayout()
 
-        # Shortcuts help
-        self.shortcuts_label = QLabel("Scorciatoie: F5=Aggiorna | F11=Fullscreen | Esc=Esci")
+        # Commands help
+        self.shortcuts_label = QLabel("Premi Ctrl+? per vedere tutti i comandi")
         self.shortcuts_label.setStyleSheet("color: gray; font-size: 9px;")
         info_layout.addWidget(self.shortcuts_label)
 
@@ -780,7 +570,7 @@ class LibraryView(QWidget):
                 'Puoi:\n'
                 '• Importare file .manga esistenti (pulsante ↓ o Ctrl+I)\n'
                 '• Creare un nuovo manga (pulsante + o Ctrl+N)\n'
-                '• Cambiare la directory della libreria nelle Impostazioni (⚙)\n\n'
+                '• Cambiare la directory della libreria nelle Impostazioni\n\n'
                 f'Directory corrente: {get_manga_dir()}'
             )
 

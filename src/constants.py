@@ -7,7 +7,7 @@ fornendo un unico punto di riferimento per versioni, limiti, formati e configura
 
 # Informazioni applicazione
 APP_NAME = "Manga Reader"
-APP_VERSION = "0.0.7"
+APP_VERSION = "0.1.0"
 APP_AUTHOR = "Alessandro"
 APP_DESCRIPTION = "Lettore e gestore di manga desktop multi-piattaforma"
 
@@ -46,6 +46,9 @@ ZOOM_STEP = 0.1
 # Qualità conversione immagini
 IMAGE_CONVERSION_QUALITY = 95  # Per JPEG (0-100)
 
+# Limiti dimensione file
+MAX_IMAGE_SIZE_MB = 50  # Dimensione massima file immagine in MB
+
 # Dimensioni thumbnail
 THUMBNAIL_WIDTH = 150
 THUMBNAIL_HEIGHT = 200
@@ -54,8 +57,20 @@ THUMBNAIL_HEIGHT = 200
 GRID_COVER_WIDTH = 150
 GRID_COVER_HEIGHT = 200
 
+# Dimensioni copertine delegate (rendering fisso)
+DELEGATE_COVER_WIDTH = 250
+DELEGATE_COVER_HEIGHT = 375
+
+# Dimensioni separatore capitoli nel reader
+CHAPTER_SEPARATOR_WIDTH = 800
+CHAPTER_SEPARATOR_HEIGHT = 400
+
 # Dimensioni icone pagine
 PAGE_ICON_SIZE = 100
+
+# Dimensioni finestre dialog
+DIALOG_MIN_WIDTH = 400
+DIALOG_MIN_HEIGHT = 300
 
 # Tag predefiniti per manga
 DEFAULT_TAGS = [
