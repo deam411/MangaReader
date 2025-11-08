@@ -210,10 +210,26 @@ class MangaItemDelegate(QStyledItemDelegate):
 
         if self.is_grid_view:
             # Draw title
+            # Imposta colore testo esplicito per garantire leggibilità
+            if option.state & QStyle.State_Selected:
+                # Item selezionato: usa highlightedText (bianco)
+                painter.setPen(option.palette.highlightedText().color())
+            else:
+                # Item normale: usa text color del tema
+                painter.setPen(option.palette.text().color())
+
             text_rect = option.rect.adjusted(5, 380, -5, -5)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, title)
         else:
             # List view painting
+            # Imposta colore testo esplicito per garantire leggibilità
+            if option.state & QStyle.State_Selected:
+                # Item selezionato: usa highlightedText (bianco)
+                painter.setPen(option.palette.highlightedText().color())
+            else:
+                # Item normale: usa text color del tema
+                painter.setPen(option.palette.text().color())
+
             # Draw text
             text_left = 250 + 15 # icon width + padding
             text_rect = QRect(text_left, option.rect.top() + 5, option.rect.width() - text_left - 5, option.rect.height() - 10)
