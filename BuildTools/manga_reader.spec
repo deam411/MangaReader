@@ -20,7 +20,11 @@ a = Analysis(
         'PyQt5.QtCore',
         'PyQt5.QtGui',
         'PyQt5.QtWidgets',
+        'PyQt5.QtPrintSupport',
+        'PyQt5.QtSvg',
         'PIL._tkinter_finder',
+        'PIL.Image',
+        'PIL.ImageQt',
         'urllib.request',
         'urllib.error',
         'sqlite3',
@@ -52,7 +56,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # Disabled: UPX can corrupt Qt DLLs on Windows
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,  # No console window
