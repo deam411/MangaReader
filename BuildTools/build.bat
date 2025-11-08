@@ -1,6 +1,6 @@
 @echo off
 echo ====================================
-echo Building Manga Reader v0.0.3
+echo Building Manga Reader v0.1.5.1
 echo ====================================
 echo.
 
