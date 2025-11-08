@@ -14,16 +14,25 @@ from .constants import (
 )
 
 class LRUCache:
-    """Cache LRU (Least Recently Used) per le immagini."""
+    """
+    Cache LRU (Least Recently Used) per le immagini con statistiche.
+
+    Traccia hits/misses per monitorare performance.
+    """
     def __init__(self, capacity=50):
         self.cache = OrderedDict()
         self.capacity = capacity
+        # Statistiche performance
+        self.hits = 0
+        self.misses = 0
 
     def get(self, key):
         if key not in self.cache:
+            self.misses += 1
             return None
         # Sposta l'elemento alla fine (più recente)
         self.cache.move_to_end(key)
+        self.hits += 1
         return self.cache[key]
 
     def put(self, key, value):
@@ -37,6 +46,29 @@ class LRUCache:
 
     def clear(self):
         self.cache.clear()
+        # Reset statistiche quando cache viene svuotata
+        self.hits = 0
+        self.misses = 0
+
+    def get_stats(self):
+        """
+        Restituisce statistiche cache.
+
+        Returns:
+            Dict con hits, misses, size, capacity, hit_rate
+        """
+        total_requests = self.hits + self.misses
+        hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0.0
+
+        return {
+            'hits': self.hits,
+            'misses': self.misses,
+            'total_requests': total_requests,
+            'hit_rate': hit_rate,
+            'size': len(self.cache),
+            'capacity': self.capacity,
+            'usage': (len(self.cache) / self.capacity * 100) if self.capacity > 0 else 0.0
+        }
 
 class ImageLoaderSignals(QObject):
     image_loaded = pyqtSignal(int, QPixmap) # page_index, pixmap

@@ -222,6 +222,81 @@ def test_threading_capability():
         return False
 
 
+def test_lru_cache_statistics():
+    """Test che LRUCache supporti statistiche."""
+    try:
+        from src.chapter_reader_window import LRUCache
+
+        cache = LRUCache(capacity=5)
+
+        # Test iniziale
+        stats = cache.get_stats()
+        assert stats['hits'] == 0, "Hits iniziali non zero!"
+        assert stats['misses'] == 0, "Misses iniziali non zero!"
+        assert stats['hit_rate'] == 0.0, "Hit rate iniziale non zero!"
+
+        # Popola cache
+        cache.put('a', 'value_a')
+        cache.put('b', 'value_b')
+
+        # Test miss
+        result = cache.get('c')
+        assert result is None, "Get di chiave inesistente non ritorna None!"
+        stats = cache.get_stats()
+        assert stats['misses'] == 1, f"Misses dovrebbe essere 1, è {stats['misses']}"
+
+        # Test hit
+        result = cache.get('a')
+        assert result == 'value_a', "Get non ritorna valore corretto!"
+        stats = cache.get_stats()
+        assert stats['hits'] == 1, f"Hits dovrebbe essere 1, è {stats['hits']}"
+
+        # Verifica hit rate
+        expected_hit_rate = (1 / 2) * 100  # 1 hit su 2 richieste
+        assert abs(stats['hit_rate'] - expected_hit_rate) < 0.1, \
+            f"Hit rate dovrebbe essere ~{expected_hit_rate}, è {stats['hit_rate']}"
+
+        print("✅ Test 7 PASSED: LRUCache statistiche funzionano")
+        return True
+    except Exception as e:
+        print(f"❌ Test 7 FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def test_cache_stats_utility():
+    """Test utility per statistiche cache."""
+    try:
+        from src.utils.cache_stats import log_cache_stats, should_log_stats, analyze_cache_performance
+
+        # Test should_log_stats
+        assert not should_log_stats(0, 100), "Dovrebbe essere False per 0"
+        assert not should_log_stats(50, 100), "Dovrebbe essere False per 50"
+        assert should_log_stats(100, 100), "Dovrebbe essere True per 100"
+        assert should_log_stats(200, 100), "Dovrebbe essere True per 200"
+
+        # Test analyze_cache_performance
+        # Test poor performance
+        poor_stats = {'hit_rate': 30, 'usage': 95, 'total_requests': 100,
+                      'hits': 30, 'misses': 70, 'size': 95, 'capacity': 100}
+        analysis = analyze_cache_performance(poor_stats)
+        assert analysis['performance'] == 'poor', "Performance dovrebbe essere 'poor'"
+        assert len(analysis['suggestions']) > 0, "Dovrebbero esserci suggerimenti"
+
+        # Test excellent performance
+        excellent_stats = {'hit_rate': 85, 'usage': 60, 'total_requests': 100,
+                           'hits': 85, 'misses': 15, 'size': 60, 'capacity': 100}
+        analysis = analyze_cache_performance(excellent_stats)
+        assert analysis['performance'] == 'excellent', "Performance dovrebbe essere 'excellent'"
+
+        print("✅ Test 8 PASSED: Cache stats utility funziona")
+        return True
+    except Exception as e:
+        print(f"❌ Test 8 FAILED: {e}")
+        return False
+
+
 def run_all_tests():
     """Esegue tutti i test."""
     tests = [
@@ -232,6 +307,8 @@ def run_all_tests():
         test_image_converter_utility_exists,
         test_manga_creator_uses_centralized_converter,
         test_threading_capability,
+        test_lru_cache_statistics,
+        test_cache_stats_utility,
     ]
 
     print("="*70)
