@@ -52,12 +52,23 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(tabs)
 
-        # Pulsanti OK/Cancel/Reset
+        # Pulsanti OK/Cancel/Reset + Export/Import
         buttons_layout = QHBoxLayout()
 
         reset_button = QPushButton("Ripristina Default")
         reset_button.clicked.connect(self.reset_settings)
         buttons_layout.addWidget(reset_button)
+
+        # Pulsanti Export/Import
+        export_button = QPushButton("Esporta Configurazione")
+        export_button.setToolTip("Salva tutte le impostazioni in un file")
+        export_button.clicked.connect(self.export_settings)
+        buttons_layout.addWidget(export_button)
+
+        import_button = QPushButton("Importa Configurazione")
+        import_button.setToolTip("Carica impostazioni da un file")
+        import_button.clicked.connect(self.import_settings)
+        buttons_layout.addWidget(import_button)
 
         buttons_layout.addStretch()
 
@@ -489,3 +500,87 @@ class SettingsDialog(QDialog):
         import webbrowser
         url = update_info.get('html_url', 'https://github.com/deam411/MangaReader/releases')
         webbrowser.open(url)
+
+    def export_settings(self):
+        """Esporta la configurazione corrente in un file JSON."""
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Esporta Configurazione",
+                os.path.expanduser("~/manga_reader_config.json"),
+                "File JSON (*.json)"
+            )
+
+            if file_path:
+                # Assicurati che abbia estensione .json
+                if not file_path.endswith('.json'):
+                    file_path += '.json'
+
+                # Esporta le impostazioni
+                self.settings.export_settings(file_path)
+
+                QMessageBox.information(
+                    self,
+                    "Export Completato",
+                    f"Configurazione esportata con successo in:\n{file_path}"
+                )
+                logger.info(f"Settings exported to: {file_path}")
+
+        except Exception as e:
+            logger.error(f"Error during export: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore Export",
+                f"Impossibile esportare la configurazione:\n{str(e)}"
+            )
+
+    def import_settings(self):
+        """Importa una configurazione da un file JSON."""
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Importa Configurazione",
+                os.path.expanduser("~"),
+                "File JSON (*.json)"
+            )
+
+            if file_path:
+                # Chiedi conferma prima di sovrascrivere
+                reply = QMessageBox.question(
+                    self,
+                    "Conferma Import",
+                    "L'importazione sovrascriverà tutte le impostazioni correnti.\n\n"
+                    "Continuare?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+
+                if reply == QMessageBox.Yes:
+                    # Importa le impostazioni
+                    self.settings.import_settings(file_path)
+
+                    # Ricarica i valori nella UI
+                    self._load_settings()
+
+                    QMessageBox.information(
+                        self,
+                        "Import Completato",
+                        "Configurazione importata con successo!\n\n"
+                        "Le nuove impostazioni sono state applicate."
+                    )
+                    logger.info(f"Settings imported from: {file_path}")
+
+                    # Emetti segnale per aggiornare altre parti dell'app
+                    self.settings_changed.emit()
+
+        except Exception as e:
+            logger.error(f"Error during import: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore Import",
+                f"Impossibile importare la configurazione:\n{str(e)}"
+            )
