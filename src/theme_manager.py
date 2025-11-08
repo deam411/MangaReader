@@ -9,21 +9,46 @@ import json
 import os
 from typing import Dict, Optional
 from .logger import get_logger
+from .exceptions import ValidationError
 
 logger = get_logger(__name__)
 
 
 def load_themes() -> Dict:
     """
-    Carica le definizioni dei temi dal file themes.json.
+    Carica e valida le definizioni dei temi dal file themes.json.
 
     Returns:
         Dizionario con le definizioni dei temi
+
+    Note:
+        I temi vengono validati al caricamento per garantire struttura corretta.
+        In caso di validazione fallita, viene loggato un warning ma i temi vengono
+        comunque caricati per non bloccare l'applicazione.
     """
     try:
         themes_path = os.path.join(os.path.dirname(__file__), 'themes.json')
         with open(themes_path, 'r', encoding='utf-8') as f:
             themes = json.load(f)
+
+        # Valida i temi (v0.1.0 - Phase 4.2)
+        try:
+            from .utils.theme_validator import validate_themes_json
+            errors = validate_themes_json(themes)
+            if errors:
+                logger.warning(
+                    f"Validazione themes.json fallita con {len(errors)} errori:\n" +
+                    "\n".join(f"  - {err}" for err in errors[:5])  # Mostra max 5 errori
+                )
+                if len(errors) > 5:
+                    logger.warning(f"  ... e altri {len(errors) - 5} errori")
+            else:
+                logger.debug("Validazione themes.json completata con successo")
+        except ImportError:
+            logger.debug("Theme validator non disponibile, skip validazione")
+        except Exception as e:
+            logger.warning(f"Errore durante validazione temi: {e}")
+
         logger.debug(f"Temi caricati con successo da {themes_path}")
         return themes
     except FileNotFoundError:
