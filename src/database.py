@@ -2,6 +2,12 @@ import sqlite3
 import os
 from PIL import Image # Importa la libreria Pillow
 from .logger import get_logger
+from .exceptions import (
+    DatabaseError,
+    DatabaseSchemaError,
+    DatabaseConnectionError,
+    DatabaseQueryError
+)
 
 logger = get_logger(__name__)
 
@@ -19,7 +25,13 @@ class MangaDatabaseManager:
     def create_manga_db_schema(self):
         """
         Crea lo schema del database per un file .manga.
-        Restituisce True in caso di successo, False altrimenti.
+
+        Returns:
+            True in caso di successo
+
+        Raises:
+            DatabaseSchemaError: Se la creazione dello schema fallisce
+            DatabaseConnectionError: Se la connessione al database fallisce
         """
         logger.debug(f"MangaDatabaseManager: create_manga_db_schema called for db_path: {self.db_path}")
         try:
@@ -98,9 +110,12 @@ class MangaDatabaseManager:
                 conn.commit()
                 logger.debug(f"MangaDatabaseManager: create_manga_db_schema successful for db_path: {self.db_path}")
                 return True
+        except sqlite3.OperationalError as e:
+            logger.error(f"MangaDatabaseManager: Errore connessione database per {self.db_path}: {e}")
+            raise DatabaseConnectionError(f"Impossibile connettersi al database {self.db_path}") from e
         except sqlite3.Error as e:
             logger.error(f"MangaDatabaseManager: Errore durante la creazione dello schema del database per {self.db_path}: {e}")
-            return False
+            raise DatabaseSchemaError(f"Errore creazione schema per {self.db_path}") from e
 
     def create_performance_indexes(self):
         """
@@ -223,6 +238,12 @@ class MangaDatabaseManager:
     def migrate_schema_to_v2(self):
         """
         Migra lo schema del database alla versione 2: aggiunge la colonna volume_id alla tabella chapters.
+
+        Returns:
+            True in caso di successo
+
+        Raises:
+            DatabaseSchemaError: Se la migrazione fallisce
         """
         logger.debug(f"MangaDatabaseManager: migrate_schema_to_v2 called for db_path: {self.db_path}")
         try:
@@ -257,7 +278,7 @@ class MangaDatabaseManager:
                 return True
         except sqlite3.Error as e:
             logger.error(f"Errore durante la migrazione dello schema del database per {self.db_path}: {e}")
-            return False
+            raise DatabaseSchemaError(f"Errore migrazione schema per {self.db_path}") from e
 
     def insert_metadata(self, title, author=None, description=None, language=None, cover=None, year=None, tags=None):
         """

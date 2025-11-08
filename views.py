@@ -12,7 +12,10 @@ from src.constants import (
     APP_NAME,
     COVER_CACHE_MAX,
     GRID_ITEM_WIDTH,
-    GRID_ITEM_HEIGHT
+    GRID_ITEM_HEIGHT,
+    DELEGATE_COVER_WIDTH,
+    DELEGATE_COVER_HEIGHT,
+    DIALOG_MIN_WIDTH
 )
 from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
@@ -54,7 +57,7 @@ class ArchiveImportDialog(QDialog):
         super().__init__(parent)
         self.archive_path = archive_path
         self.setWindowTitle('Import Archivio - Metadata')
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(DIALOG_MIN_WIDTH)
         self.initUI()
 
     def initUI(self):
@@ -406,8 +409,8 @@ class MangaItemDelegate(QStyledItemDelegate):
             # Fix: Usa metodo get() della LRUCache
             target_pixmap = self.cover_cache.get(cache_key)
             if target_pixmap is None:
-                # Dimensione fissa per le copertine
-                fixed_size = QSize(250, 375)
+                # Dimensione fissa per le copertine (da constants)
+                fixed_size = QSize(DELEGATE_COVER_WIDTH, DELEGATE_COVER_HEIGHT)
 
                 # Prova a caricare dalla cache persistent
                 cached_path = None

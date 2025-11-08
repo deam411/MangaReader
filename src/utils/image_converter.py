@@ -12,11 +12,12 @@ from PIL import Image
 
 from ..constants import MAX_IMAGE_SIZE_MB, IMAGE_CONVERSION_QUALITY
 from ..logger import get_logger
+from ..exceptions import FileSizeError, ImportError as MangaImportError
 
 logger = get_logger(__name__)
 
 
-class ImageConversionError(Exception):
+class ImageConversionError(MangaImportError):
     """Eccezione per errori di conversione immagini."""
     pass
 
@@ -39,7 +40,7 @@ def convert_image_sync(file_path: str) -> bytes:
         # Valida dimensione file
         file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
         if file_size_mb > MAX_IMAGE_SIZE_MB:
-            raise ValueError(f"File troppo grande: {file_size_mb:.1f}MB. Massimo: {MAX_IMAGE_SIZE_MB}MB")
+            raise FileSizeError(file_size_mb, MAX_IMAGE_SIZE_MB)
 
         file_ext = os.path.splitext(file_path)[1].lower()
 
@@ -64,7 +65,7 @@ def convert_image_sync(file_path: str) -> bytes:
             with open(file_path, 'rb') as f:
                 return f.read()
 
-    except ValueError:
+    except FileSizeError:
         # Re-raise validation errors
         raise
     except Exception as e:

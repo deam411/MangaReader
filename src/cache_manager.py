@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from .paths import get_data_dir
 from .logger import get_logger
+from .exceptions import CacheError
 
 logger = get_logger(__name__)
 
@@ -46,6 +47,9 @@ class CacheManager:
 
         Returns:
             Stringa hash univoca
+
+        Raises:
+            CacheError: Se la generazione della chiave fallisce
         """
         # Usa hash del percorso + dimensione + mtime per invalidazione automatica
         try:
@@ -55,7 +59,7 @@ class CacheManager:
             return hash_obj.hexdigest()
         except Exception as e:
             logger.error(f"Errore generazione cache key: {e}")
-            return None
+            raise CacheError(f"Impossibile generare cache key per {manga_file_path}: {e}")
 
     def get_cache_path(self, cache_key):
         """
@@ -80,12 +84,13 @@ class CacheManager:
         Returns:
             True se esiste in cache, False altrimenti
         """
-        cache_key = self.get_cache_key(manga_file_path, width)
-        if cache_key is None:
+        try:
+            cache_key = self.get_cache_key(manga_file_path, width)
+            cache_path = self.get_cache_path(cache_key)
+            return os.path.exists(cache_path)
+        except CacheError:
+            # Se fallisce generazione cache key, consideriamo non in cache
             return False
-
-        cache_path = self.get_cache_path(cache_key)
-        return os.path.exists(cache_path)
 
     def get_cached(self, manga_file_path, width):
         """
@@ -98,20 +103,22 @@ class CacheManager:
         Returns:
             Percorso del file cache se esiste, None altrimenti
         """
-        cache_key = self.get_cache_key(manga_file_path, width)
-        if cache_key is None:
+        try:
+            cache_key = self.get_cache_key(manga_file_path, width)
+            cache_path = self.get_cache_path(cache_key)
+
+            if os.path.exists(cache_path):
+                # Aggiorna access time
+                os.utime(cache_path, None)
+                logger.debug(f"Cache hit: {os.path.basename(manga_file_path)}")
+                return cache_path
+
+            logger.debug(f"Cache miss: {os.path.basename(manga_file_path)}")
             return None
-
-        cache_path = self.get_cache_path(cache_key)
-
-        if os.path.exists(cache_path):
-            # Aggiorna access time
-            os.utime(cache_path, None)
-            logger.debug(f"Cache hit: {os.path.basename(manga_file_path)}")
-            return cache_path
-
-        logger.debug(f"Cache miss: {os.path.basename(manga_file_path)}")
-        return None
+        except CacheError:
+            # Se fallisce generazione cache key, cache miss
+            logger.debug(f"Cache miss (error): {os.path.basename(manga_file_path)}")
+            return None
 
     def save_to_cache(self, manga_file_path, width, pixmap):
         """
@@ -127,9 +134,6 @@ class CacheManager:
         """
         try:
             cache_key = self.get_cache_key(manga_file_path, width)
-            if cache_key is None:
-                return False
-
             cache_path = self.get_cache_path(cache_key)
 
             # Salva pixmap come PNG
@@ -140,11 +144,13 @@ class CacheManager:
                 return True
             else:
                 logger.warning(f"Failed to save cache: {cache_path}")
-                return False
+                raise CacheError(f"Impossibile salvare cache: {cache_path}")
 
+        except CacheError:
+            raise
         except Exception as e:
             logger.error(f"Errore salvataggio cache: {e}")
-            return False
+            raise CacheError(f"Errore salvataggio cache per {manga_file_path}: {e}")
 
     def cleanup_old_cache(self):
         """

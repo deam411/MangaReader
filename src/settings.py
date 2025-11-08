@@ -12,6 +12,7 @@ from .constants import (
     DEFAULT_THEME
 )
 from .logger import get_logger
+from .exceptions import SettingsLoadError, SettingsSaveError
 
 logger = get_logger(__name__)
 
@@ -70,7 +71,15 @@ class Settings:
         }
 
     def _load_settings(self):
-        """Carica le impostazioni dal file JSON."""
+        """
+        Carica le impostazioni dal file JSON.
+
+        Returns:
+            Dict con le impostazioni caricate o default
+
+        Raises:
+            SettingsLoadError: Se il caricamento fallisce criticamente
+        """
         if os.path.exists(self.settings_file):
             try:
                 with open(self.settings_file, 'r', encoding='utf-8') as f:
@@ -81,14 +90,27 @@ class Settings:
                         if key not in settings:
                             settings[key] = value
                     return settings
+            except json.JSONDecodeError as e:
+                logger.error(f"Settings file corrupted, using defaults: {e}")
+                # File corrotto, usa default invece di errore
+                return self._get_default_settings()
             except Exception as e:
                 logger.error(f"Error loading settings: {e}")
-                return self._get_default_settings()
+                # Errore critico lettura file
+                raise SettingsLoadError(f"Impossibile caricare impostazioni da {self.settings_file}") from e
         else:
             return self._get_default_settings()
 
     def save(self):
-        """Salva le impostazioni nel file JSON."""
+        """
+        Salva le impostazioni nel file JSON.
+
+        Returns:
+            True se salvato con successo
+
+        Raises:
+            SettingsSaveError: Se il salvataggio fallisce
+        """
         try:
             os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
             with open(self.settings_file, 'w', encoding='utf-8') as f:
@@ -96,7 +118,7 @@ class Settings:
             return True
         except Exception as e:
             logger.error(f"Error saving settings: {e}")
-            return False
+            raise SettingsSaveError(f"Impossibile salvare impostazioni in {self.settings_file}") from e
 
     def get(self, key, default=None):
         """Ottiene un valore dalle impostazioni."""

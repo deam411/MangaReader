@@ -57,8 +57,20 @@ THUMBNAIL_HEIGHT = 200
 GRID_COVER_WIDTH = 150
 GRID_COVER_HEIGHT = 200
 
+# Dimensioni copertine delegate (rendering fisso)
+DELEGATE_COVER_WIDTH = 250
+DELEGATE_COVER_HEIGHT = 375
+
+# Dimensioni separatore capitoli nel reader
+CHAPTER_SEPARATOR_WIDTH = 800
+CHAPTER_SEPARATOR_HEIGHT = 400
+
 # Dimensioni icone pagine
 PAGE_ICON_SIZE = 100
+
+# Dimensioni finestre dialog
+DIALOG_MIN_WIDTH = 400
+DIALOG_MIN_HEIGHT = 300
 
 # Tag predefiniti per manga
 DEFAULT_TAGS = [

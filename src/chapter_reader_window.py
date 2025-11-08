@@ -10,7 +10,9 @@ from .constants import (
     THREAD_POOL_MIN_THREADS,
     PAGE_SPACING,
     INITIAL_PAGE_COUNT,
-    WINDOW_SIZE
+    WINDOW_SIZE,
+    CHAPTER_SEPARATOR_WIDTH,
+    CHAPTER_SEPARATOR_HEIGHT
 )
 
 class LRUCache:
@@ -241,11 +243,11 @@ class PageDisplayWidget(QWidget):
         metadata = self.page_metadata[page_index]
 
         if metadata['type'] == 'separator':
-            # Genera il separatore
+            # Genera il separatore (dimensioni da constants)
             from PyQt5.QtGui import QImage, QPainter, QFont, QColor
             from PyQt5.QtCore import QBuffer, QByteArray, QIODevice
 
-            image = QImage(800, 400, QImage.Format_RGB32)
+            image = QImage(CHAPTER_SEPARATOR_WIDTH, CHAPTER_SEPARATOR_HEIGHT, QImage.Format_RGB32)
             image.fill(QColor(40, 40, 40))
 
             painter = QPainter(image)
