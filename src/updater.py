@@ -240,9 +240,13 @@ def install_update(downloaded_file: str) -> bool:
     Installa l'aggiornamento scaricato.
 
     Strategy:
-    - Windows (.exe): Sostituisce exe corrente, richiede restart
+    - Windows (.exe): Sostituisce exe corrente, utente rilancia manualmente
     - macOS (.dmg): Apre DMG per installazione manuale
-    - Linux: Sostituisce binario, richiede restart
+    - Linux: Sostituisce binario, utente rilancia manualmente
+
+    IMPORTANTE: L'app si chiuderà dopo l'installazione.
+    L'utente dovrà rilanciare manualmente per usare la nuova versione.
+    Questo evita problemi con antivirus e race condition DLL.
 
     Args:
         downloaded_file: Path al file scaricato
@@ -321,9 +325,16 @@ def _install_windows(downloaded_file: str) -> bool:
             f.write(f'    exit /b 1\n')
             f.write(f')\n')
 
-            # Riavvia applicazione
-            f.write(f'echo Riavvio applicazione...\n')
-            f.write(f'start "" "{current_exe}"\n')
+            # NON riavviare automaticamente - l'utente rilancerà manualmente
+            f.write(f'echo.\n')
+            f.write(f'echo ========================================\n')
+            f.write(f'echo Aggiornamento completato con successo!\n')
+            f.write(f'echo.\n')
+            f.write(f'echo Rilancia MangaReader per usare\n')
+            f.write(f'echo la nuova versione.\n')
+            f.write(f'echo ========================================\n')
+            f.write(f'echo.\n')
+            f.write(f'timeout /t 3 /nobreak >nul\n')  # Mostra messaggio per 3 secondi
 
             # Pulizia
             f.write(f'if exist "{current_exe}.backup" del "{current_exe}.backup"\n')
@@ -331,7 +342,7 @@ def _install_windows(downloaded_file: str) -> bool:
 
         # Esegui batch e chiudi applicazione
         subprocess.Popen([batch_script], shell=True, creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
-        logger.info("Aggiornamento avviato, riavvio dell'applicazione...")
+        logger.info("Aggiornamento avviato. L'utente dovrà rilanciare l'applicazione manualmente.")
 
         return True
 
@@ -377,14 +388,23 @@ def _install_linux(downloaded_file: str) -> bool:
             f.write('sleep 2\n')
             f.write(f'mv "{downloaded_file}" "{current_binary}"\n')
             f.write(f'chmod +x "{current_binary}"\n')
-            f.write(f'"{current_binary}" &\n')
+            # NON riavviare automaticamente - l'utente rilancerà manualmente
+            f.write('echo ""\n')
+            f.write('echo "========================================"\n')
+            f.write('echo "Aggiornamento completato con successo!"\n')
+            f.write('echo ""\n')
+            f.write('echo "Rilancia MangaReader per usare"\n')
+            f.write('echo "la nuova versione."\n')
+            f.write('echo "========================================"\n')
+            f.write('echo ""\n')
+            f.write('sleep 3\n')  # Mostra messaggio per 3 secondi
             f.write(f'rm -- "$0"\n')  # Auto-elimina lo script
 
         os.chmod(update_script, 0o755)
 
         # Esegui script e chiudi applicazione
         subprocess.Popen([update_script])
-        logger.info("Aggiornamento avviato, riavvio dell'applicazione...")
+        logger.info("Aggiornamento avviato. L'utente dovrà rilanciare l'applicazione manualmente.")
 
         return True
 

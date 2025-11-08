@@ -39,9 +39,6 @@ echo ====================================
 echo Build completed successfully!
 echo.
 echo Executable: dist\MangaReader.exe
-echo.
-echo Note: First launch may take 2-3 seconds
-echo (antivirus scanning - this is normal)
 echo ====================================
 echo.
 pause

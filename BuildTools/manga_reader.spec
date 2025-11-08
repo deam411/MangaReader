@@ -32,7 +32,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[os.path.join(spec_root, 'runtime_hook_wait.py')],  # Delay for antivirus
+    runtime_hooks=[],  # No runtime hooks needed - manual relaunch solves DLL issues
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
