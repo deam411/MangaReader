@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QLineEdit, QFileDialog, QComboBox,
                               QGroupBox, QMessageBox, QTabWidget, QWidget,
                               QCheckBox, QSpinBox, QProgressDialog, QTextEdit,
-                              QApplication)
+                              QApplication, QListWidget, QInputDialog)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from .settings import Settings
 from .updater import (check_for_updates, download_update, install_update,
@@ -53,6 +53,10 @@ class SettingsDialog(QDialog):
         # Tab Scorciatoie
         shortcuts_tab = self._create_shortcuts_tab()
         tabs.addTab(shortcuts_tab, "Scorciatoie")
+
+        # Tab Segnalibri
+        bookmarks_tab = self._create_bookmarks_tab()
+        tabs.addTab(bookmarks_tab, "Segnalibri")
 
         layout.addWidget(tabs)
 
@@ -419,6 +423,144 @@ class SettingsDialog(QDialog):
                 "Clicca OK per salvare le modifiche."
             )
 
+    def _create_bookmarks_tab(self):
+        """Crea il tab delle impostazioni segnalibri."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        # Info header
+        info_label = QLabel(
+            "Gestisci le categorie dei segnalibri per organizzare meglio la tua libreria.\n"
+            "La categoria 'Default' non può essere rimossa."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
+        layout.addWidget(info_label)
+
+        # Gruppo Categorie
+        categories_group = QGroupBox("Categorie Segnalibri")
+        categories_layout = QVBoxLayout()
+
+        # Lista categorie
+        self.categories_list = QListWidget()
+        self.categories_list.setMaximumHeight(200)
+        self._load_bookmark_categories()
+        categories_layout.addWidget(self.categories_list)
+
+        # Pulsanti gestione categorie
+        buttons_layout = QHBoxLayout()
+
+        add_category_btn = QPushButton("Aggiungi Categoria")
+        add_category_btn.clicked.connect(self._add_bookmark_category)
+        buttons_layout.addWidget(add_category_btn)
+
+        remove_category_btn = QPushButton("Rimuovi Categoria")
+        remove_category_btn.clicked.connect(self._remove_bookmark_category)
+        buttons_layout.addWidget(remove_category_btn)
+
+        categories_layout.addLayout(buttons_layout)
+        categories_group.setLayout(categories_layout)
+        layout.addWidget(categories_group)
+
+        # Gruppo Opzioni
+        options_group = QGroupBox("Opzioni")
+        options_layout = QVBoxLayout()
+
+        # Auto-bookmark checkbox
+        self.auto_bookmark_check = QCheckBox("Salva automaticamente l'ultima pagina letta")
+        self.auto_bookmark_check.setChecked(self.settings.get("bookmarks.auto_bookmark", True))
+        self.auto_bookmark_check.setToolTip(
+            "Se attivato, l'app ricorderà automaticamente l'ultima pagina\n"
+            "che hai letto per ogni manga"
+        )
+        options_layout.addWidget(self.auto_bookmark_check)
+
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
+    def _load_bookmark_categories(self):
+        """Carica le categorie di bookmarks nella lista."""
+        self.categories_list.clear()
+        categories = self.settings.get_bookmark_categories()
+        for category in categories:
+            self.categories_list.addItem(category)
+
+    def _add_bookmark_category(self):
+        """Aggiunge una nuova categoria di bookmarks."""
+        text, ok = QInputDialog.getText(
+            self,
+            "Nuova Categoria",
+            "Nome della nuova categoria:"
+        )
+
+        if ok and text:
+            text = text.strip()
+            if not text:
+                return
+
+            # Verifica che non esista già
+            categories = self.settings.get_bookmark_categories()
+            if text in categories:
+                QMessageBox.warning(
+                    self,
+                    "Categoria Esistente",
+                    f"La categoria '{text}' esiste già."
+                )
+                return
+
+            # Aggiungi categoria
+            if self.settings.add_bookmark_category(text):
+                self._load_bookmark_categories()
+                QMessageBox.information(
+                    self,
+                    "Categoria Aggiunta",
+                    f"Categoria '{text}' aggiunta con successo!"
+                )
+
+    def _remove_bookmark_category(self):
+        """Rimuove la categoria selezionata."""
+        current_item = self.categories_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(
+                self,
+                "Nessuna Selezione",
+                "Seleziona una categoria da rimuovere."
+            )
+            return
+
+        category = current_item.text()
+
+        # Verifica che non sia Default
+        if category == "Default":
+            QMessageBox.warning(
+                self,
+                "Categoria Protetta",
+                "La categoria 'Default' non può essere rimossa."
+            )
+            return
+
+        # Chiedi conferma
+        reply = QMessageBox.question(
+            self,
+            "Conferma Rimozione",
+            f"Rimuovere la categoria '{category}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            if self.settings.remove_bookmark_category(category):
+                self._load_bookmark_categories()
+                QMessageBox.information(
+                    self,
+                    "Categoria Rimossa",
+                    f"Categoria '{category}' rimossa con successo!"
+                )
+
     def browse_library_path(self):
         """Apre un dialog per selezionare la directory della libreria."""
         # Ottieni il percorso attuale, rimuovendo "(default)" se presente
@@ -474,6 +616,10 @@ class SettingsDialog(QDialog):
             for action, input_field in self.shortcut_inputs.items():
                 shortcut_value = input_field.text().strip()
                 self.settings.set_shortcut(action, shortcut_value)
+
+        # Salva bookmarks settings
+        if hasattr(self, 'auto_bookmark_check'):
+            self.settings.set("bookmarks.auto_bookmark", self.auto_bookmark_check.isChecked())
 
         self.settings.save()
         self.settings_changed.emit()
