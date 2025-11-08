@@ -2,36 +2,18 @@
 Utility functions per views.
 
 Contiene funzioni di utilità condivise tra le views.
+
+v0.2.0: Importa sanitize_filename da security.py centralizzato.
 """
 
-import re
 from src.logger import get_logger
+# v0.2.0: Import da security centralizzato
+from src.utils.security import sanitize_filename  # noqa: F401 (re-export)
 
 logger = get_logger(__name__)
 
-
-def sanitize_filename(filename: str, replacement: str = '_') -> str:
-    """
-    Sanitizza un nome file rimuovendo caratteri pericolosi e riservati.
-
-    Supporta Unicode ma rimuove caratteri di controllo e riservati da filesystem.
-
-    Args:
-        filename: Il nome file da sanitizzare
-        replacement: Carattere con cui sostituire i caratteri invalidi
-
-    Returns:
-        Nome file sanitizzato
-    """
-    # Rimuovi caratteri riservati Windows/Linux: < > : " / \ | ? * e caratteri di controllo (0x00-0x1F)
-    invalid_chars = r'[<>:"/\\|?*\x00-\x1f]'
-    sanitized = re.sub(invalid_chars, replacement, filename)
-    # Rimuovi punti e spazi finali (problematici su Windows)
-    sanitized = sanitized.strip('. ')
-    # Se il risultato è vuoto, usa un fallback
-    if not sanitized:
-        sanitized = 'unnamed'
-    return sanitized
+# sanitize_filename è ora importato da src.utils.security
+# Mantenuto qui per backward compatibility tramite re-export
 
 
 def calculate_reading_progress_fast(cursor, user='default'):
