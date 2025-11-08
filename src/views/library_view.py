@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLay
                               QListView, QListWidget, QLineEdit, QComboBox, QFileDialog,
                               QMessageBox, QProgressBar, QMenu)
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QPalette, QColor
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTimer
+from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer
 
 from src.paths import get_manga_dir
 from src.settings import Settings
