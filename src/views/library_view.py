@@ -702,8 +702,15 @@ class LibraryView(QWidget):
 
         # Applica immagine di sfondo se presente e valida
         if bg_image and os.path.exists(bg_image):
-            # Converti path Windows in formato URL se necessario
+            # Converti path in formato URL per Qt CSS
+            # Qt richiede il formato file:/// per path assoluti
             bg_image_url = bg_image.replace('\\', '/')
+            if not bg_image_url.startswith('file:///'):
+                # Aggiungi prefisso file:// per path assoluti
+                if bg_image_url.startswith('/'):
+                    bg_image_url = f'file://{bg_image_url}'
+                else:
+                    bg_image_url = f'file:///{bg_image_url}'
 
             # Imposta object name per targetizzare con stylesheet
             self.setObjectName("library_view")
@@ -721,7 +728,7 @@ class LibraryView(QWidget):
                 }}
             """
             self.setStyleSheet(stylesheet)
-            logger.info(f"Applied library background image: {bg_image}")
+            logger.info(f"Applied library background image: {bg_image_url}")
         else:
             # Reset stylesheet e auto-fill se non c'è immagine
             self.setAutoFillBackground(False)
