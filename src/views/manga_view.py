@@ -8,16 +8,19 @@ Gestisce:
 - Edit/Delete manga
 """
 
+import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
                               QListWidget, QListWidgetItem, QScrollArea, QFileDialog,
-                              QMessageBox)
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QSize
+                              QMessageBox, QMenu, QDialog)
+from PyQt5.QtGui import QPixmap, QColor
+from PyQt5.QtCore import Qt, QSize, QTimer
 
 from src.paths import get_manga_dir
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
 from src.creator.manga_creator_app import MangaCreatorApp
+from src.views.dialogs import BookmarkDialog
+from src.views.utils import sanitize_filename
 
 logger = get_logger(__name__)
 

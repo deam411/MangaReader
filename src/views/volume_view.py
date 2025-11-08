@@ -7,14 +7,17 @@ Gestisce:
 - Navigazione verso ReaderView
 """
 
+import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
-                              QListWidget, QListWidgetItem, QScrollArea)
+                              QListWidget, QListWidgetItem, QScrollArea, QFileDialog,
+                              QMessageBox)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QSize
 
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
 from src.views.widgets import DeselectableListWidget
+from src.views.utils import sanitize_filename
 
 logger = get_logger(__name__)
 

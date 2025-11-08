@@ -9,9 +9,10 @@ Gestisce:
 - Zoom e pan
 """
 
+import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
-                              QScrollArea, QMessageBox, QProgressBar)
-from PyQt5.QtGui import QPixmap
+                              QScrollArea, QMessageBox, QProgressBar, QDialog)
+from PyQt5.QtGui import QPixmap, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QRect
 
 from src.database import MangaDatabaseManager
@@ -60,7 +61,6 @@ class ReaderView(QWidget):
             }
         """)
         # Forza il colore resettando la palette
-        from PyQt5.QtGui import QPalette
         palette = self.progress_bar.palette()
         palette.setColor(QPalette.Highlight, QColor(74, 158, 255))
         self.progress_bar.setPalette(palette)
