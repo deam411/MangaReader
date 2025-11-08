@@ -78,7 +78,7 @@ class AppearanceTab(QWidget):
         background_layout.addLayout(image_layout)
 
         # Info formati
-        bg_info_label = QLabel("Formati supportati: PNG, JPG, JPEG, BMP")
+        bg_info_label = QLabel("Formati supportati: PNG, JPG, JPEG, BMP, WebP")
         bg_info_label.setWordWrap(True)
         bg_info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
         background_layout.addWidget(bg_info_label)
@@ -99,7 +99,7 @@ class AppearanceTab(QWidget):
             self,
             "Seleziona Immagine Sfondo Home",
             os.path.expanduser("~"),
-            "Immagini (*.png *.jpg *.jpeg *.bmp)"
+            "Immagini (*.png *.jpg *.jpeg *.bmp *.webp)"
         )
 
         if file_path:
