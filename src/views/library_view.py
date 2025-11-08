@@ -728,10 +728,13 @@ class LibraryView(QWidget):
                 }}
             """
             self.setStyleSheet(stylesheet)
+            # Forza l'aggiornamento visuale del widget
+            self.update()
             logger.info(f"Applied library background image: {bg_image_url}")
         else:
             # Reset stylesheet e auto-fill se non c'è immagine
             self.setAutoFillBackground(False)
             self.setStyleSheet("")
+            self.update()
             logger.debug("No library background image set")
 
