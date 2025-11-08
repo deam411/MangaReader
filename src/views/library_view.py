@@ -708,17 +708,23 @@ class LibraryView(QWidget):
             # Imposta object name per targetizzare con stylesheet
             self.setObjectName("library_view")
 
+            # Disabilita auto-fill per permettere all'immagine di essere visibile
+            self.setAutoFillBackground(True)
+
+            # Applica stylesheet con !important per sovrascrivere il tema globale
             stylesheet = f"""
                 QWidget#library_view {{
                     background-image: url({bg_image_url});
                     background-repeat: no-repeat;
                     background-position: center;
+                    background-color: transparent;
                 }}
             """
             self.setStyleSheet(stylesheet)
             logger.info(f"Applied library background image: {bg_image}")
         else:
-            # Reset stylesheet se non c'è immagine
+            # Reset stylesheet e auto-fill se non c'è immagine
+            self.setAutoFillBackground(False)
             self.setStyleSheet("")
             logger.debug("No library background image set")
 
