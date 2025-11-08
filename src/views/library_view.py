@@ -686,15 +686,9 @@ class LibraryView(QWidget):
 
     def on_settings_changed(self):
         """Callback quando le impostazioni cambiano."""
-        # Applica il tema usando la funzione centralizzata
-        self.apply_theme()
-        # Riapplica lo sfondo personalizzato
+        # Il tema viene già applicato dal SettingsDialog prima di emettere questo segnale
+        # Riapplica solo lo sfondo personalizzato della libreria
         self.apply_background_settings()
-
-    def apply_theme(self):
-        """Applica il tema corrente all'applicazione usando la funzione di main.py"""
-        import main
-        main.apply_theme_to_app(QApplication.instance())
 
     def apply_background_settings(self):
         """
