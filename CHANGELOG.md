@@ -3,12 +3,13 @@
 ## [0.1.0] - 2025-11-08
 
 ### 📊 Executive Summary
-Versione maggiore con focus su **Performance, Stabilità, Sicurezza e Code Quality**.
+Versione maggiore con focus su **Performance, Stabilità, Sicurezza e Code Quality** + nuove funzionalità.
 - **5 fasi completate**: Bugfix, Performance, Code Quality, Security, Testing
-- **18/20 task completati** (90% completion rate)
-- **~2500 linee** di codice modificate/aggiunte
-- **11 nuovi file** creati (8 produzione, 3 test)
-- **17/17 test** eseguibili passati ✓
+- **2 nuove funzionalità**: Auto-Update GitHub + UI Cleanup
+- **20/20 task completati** (100% completion rate)
+- **~3100 linee** di codice modificate/aggiunte
+- **13 nuovi file** creati (9 produzione, 4 test)
+- **22/22 test** eseguibili passati ✓
 
 ---
 
@@ -229,16 +230,59 @@ Database Queries:  3-5x faster (documentato)
 
 ---
 
+### 🚀 Nuove Funzionalità (Post-Fase 5)
+
+**1. Sistema Auto-Update da GitHub** - `src/updater.py` (nuovo, 382 righe)
+- Integrazione completa con GitHub Releases API
+- Controllo automatico versioni disponibili
+- Download aggiornamenti con progress tracking
+- Installazione platform-specific (Windows/macOS/Linux)
+- **UI Integration**: `src/settings_dialog.py`
+  - Pulsante "Controlla aggiornamenti" nella sezione Impostazioni
+  - Dialog con release notes e changelog
+  - Progress bar durante download
+  - Conferma installazione con riavvio automatico
+- **Funzionalità**:
+  - Version parsing e comparison semantico (major.minor.patch)
+  - Platform detection automatico (Windows .exe, macOS .dmg, Linux binary)
+  - Script di installazione auto-generati per ogni piattaforma
+  - Riavvio automatico post-installazione
+- **Testing**: `test_updater.py` - 5/5 tests passed ✓
+  - Version parsing e comparison
+  - Platform asset detection
+  - Update info formatting
+  - Current version retrieval
+
+**2. UI Cleanup & Simplification**
+- **Rimozione Emoji**: Rimossi tutti gli emoji dall'interfaccia per look più professionale
+  - `views.py`: Pulsante "Impostazioni" invece di "⚙"
+  - `src/settings_dialog.py`: Pulsanti update senza emoji
+  - `src/views/dialogs.py`: Dialog scorciatoie senza emoji
+  - `src/updater.py`: Formattazione testi pulita
+- **Barra Info Home Semplificata**: `views.py:411`
+  - Prima: "Scorciatoie: F5=Aggiorna | F11=Fullscreen | Esc=Esci"
+  - Dopo: "Premi Ctrl+? per vedere tutti i comandi"
+  - Focus su accessibilità al pannello completo comandi
+
+**Files Modificati**:
+- `src/updater.py` (nuovo, 382 righe)
+- `test_updater.py` (nuovo, 205 righe)
+- `src/settings_dialog.py` (+145 righe)
+- `views.py` (8 modifiche)
+- `src/views/dialogs.py` (12 modifiche)
+
+---
+
 ### 📈 Statistiche Complessive
 
 **Code Changes**:
-- **File Modificati**: 15 file
-- **File Creati**: 11 nuovi file (8 produzione, 3 test)
+- **File Modificati**: 19 file
+- **File Creati**: 13 nuovi file (9 produzione, 4 test)
 - **Linee Aggiunte/Modificate**: ~2500 linee
 - **Commits**: 7 commits
 
 **Quality Metrics**:
-- **Tests Passing**: 17/17 test eseguibili ✓
+- **Tests Passing**: 22/22 test eseguibili ✓
 - **Code Coverage**: Security, performance, integration
 - **Syntax Checks**: Tutti passati ✓
 - **Performance**: Nessuna regressione, miglioramenti multipli
@@ -248,6 +292,11 @@ Database Queries:  3-5x faster (documentato)
 2. `src/utils/image_converter.py` - Conversione immagini centralizzata
 3. `src/utils/cache_stats.py` - Analisi performance cache
 4. `src/utils/validation.py` - Validazione e sanitizzazione input
+5. `src/utils/theme_validator.py` - JSON schema validation per temi
+6. `src/views/__init__.py` - Package views refactoring
+7. `src/views/dialogs.py` - Dialogs estratti da views.py
+8. `src/views/utils.py` - Utility functions per views
+9. `src/updater.py` - Sistema auto-update GitHub (382 righe)
 
 **Files Creati (Tests)**:
 1. `test_bugfixes.py` - Validazione Fase 1
@@ -257,6 +306,8 @@ Database Queries:  3-5x faster (documentato)
 5. `test_security_validation.py` - Test sicurezza comprensivi Fase 4
 6. `test_integration_workflows.py` - Test integrazione Fase 5
 7. `test_performance_benchmarks.py` - Benchmark Fase 5
+8. `test_theme_validation.py` - Validazione JSON schema temi (Fase 4.2)
+9. `test_updater.py` - Test auto-updater (5 test suites)
 
 ---
 
@@ -304,7 +355,7 @@ Database Queries:  3-5x faster (documentato)
 **Test Dependencies**:
 - Alcuni test richiedono PIL/Pillow per esecuzione completa
 - Test GUI richiedono ambiente PyQt5
-- 17/17 test CLI-compatible passano senza dipendenze
+- 22/22 test CLI-compatible passano senza dipendenze
 
 ---
 

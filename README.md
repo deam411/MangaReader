@@ -5,20 +5,22 @@
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Build](https://github.com/deam411/MangaReader/workflows/Build%20Multi-Platform/badge.svg)
-![Tests](https://img.shields.io/badge/tests-17%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-22%20passing-brightgreen.svg)
 ![Security](https://img.shields.io/badge/security-hardened-green.svg)
 
 Un lettore e gestore di manga moderno e performante con supporto multi-piattaforma.
 
-## 🎉 Novità v0.1.0 - Performance & Stability Release
+## 🎉 Novità v0.1.0 - Performance, Stability & New Features
 
-Versione maggiore con focus su **Performance**, **Sicurezza**, **Stabilità** e **Code Quality**:
+Versione maggiore con focus su **Performance**, **Sicurezza**, **Stabilità**, **Code Quality** e **nuove funzionalità**:
 
 - 🚀 **Database 3-5x più veloce** - Caricamento libreria da ~5s a ~1-2s per 100 manga
+- 🔄 **Auto-Update da GitHub** - Sistema completo per controllare e installare aggiornamenti automaticamente
+- 🎨 **UI Cleanup** - Interfaccia più professionale senza emoji, barra comandi semplificata
 - 🔒 **Security Hardening** - 6 vulnerabilità mitigate (path traversal, XSS, SQL injection, etc.)
 - ⚡ **Image Threading** - Conversione immagini non-blocking, UI sempre responsiva
 - 🧹 **Code Quality** - Type hints, 13+ custom exceptions, validazione input completa
-- ✅ **Testing** - 17 test passati, coverage ~80% workflows core
+- ✅ **Testing** - 22 test passati, coverage ~80% workflows core
 - 📊 **5 Bug Critici Risolti** - Resource leaks, race conditions, cache instability
 
 Vedi [CHANGELOG.md](CHANGELOG.md) e [DEVELOPMENT_SUMMARY.md](DEVELOPMENT_SUMMARY.md) per dettagli completi.
@@ -95,6 +97,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) e [DEVELOPMENT_SUMMARY.md](DEVELOPMENT_SUMMARY
 - `Esc` - Esci
 
 ### 🛠️ Gestione
+- **Auto-Update** (v0.1.0) - Sistema integrato per controllare e installare aggiornamenti da GitHub
 - **Import/Export** file .manga
 - **Editor integrato** per creare e modificare manga
 - **Segnalibri personalizzati** - Gestione completa con rinomina/elimina
