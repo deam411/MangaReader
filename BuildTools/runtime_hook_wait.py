@@ -16,10 +16,10 @@ import os
 
 # Solo su Windows e solo se stiamo eseguendo da _MEIPASS (onefile mode)
 if sys.platform == 'win32' and hasattr(sys, '_MEIPASS'):
-    # Delay di 2.5 secondi per dare tempo all'antivirus
-    # Abbastanza breve da non infastidire l'utente,
-    # abbastanza lungo per completare scansione DLL principali
-    time.sleep(2.5)
+    # Delay di 5 secondi per dare tempo all'antivirus
+    # Alcuni antivirus (es. Windows Defender con protezione real-time)
+    # impiegano più tempo per scansionare ~30MB di DLL
+    time.sleep(5.0)
 
     # Debug: verifica che le DLL siano accessibili
     dll_path = os.path.join(sys._MEIPASS, 'python311.dll')
