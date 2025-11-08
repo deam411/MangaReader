@@ -370,6 +370,12 @@ class SettingsDialog(QDialog):
 
         except Exception as e:
             progress.hide()
+            # Se è 404, significa semplicemente che non ci sono release pubblicate
+            # Non mostrare errore all'utente
+            if "404" in str(e):
+                logger.info("Nessuna release pubblicata su GitHub")
+                return
+
             logger.error(f"Errore durante controllo aggiornamenti: {e}")
             QMessageBox.warning(
                 self,

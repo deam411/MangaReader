@@ -380,7 +380,7 @@ class LibraryView(QWidget):
         self.add_manga_button.clicked.connect(self.launch_manga_creator)
         controls_layout.addWidget(self.add_manga_button)
 
-        self.settings_button = QPushButton('Impostazioni', self)
+        self.settings_button = QPushButton('⚙', self)
         self.settings_button.setFixedSize(40, 40)
         self.settings_button.setStyleSheet("font-size: 20px;")
         self.settings_button.setToolTip('Impostazioni (Temi, Libreria, Performance)')
