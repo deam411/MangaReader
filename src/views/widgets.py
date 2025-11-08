@@ -113,6 +113,7 @@ class MangaItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.is_grid_view = True
+        self.has_custom_background = False  # Flag per sapere se c'è uno sfondo personalizzato
         # Fix: Usa LRUCache con limite per prevenire memory leak
         self.cover_cache = LRUCache(capacity=COVER_CACHE_MAX)  # Cache in-memory per le cover ridimensionate
         self.cache_manager = CacheManager()  # Cache persistent su disco
@@ -132,10 +133,17 @@ class MangaItemDelegate(QStyledItemDelegate):
         file_path = index.data(Qt.UserRole)  # Percorso file manga
 
         # Draw background
+        # Se c'è uno sfondo personalizzato, usa trasparenza per item non selezionati
         if option.state & QStyle.State_Selected:
-            painter.fillRect(option.rect, option.palette.highlight())
+            # Item selezionato: usa colore semi-trasparente per evidenziare
+            if self.has_custom_background:
+                painter.fillRect(option.rect, QColor(74, 158, 255, 80))
+            else:
+                painter.fillRect(option.rect, option.palette.highlight())
         else:
-            painter.fillRect(option.rect, option.palette.base())
+            # Item normale: trasparente se c'è sfondo custom, altrimenti usa tema
+            if not self.has_custom_background:
+                painter.fillRect(option.rect, option.palette.base())
 
         # Draw cover
         if cover_data:
@@ -164,7 +172,11 @@ class MangaItemDelegate(QStyledItemDelegate):
 
                     # Crea una pixmap della dimensione fissa desiderata
                     target_pixmap = QPixmap(fixed_size)
-                    target_pixmap.fill(option.palette.alternateBase().color())
+                    # Usa trasparenza se c'è sfondo custom, altrimenti colore del tema
+                    if self.has_custom_background:
+                        target_pixmap.fill(Qt.transparent)
+                    else:
+                        target_pixmap.fill(option.palette.alternateBase().color())
 
                     # Scala la pixmap originale per adattarla alla dimensione fissa
                     scaled_pixmap = pixmap.scaled(fixed_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
