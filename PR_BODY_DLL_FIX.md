@@ -39,64 +39,47 @@ hiddenimports=[
 ]
 ```
 
-**3. Passaggio da Onefile a Onedir Mode** (fix definitivo)
+**3. Mantenuto Onefile Mode con Fix**
 
-**Prima** (onefile):
+**Configurazione**:
 ```python
 exe = EXE(
     pyz, a.scripts, a.binaries, a.zipfiles, a.datas,
-    # Singolo exe che estrae in Temp → PROBLEMA
-)
-```
-
-**Dopo** (onedir):
-```python
-exe = EXE(
-    pyz, a.scripts, [],
-    exclude_binaries=True,  # Onedir mode
-)
-coll = COLLECT(
-    exe, a.binaries, a.zipfiles, a.datas,
-    name='MangaReader',
+    [],
+    upx=False,  # CRITICAL: UPX disabled to prevent DLL corruption
+    # Singolo exe - preferenza utente
 )
 ```
 
 ---
 
-### 🎯 Vantaggi Onedir Mode
+### 🎯 Fix Applicati
 
-✅ **NO estrazione in Temp** → risolve problema `python311.dll` completamente
-✅ **Nessun conflitto antivirus** → DLL sempre accessibili
-✅ **Avvio istantaneo** → no estrazione runtime
-✅ **Auto-update affidabile** → sostituzione file diretta
-✅ **Debug più facile** → DLL visibili in cartella
+✅ **UPX Disabilitato** → previene corruzione DLL (fix principale)
+✅ **Hidden imports completi** → tutte le dipendenze PyQt5/PIL
+✅ **Onefile mantenuto** → semplicità distribuzione (singolo exe)
 
-**Trade-off accettabile**:
-⚠️ Output: cartella `MangaReader/` invece di singolo `.exe`
+**Trade-off**:
+⚠️ Exe più grande (~100-120 MB invece di ~70-80 MB)
+✅ Ma nessuna cartella extra - singolo file come prima
 
 ---
 
 ### 📦 Build Output
 
-**Prima**:
+**Prima** (con UPX):
 ```
 dist/
-└── MangaReader.exe  (singolo file ~80MB)
+└── MangaReader.exe  (~70-80 MB, con rischio corruzione DLL)
 ```
 
-**Dopo**:
+**Dopo** (senza UPX):
 ```
 dist/
-└── MangaReader/
-    ├── MangaReader.exe
-    ├── python311.dll
-    ├── Qt5Core.dll
-    ├── Qt5Gui.dll
-    ├── Qt5Widgets.dll
-    ├── ... (altre DLL)
-    ├── src/
-    └── assets/
+└── MangaReader.exe  (~100-120 MB, stabile e affidabile)
 ```
+
+**Singolo file exe** - Nessuna cartella extra, distribuzione semplice.
 
 ---
 
@@ -109,71 +92,73 @@ pyinstaller BuildTools/manga_reader.spec --clean
 
 **Run**:
 ```bash
-dist/MangaReader/MangaReader.exe
+dist/MangaReader.exe
 ```
 
 **Verifica**:
-- [x] App si avvia senza errore DLL
-- [x] Tutte le funzionalità funzionano
-- [x] Auto-update funziona correttamente
+- [ ] App si avvia senza errore DLL
+- [ ] Tutte le funzionalità funzionano
+- [ ] Auto-update funziona correttamente
 
 ---
 
 ### 📝 Files Changed
 
 - `BuildTools/manga_reader.spec`:
-  - Disabilitato UPX (upx=False)
+  - Disabilitato UPX (upx=False) - **fix critico**
   - Aggiunti hidden imports PyQt5.QtPrintSupport, QtSvg
   - Aggiunti hidden imports PIL.Image, ImageQt
-  - Convertito da onefile a onedir mode
-  - Aggiunto blocco COLLECT per onedir
+  - Mantenuto onefile mode (singolo exe)
 
 **Commits**:
 1. `1c532c5` - Fix: Risolto errore "Failed to load python DLL" in PyInstaller (UPX + hidden imports)
-2. `f3c56a5` - Fix: Passaggio da onefile a onedir mode per risolvere python311.dll (definitivo)
+2. `7342ed2` - Revert: Torna a onefile mode mantenendo fix UPX
 
 ---
 
 ### 🚀 Deployment
 
 **Distribuzione**:
-Zippare l'intera cartella `dist\MangaReader\`:
+Singolo file exe, come prima:
 
 ```
-MangaReader-v0.1.5.1-Windows.zip
-└── MangaReader/
-    ├── MangaReader.exe
-    └── ... (tutte le DLL)
+MangaReader-v0.1.5.1-Windows.exe
 ```
 
 **Installazione utente**:
-1. Estrai zip
-2. Lancia `MangaReader\MangaReader.exe`
+1. Download exe
+2. Lancia direttamente
 
-**Aggiornamento workflow GitHub Actions**:
-Dopo il merge, aggiornare `.github/workflows/build.yml` per zippare la cartella invece del singolo exe.
+**Workflow GitHub Actions**:
+Nessuna modifica necessaria - workflow esistente funziona come prima.
 
 ---
 
 ### 📚 Note Tecniche
 
-**Perché onedir è meglio di onefile per PyQt5**:
-- PyQt5 ha molte DLL interdipendenti
-- Onefile extraction può fallire con antivirus attivi
-- Onedir garantisce path relativi corretti tra DLL
-- Standard per app Qt professionali (VLC, OBS, etc.)
+**Perché disabilitare UPX**:
+- UPX comprime gli eseguibili per ridurre dimensione
+- Su Windows, può corrompere DLL PyQt5 e Python durante compressione
+- L'errore `python311.dll` è causato principalmente da UPX
+- Disabilitarlo aumenta dimensione (~40%) ma garantisce stabilità
+
+**Onefile vs Onedir**:
+- **Scelta**: Onefile mantenuto per semplicità distribuzione
+- **Trade-off**: Exe più grande ma singolo file
+- **Rischio residuo**: Estrazione in Temp potrebbe ancora dare problemi con alcuni antivirus
+- **Se problemi persistono**: Considerare passaggio futuro a onedir
 
 **Compatibilità**:
 - Windows 10/11: ✅
-- Auto-update esistente: ✅ (funziona meglio)
-- Portable: ✅ (cartella self-contained)
+- Auto-update esistente: ✅
+- Portable: ✅ (singolo exe)
 
 ---
 
 ## Summary
 
-Questo hotfix risolve **definitivamente** l'errore `python311.dll` passando da onefile a onedir mode.
+Questo hotfix risolve l'errore `python311.dll` **disabilitando UPX compression** e aggiungendo hidden imports completi.
 
-La cartella risultante è più affidabile, più veloce, e compatibile con antivirus.
+Mantenuta modalità onefile (singolo exe) per semplicità distribuzione.
 
-**Ready for merge!** 🎉
+**Ready for testing!** 🚀
