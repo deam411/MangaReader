@@ -244,6 +244,62 @@ class ShortcutsDialog(QDialog):
         layout.addWidget(close_button, alignment=Qt.AlignCenter)
 
 
+def calculate_reading_progress_fast(cursor, user='default'):
+    """
+    Calcola il progresso di lettura con una query ottimizzata per libreria.
+    Versione lightweight senza creare MangaDatabaseManager.
+
+    Args:
+        cursor: Cursore SQLite già connesso
+        user: Nome utente
+
+    Returns:
+        Dict con total_pages, read_pages, percentage o None
+    """
+    try:
+        # Query singola ottimizzata per calcolare progresso
+        cursor.execute('''
+            SELECT
+                (SELECT COUNT(*) FROM pages) as total_pages,
+                COALESCE(
+                    (SELECT COUNT(*)
+                     FROM pages p
+                     JOIN chapters ch ON p.chapter_id = ch.id
+                     WHERE ch."order" < (
+                         SELECT c2."order" FROM chapters c2
+                         WHERE c2.id = (
+                             SELECT chapter_id FROM history
+                             WHERE user = ?
+                             ORDER BY timestamp DESC LIMIT 1
+                         )
+                     ) OR (
+                         ch.id = (SELECT chapter_id FROM history WHERE user = ? ORDER BY timestamp DESC LIMIT 1)
+                         AND p.page_number <= (SELECT page_number FROM history WHERE user = ? ORDER BY timestamp DESC LIMIT 1)
+                     )
+                    ), 0
+                ) as read_pages
+        ''', (user, user, user))
+
+        row = cursor.fetchone()
+        if row:
+            total_pages = row[0]
+            read_pages = row[1]
+
+            if total_pages == 0:
+                return None
+
+            percentage = (read_pages / total_pages) * 100 if total_pages > 0 else 0.0
+
+            return {
+                'total_pages': total_pages,
+                'read_pages': read_pages,
+                'percentage': percentage
+            }
+    except Exception as e:
+        logger.debug(f"Error calculating fast progress: {e}")
+        return None
+
+
 class LibraryLoaderThread(QThread):
     """Thread per caricare i manga della libreria in background."""
     manga_loaded = pyqtSignal(dict)  # Emette un manga alla volta
@@ -271,9 +327,9 @@ class LibraryLoaderThread(QThread):
                     metadata = cursor.fetchone()
 
                     if metadata:
-                        # Calcola progresso di lettura usando database manager
-                        db_manager = MangaDatabaseManager(full_path)
-                        progress = db_manager.get_reading_progress()
+                        # Calcola progresso di lettura con query ottimizzata (no MangaDatabaseManager)
+                        # Questo evita di creare schema/indici/migrations per ogni manga
+                        progress = calculate_reading_progress_fast(cursor)
 
                         # Fix: sqlite3.Row supporta accesso con [] ma non ha .get()
                         # Usa try-except per gestire campi mancanti
