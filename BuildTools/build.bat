@@ -37,7 +37,11 @@ if errorlevel 1 (
 echo.
 echo ====================================
 echo Build completed successfully!
-echo Executable location: dist\MangaReader.exe
+echo.
+echo Output folder: dist\MangaReader\
+echo Executable: dist\MangaReader\MangaReader.exe
+echo.
+echo To distribute: Zip the entire 'dist\MangaReader' folder
 echo ====================================
 echo.
 pause
