@@ -800,7 +800,16 @@ class SettingsDialog(QDialog):
         # Release notes in text edit scrollabile
         notes_text = QTextEdit()
         notes_text.setReadOnly(True)
-        notes_text.setPlainText(update_info.get('release_notes', 'Nessuna nota disponibile'))
+
+        # Renderizza markdown come HTML per mostrare grassetto, titoli, ecc.
+        release_notes = update_info.get('release_notes', 'Nessuna nota disponibile')
+        try:
+            # Qt 5.14+ supporta setMarkdown nativamente
+            notes_text.setMarkdown(release_notes)
+        except AttributeError:
+            # Fallback per Qt < 5.14: usa setPlainText
+            notes_text.setPlainText(release_notes)
+
         layout.addWidget(notes_text)
 
         # Pulsanti
