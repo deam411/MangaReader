@@ -48,13 +48,15 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,  # Changed to onedir mode for reliability
     name='MangaReader',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,  # Disabled: UPX can corrupt Qt DLLs on Windows
+    upx=False,  # CRITICAL: UPX disabled to prevent DLL corruption
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,  # No console window
@@ -64,15 +66,4 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=os.path.join(project_root, 'assets', 'icon.ico'),  # App icon
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name='MangaReader',
 )
