@@ -283,18 +283,54 @@ def _install_windows(downloaded_file: str) -> bool:
             logger.warning("Auto-update non supportato in modalità script")
             return False
 
-        # Crea script batch per sostituire exe dopo chiusura
+        # Ottieni nome processo (senza path)
+        process_name = os.path.basename(current_exe)
+
+        # Crea script batch migliorato per sostituire exe dopo chiusura
         batch_script = os.path.join(os.path.dirname(downloaded_file), 'update.bat')
 
         with open(batch_script, 'w') as f:
             f.write(f'@echo off\n')
-            f.write(f'timeout /t 2 /nobreak\n')  # Attendi 2 secondi
+            f.write(f'echo Attendo chiusura applicazione...\n')
+
+            # Aspetta che il processo sia completamente terminato (max 30 secondi)
+            f.write(f':WAIT_LOOP\n')
+            f.write(f'timeout /t 1 /nobreak >nul\n')
+            f.write(f'tasklist /FI "IMAGENAME eq {process_name}" 2>NUL | find /I /N "{process_name}">NUL\n')
+            f.write(f'if "%ERRORLEVEL%"=="0" goto WAIT_LOOP\n')
+
+            # Attendi 1 secondo extra per sicurezza
+            f.write(f'timeout /t 1 /nobreak >nul\n')
+
+            # Backup del vecchio exe
+            f.write(f'echo Backup vecchia versione...\n')
+            f.write(f'if exist "{current_exe}" (\n')
+            f.write(f'    copy /Y "{current_exe}" "{current_exe}.backup" >nul\n')
+            f.write(f')\n')
+
+            # Sostituisci exe
+            f.write(f'echo Installazione nuova versione...\n')
             f.write(f'move /Y "{downloaded_file}" "{current_exe}"\n')
+            f.write(f'if errorlevel 1 (\n')
+            f.write(f'    echo ERRORE: Impossibile sostituire exe!\n')
+            f.write(f'    if exist "{current_exe}.backup" (\n')
+            f.write(f'        echo Ripristino backup...\n')
+            f.write(f'        copy /Y "{current_exe}.backup" "{current_exe}" >nul\n')
+            f.write(f'    )\n')
+            f.write(f'    pause\n')
+            f.write(f'    exit /b 1\n')
+            f.write(f')\n')
+
+            # Riavvia applicazione
+            f.write(f'echo Riavvio applicazione...\n')
             f.write(f'start "" "{current_exe}"\n')
+
+            # Pulizia
+            f.write(f'if exist "{current_exe}.backup" del "{current_exe}.backup"\n')
             f.write(f'del "%~f0"\n')  # Auto-elimina lo script
 
         # Esegui batch e chiudi applicazione
-        subprocess.Popen([batch_script], shell=True)
+        subprocess.Popen([batch_script], shell=True, creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
         logger.info("Aggiornamento avviato, riavvio dell'applicazione...")
 
         return True

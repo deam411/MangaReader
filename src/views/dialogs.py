@@ -161,7 +161,7 @@ class ShortcutsDialog(QDialog):
             ],
             "Impostazioni": [
                 ("Pulsante Impostazioni", "Apri pannello impostazioni"),
-                ("Ctrl+?", "Mostra questo pannello scorciatoie"),
+                ("F1", "Mostra questo pannello scorciatoie"),
             ],
         }
 
