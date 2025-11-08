@@ -4,6 +4,7 @@ Le impostazioni vengono salvate in formato JSON nella directory dei dati dell'ap
 """
 import json
 import os
+from typing import Dict, Any, Optional
 from .paths import get_data_dir
 from .constants import (
     APP_VERSION,
@@ -37,7 +38,7 @@ class Settings:
         self.settings_file = os.path.join(get_data_dir(), "settings.json")
         self.settings = self._load_settings()
 
-    def _get_default_settings(self):
+    def _get_default_settings(self) -> Dict[str, Any]:
         """Restituisce le impostazioni di default."""
         return {
             "version": APP_VERSION,
@@ -70,7 +71,7 @@ class Settings:
             }
         }
 
-    def _load_settings(self):
+    def _load_settings(self) -> Dict[str, Any]:
         """
         Carica le impostazioni dal file JSON.
 
@@ -101,7 +102,7 @@ class Settings:
         else:
             return self._get_default_settings()
 
-    def save(self):
+    def save(self) -> bool:
         """
         Salva le impostazioni nel file JSON.
 
@@ -120,7 +121,7 @@ class Settings:
             logger.error(f"Error saving settings: {e}")
             raise SettingsSaveError(f"Impossibile salvare impostazioni in {self.settings_file}") from e
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         """Ottiene un valore dalle impostazioni."""
         keys = key.split('.')
         value = self.settings
@@ -131,7 +132,7 @@ class Settings:
                 return default
         return value if value is not None else default
 
-    def set(self, key, value):
+    def set(self, key: str, value: Any) -> None:
         """Imposta un valore nelle impostazioni."""
         keys = key.split('.')
         settings = self.settings
@@ -142,7 +143,7 @@ class Settings:
         settings[keys[-1]] = value
         self.save()
 
-    def get_library_path(self):
+    def get_library_path(self) -> Optional[str]:
         """
         Restituisce il percorso della libreria custom dall'utente.
         Restituisce None se non è stato impostato un percorso custom.
@@ -153,25 +154,25 @@ class Settings:
             return None
         return path
 
-    def set_library_path(self, path):
+    def set_library_path(self, path: str) -> bool:
         """Imposta il percorso della libreria."""
         if os.path.exists(path) or path == "":
             self.set("library_path", path)
             return True
         return False
 
-    def get_theme(self):
+    def get_theme(self) -> str:
         """Restituisce il tema corrente."""
         return self.get("theme", "system")
 
-    def set_theme(self, theme):
+    def set_theme(self, theme: str) -> bool:
         """Imposta il tema."""
         if theme in ["system", "dark", "light"]:
             self.set("theme", theme)
             return True
         return False
 
-    def reset_to_default(self):
+    def reset_to_default(self) -> None:
         """Resetta tutte le impostazioni ai valori di default."""
         self.settings = self._get_default_settings()
         self.save()

@@ -6,6 +6,7 @@ import os
 import hashlib
 import time
 from pathlib import Path
+from typing import Optional, Dict, Any
 from .paths import get_data_dir
 from .logger import get_logger
 from .exceptions import CacheError
@@ -16,7 +17,7 @@ logger = get_logger(__name__)
 class CacheManager:
     """Gestisce la cache persistent delle cover manga."""
 
-    def __init__(self, cache_dir=None):
+    def __init__(self, cache_dir: Optional[str] = None) -> None:
         """
         Inizializza il gestore cache.
 
@@ -37,7 +38,7 @@ class CacheManager:
         self.max_cache_age_days = 30  # Rimuovi file più vecchi di 30 giorni
         self.max_cache_size_mb = 100  # Limite dimensione cache (100 MB)
 
-    def get_cache_key(self, manga_file_path, width):
+    def get_cache_key(self, manga_file_path: str, width: int) -> str:
         """
         Genera una chiave cache univoca per una cover.
 
@@ -61,7 +62,7 @@ class CacheManager:
             logger.error(f"Errore generazione cache key: {e}")
             raise CacheError(f"Impossibile generare cache key per {manga_file_path}: {e}")
 
-    def get_cache_path(self, cache_key):
+    def get_cache_path(self, cache_key: str) -> str:
         """
         Ottiene il percorso del file cache per una chiave.
 
@@ -73,7 +74,7 @@ class CacheManager:
         """
         return os.path.join(self.cache_dir, f"{cache_key}.png")
 
-    def has_cached(self, manga_file_path, width):
+    def has_cached(self, manga_file_path: str, width: int) -> bool:
         """
         Verifica se esiste una cover in cache.
 
@@ -92,7 +93,7 @@ class CacheManager:
             # Se fallisce generazione cache key, consideriamo non in cache
             return False
 
-    def get_cached(self, manga_file_path, width):
+    def get_cached(self, manga_file_path: str, width: int) -> Optional[str]:
         """
         Recupera una cover dalla cache.
 
@@ -120,14 +121,14 @@ class CacheManager:
             logger.debug(f"Cache miss (error): {os.path.basename(manga_file_path)}")
             return None
 
-    def save_to_cache(self, manga_file_path, width, pixmap):
+    def save_to_cache(self, manga_file_path: str, width: int, pixmap: Any) -> bool:
         """
         Salva una cover nella cache.
 
         Args:
             manga_file_path: Percorso del file .manga
             width: Larghezza della cover
-            pixmap: QPixmap da salvare
+            pixmap: QPixmap da salvare (Any per evitare dipendenza PyQt5)
 
         Returns:
             True se salvato con successo, False altrimenti
@@ -152,7 +153,7 @@ class CacheManager:
             logger.error(f"Errore salvataggio cache: {e}")
             raise CacheError(f"Errore salvataggio cache per {manga_file_path}: {e}")
 
-    def cleanup_old_cache(self):
+    def cleanup_old_cache(self) -> int:
         """
         Rimuove file cache vecchi o in eccesso.
 
@@ -210,7 +211,7 @@ class CacheManager:
             logger.error(f"Errore durante cache cleanup: {e}")
             return 0
 
-    def clear_all_cache(self):
+    def clear_all_cache(self) -> int:
         """
         Rimuove TUTTA la cache.
 
@@ -232,12 +233,12 @@ class CacheManager:
             logger.error(f"Errore durante clear cache: {e}")
             return 0
 
-    def get_cache_info(self):
+    def get_cache_info(self) -> Dict[str, Any]:
         """
         Ottiene informazioni sulla cache.
 
         Returns:
-            Dict con info: file_count, total_size_mb
+            Dict con info: file_count, total_size_mb, cache_dir
         """
         try:
             file_count = 0
