@@ -12,8 +12,8 @@ import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
                               QListView, QListWidget, QListWidgetItem, QLineEdit, QComboBox,
                               QFileDialog, QMessageBox, QProgressBar, QMenu, QApplication, QDialog)
-from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QPalette, QColor
-from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer
+from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QPalette, QColor, QPainter
+from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer, QRect
 
 from src.paths import get_manga_dir
 from src.settings import Settings
@@ -39,6 +39,12 @@ class LibraryView(QWidget):
         self.delegate = MangaItemDelegate(self)
         self.first_load = True  # Per mostrare il messaggio solo al primo caricamento
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
+        self.background_pixmap = None  # Pixmap per lo sfondo personalizzato
+
+        # Imposta attributi per permettere custom painting dello sfondo
+        self.setAttribute(Qt.WA_StyledBackground, False)
+        self.setAutoFillBackground(False)
+
         self.initUI()
         self.load_library()
         self.apply_background_settings()  # Applica sfondo personalizzato home
@@ -690,51 +696,62 @@ class LibraryView(QWidget):
         # Riapplica solo lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
+    def paintEvent(self, event):
+        """
+        Disegna lo sfondo personalizzato prima di disegnare i widget figli.
+
+        Questo metodo viene chiamato automaticamente da Qt quando il widget
+        deve essere ridisegnato. Disegnando qui l'immagine di sfondo, ci assicuriamo
+        che appaia DIETRO tutti i widget figli.
+        """
+        # Disegna lo sfondo PRIMA di chiamare super().paintEvent()
+        if self.background_pixmap and not self.background_pixmap.isNull():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+            # Disegna l'immagine centrata senza ripetizione
+            widget_rect = self.rect()
+            pixmap_rect = self.background_pixmap.rect()
+
+            # Centra l'immagine
+            x = (widget_rect.width() - pixmap_rect.width()) // 2
+            y = (widget_rect.height() - pixmap_rect.height()) // 2
+
+            # Disegna il pixmap centrato
+            painter.drawPixmap(x, y, self.background_pixmap)
+            painter.end()
+
+        # Ora disegna il resto del widget (inclusi i figli)
+        super().paintEvent(event)
+
     def apply_background_settings(self):
         """
         Applica le impostazioni di sfondo personalizzato alla LibraryView.
 
-        Legge da library.background_image e applica l'immagine di sfondo
-        alla home/libreria.
+        Legge da library.background_image e carica il pixmap per lo sfondo
+        della home/libreria.
         """
         # Leggi impostazione sfondo immagine
         bg_image = self.settings.get("library.background_image", None)
 
         # Applica immagine di sfondo se presente e valida
         if bg_image and os.path.exists(bg_image):
-            # Converti path in formato URL per Qt CSS
-            # Qt richiede il formato file:/// per path assoluti
-            bg_image_url = bg_image.replace('\\', '/')
-            if not bg_image_url.startswith('file:///'):
-                # Aggiungi prefisso file:// per path assoluti
-                if bg_image_url.startswith('/'):
-                    bg_image_url = f'file://{bg_image_url}'
-                else:
-                    bg_image_url = f'file:///{bg_image_url}'
+            # Carica il pixmap dall'immagine
+            self.background_pixmap = QPixmap(bg_image)
 
-            # Imposta object name per targetizzare con stylesheet
-            self.setObjectName("library_view")
+            if self.background_pixmap.isNull():
+                logger.warning(f"Failed to load background image: {bg_image}")
+                self.background_pixmap = None
+            else:
+                logger.info(f"Loaded library background image: {bg_image}")
+                # Abilita auto-fill per assicurarsi che paintEvent venga chiamato
+                self.setAutoFillBackground(False)
 
-            # Disabilita auto-fill per permettere all'immagine di essere visibile
-            self.setAutoFillBackground(True)
-
-            # Applica stylesheet con !important per sovrascrivere il tema globale
-            stylesheet = f"""
-                QWidget#library_view {{
-                    background-image: url({bg_image_url});
-                    background-repeat: no-repeat;
-                    background-position: center;
-                    background-color: transparent;
-                }}
-            """
-            self.setStyleSheet(stylesheet)
-            # Forza l'aggiornamento visuale del widget
+            # Forza il ridisegno del widget
             self.update()
-            logger.info(f"Applied library background image: {bg_image_url}")
         else:
-            # Reset stylesheet e auto-fill se non c'è immagine
-            self.setAutoFillBackground(False)
-            self.setStyleSheet("")
+            # Reset pixmap se non c'è immagine
+            self.background_pixmap = None
             self.update()
             logger.debug("No library background image set")
 
