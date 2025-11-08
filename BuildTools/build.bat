@@ -38,10 +38,10 @@ echo.
 echo ====================================
 echo Build completed successfully!
 echo.
-echo Output folder: dist\MangaReader\
-echo Executable: dist\MangaReader\MangaReader.exe
+echo Executable: dist\MangaReader.exe
 echo.
-echo To distribute: Zip the entire 'dist\MangaReader' folder
+echo Note: First launch may take 2-3 seconds
+echo (antivirus scanning - this is normal)
 echo ====================================
 echo.
 pause
