@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QLineEdit, QFileDialog, QComboBox,
                               QGroupBox, QMessageBox, QTabWidget, QWidget,
                               QCheckBox, QSpinBox, QProgressDialog, QTextEdit,
-                              QApplication)
+                              QApplication, QListWidget, QInputDialog, QColorDialog)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
+from PyQt5.QtGui import QColor
 from .settings import Settings
 from .updater import (check_for_updates, download_update, install_update,
                       get_current_version, get_update_info_text)
@@ -50,14 +51,33 @@ class SettingsDialog(QDialog):
         reader_tab = self._create_reader_tab()
         tabs.addTab(reader_tab, "Reader")
 
+        # Tab Scorciatoie
+        shortcuts_tab = self._create_shortcuts_tab()
+        tabs.addTab(shortcuts_tab, "Scorciatoie")
+
+        # Tab Segnalibri
+        bookmarks_tab = self._create_bookmarks_tab()
+        tabs.addTab(bookmarks_tab, "Segnalibri")
+
         layout.addWidget(tabs)
 
-        # Pulsanti OK/Cancel/Reset
+        # Pulsanti OK/Cancel/Reset + Export/Import
         buttons_layout = QHBoxLayout()
 
         reset_button = QPushButton("Ripristina Default")
         reset_button.clicked.connect(self.reset_settings)
         buttons_layout.addWidget(reset_button)
+
+        # Pulsanti Export/Import
+        export_button = QPushButton("Esporta Configurazione")
+        export_button.setToolTip("Salva tutte le impostazioni in un file")
+        export_button.clicked.connect(self.export_settings)
+        buttons_layout.addWidget(export_button)
+
+        import_button = QPushButton("Importa Configurazione")
+        import_button.setToolTip("Carica impostazioni da un file")
+        import_button.clicked.connect(self.import_settings)
+        buttons_layout.addWidget(import_button)
 
         buttons_layout.addStretch()
 
@@ -261,9 +281,369 @@ class SettingsDialog(QDialog):
         reading_group.setLayout(reading_layout)
         layout.addWidget(reading_group)
 
+        # Gruppo Personalizzazione Sfondo
+        background_group = QGroupBox("Sfondo Lettore")
+        background_layout = QVBoxLayout()
+
+        # Colore sfondo
+        color_layout = QHBoxLayout()
+        color_label = QLabel("Colore sfondo:")
+        color_layout.addWidget(color_label)
+
+        self.bg_color_button = QPushButton("Seleziona Colore")
+        self.current_bg_color = self.settings.get("reader.background_color", "#2b2b2b")
+        self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+        self.bg_color_button.clicked.connect(self._select_bg_color)
+        color_layout.addWidget(self.bg_color_button)
+
+        self.bg_color_label = QLabel(self.current_bg_color)
+        self.bg_color_label.setStyleSheet("color: gray; font-size: 10px;")
+        color_layout.addWidget(self.bg_color_label)
+        color_layout.addStretch()
+        background_layout.addLayout(color_layout)
+
+        # Immagine sfondo
+        image_layout = QHBoxLayout()
+        image_label = QLabel("Immagine sfondo:")
+        image_layout.addWidget(image_label)
+
+        self.bg_image_input = QLineEdit()
+        current_bg_image = self.settings.get("reader.background_image", "")
+        self.bg_image_input.setText(current_bg_image if current_bg_image else "Nessuna")
+        self.bg_image_input.setReadOnly(True)
+        image_layout.addWidget(self.bg_image_input)
+
+        select_image_btn = QPushButton("Seleziona")
+        select_image_btn.clicked.connect(self._select_bg_image)
+        image_layout.addWidget(select_image_btn)
+
+        clear_image_btn = QPushButton("Rimuovi")
+        clear_image_btn.clicked.connect(self._clear_bg_image)
+        image_layout.addWidget(clear_image_btn)
+
+        background_layout.addLayout(image_layout)
+
+        # Info
+        bg_info_label = QLabel(
+            "L'immagine di sfondo ha priorità sul colore.\n"
+            "Formati supportati: PNG, JPG, JPEG, BMP"
+        )
+        bg_info_label.setWordWrap(True)
+        bg_info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
+        background_layout.addWidget(bg_info_label)
+
+        background_group.setLayout(background_layout)
+        layout.addWidget(background_group)
+
         layout.addStretch()
         widget.setLayout(layout)
         return widget
+
+    def _select_bg_color(self):
+        """Apre il dialog per selezionare il colore di sfondo."""
+        color = QColorDialog.getColor(
+            QColor(self.current_bg_color),
+            self,
+            "Seleziona Colore Sfondo"
+        )
+
+        if color.isValid():
+            self.current_bg_color = color.name()
+            self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+            self.bg_color_label.setText(self.current_bg_color)
+
+    def _select_bg_image(self):
+        """Apre il dialog per selezionare l'immagine di sfondo."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleziona Immagine Sfondo",
+            os.path.expanduser("~"),
+            "Immagini (*.png *.jpg *.jpeg *.bmp)"
+        )
+
+        if file_path:
+            self.bg_image_input.setText(file_path)
+
+    def _clear_bg_image(self):
+        """Rimuove l'immagine di sfondo."""
+        self.bg_image_input.setText("Nessuna")
+
+    def _create_shortcuts_tab(self):
+        """Crea il tab delle scorciatoie tastiera."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        # Info header
+        info_label = QLabel(
+            "Personalizza le scorciatoie tastiera. Usa formati come: Ctrl+K, Alt+F, F11, ecc.\n"
+            "Lascia vuoto per disabilitare una scorciatoia."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
+        layout.addWidget(info_label)
+
+        # Ottieni tutte le scorciatoie
+        shortcuts = self.settings.get_all_shortcuts()
+
+        # Dizionario per memorizzare i widget input
+        self.shortcut_inputs = {}
+
+        # Gruppo Navigazione
+        nav_group = QGroupBox("Navigazione")
+        nav_layout = QVBoxLayout()
+
+        nav_shortcuts = {
+            "next_page": "Pagina successiva",
+            "prev_page": "Pagina precedente",
+            "back": "Indietro",
+            "quit": "Esci"
+        }
+
+        for key, label in nav_shortcuts.items():
+            if key in shortcuts:
+                row = QHBoxLayout()
+                row.addWidget(QLabel(label + ":"))
+
+                input_field = QLineEdit()
+                input_field.setText(shortcuts.get(key, ""))
+                input_field.setPlaceholderText("Es: Ctrl+N, F5, etc.")
+                self.shortcut_inputs[key] = input_field
+
+                row.addWidget(input_field)
+                nav_layout.addLayout(row)
+
+        nav_group.setLayout(nav_layout)
+        layout.addWidget(nav_group)
+
+        # Gruppo Interfaccia
+        ui_group = QGroupBox("Interfaccia")
+        ui_layout = QVBoxLayout()
+
+        ui_shortcuts = {
+            "fullscreen": "Schermo intero",
+            "settings": "Impostazioni",
+            "help": "Aiuto",
+            "search": "Cerca",
+            "bookmarks": "Segnalibri"
+        }
+
+        for key, label in ui_shortcuts.items():
+            if key in shortcuts:
+                row = QHBoxLayout()
+                row.addWidget(QLabel(label + ":"))
+
+                input_field = QLineEdit()
+                input_field.setText(shortcuts.get(key, ""))
+                input_field.setPlaceholderText("Es: F11, Ctrl+F, etc.")
+                self.shortcut_inputs[key] = input_field
+
+                row.addWidget(input_field)
+                ui_layout.addLayout(row)
+
+        ui_group.setLayout(ui_layout)
+        layout.addWidget(ui_group)
+
+        # Gruppo Manga
+        manga_group = QGroupBox("Gestione Manga")
+        manga_layout = QVBoxLayout()
+
+        manga_shortcuts = {
+            "new_manga": "Nuovo Manga",
+            "import": "Importa",
+            "export": "Esporta",
+            "refresh": "Aggiorna"
+        }
+
+        for key, label in manga_shortcuts.items():
+            if key in shortcuts:
+                row = QHBoxLayout()
+                row.addWidget(QLabel(label + ":"))
+
+                input_field = QLineEdit()
+                input_field.setText(shortcuts.get(key, ""))
+                input_field.setPlaceholderText("Es: Ctrl+N, F5, etc.")
+                self.shortcut_inputs[key] = input_field
+
+                row.addWidget(input_field)
+                manga_layout.addLayout(row)
+
+        manga_group.setLayout(manga_layout)
+        layout.addWidget(manga_group)
+
+        # Pulsante ripristina default scorciatoie
+        reset_shortcuts_btn = QPushButton("Ripristina Scorciatoie Default")
+        reset_shortcuts_btn.clicked.connect(self._reset_shortcuts_to_default)
+        layout.addWidget(reset_shortcuts_btn)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
+    def _reset_shortcuts_to_default(self):
+        """Ripristina le scorciatoie ai valori di default."""
+        reply = QMessageBox.question(
+            self,
+            "Ripristina scorciatoie",
+            "Ripristinare tutte le scorciatoie ai valori di default?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Ottieni shortcuts default
+            from .constants import DEFAULT_THEME
+            default_settings = self.settings._get_default_settings()
+            default_shortcuts = default_settings.get("shortcuts", {})
+
+            # Aggiorna i campi UI
+            for key, value in default_shortcuts.items():
+                if key in self.shortcut_inputs:
+                    self.shortcut_inputs[key].setText(value)
+
+            QMessageBox.information(
+                self,
+                "Scorciatoie ripristinate",
+                "Le scorciatoie sono state ripristinate ai valori di default.\n"
+                "Clicca OK per salvare le modifiche."
+            )
+
+    def _create_bookmarks_tab(self):
+        """Crea il tab delle impostazioni segnalibri."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        # Info header
+        info_label = QLabel(
+            "Gestisci le categorie dei segnalibri per organizzare meglio la tua libreria.\n"
+            "La categoria 'Default' non può essere rimossa."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
+        layout.addWidget(info_label)
+
+        # Gruppo Categorie
+        categories_group = QGroupBox("Categorie Segnalibri")
+        categories_layout = QVBoxLayout()
+
+        # Lista categorie
+        self.categories_list = QListWidget()
+        self.categories_list.setMaximumHeight(200)
+        self._load_bookmark_categories()
+        categories_layout.addWidget(self.categories_list)
+
+        # Pulsanti gestione categorie
+        buttons_layout = QHBoxLayout()
+
+        add_category_btn = QPushButton("Aggiungi Categoria")
+        add_category_btn.clicked.connect(self._add_bookmark_category)
+        buttons_layout.addWidget(add_category_btn)
+
+        remove_category_btn = QPushButton("Rimuovi Categoria")
+        remove_category_btn.clicked.connect(self._remove_bookmark_category)
+        buttons_layout.addWidget(remove_category_btn)
+
+        categories_layout.addLayout(buttons_layout)
+        categories_group.setLayout(categories_layout)
+        layout.addWidget(categories_group)
+
+        # Gruppo Opzioni
+        options_group = QGroupBox("Opzioni")
+        options_layout = QVBoxLayout()
+
+        # Auto-bookmark checkbox
+        self.auto_bookmark_check = QCheckBox("Salva automaticamente l'ultima pagina letta")
+        self.auto_bookmark_check.setChecked(self.settings.get("bookmarks.auto_bookmark", True))
+        self.auto_bookmark_check.setToolTip(
+            "Se attivato, l'app ricorderà automaticamente l'ultima pagina\n"
+            "che hai letto per ogni manga"
+        )
+        options_layout.addWidget(self.auto_bookmark_check)
+
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
+
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+
+    def _load_bookmark_categories(self):
+        """Carica le categorie di bookmarks nella lista."""
+        self.categories_list.clear()
+        categories = self.settings.get_bookmark_categories()
+        for category in categories:
+            self.categories_list.addItem(category)
+
+    def _add_bookmark_category(self):
+        """Aggiunge una nuova categoria di bookmarks."""
+        text, ok = QInputDialog.getText(
+            self,
+            "Nuova Categoria",
+            "Nome della nuova categoria:"
+        )
+
+        if ok and text:
+            text = text.strip()
+            if not text:
+                return
+
+            # Verifica che non esista già
+            categories = self.settings.get_bookmark_categories()
+            if text in categories:
+                QMessageBox.warning(
+                    self,
+                    "Categoria Esistente",
+                    f"La categoria '{text}' esiste già."
+                )
+                return
+
+            # Aggiungi categoria
+            if self.settings.add_bookmark_category(text):
+                self._load_bookmark_categories()
+                QMessageBox.information(
+                    self,
+                    "Categoria Aggiunta",
+                    f"Categoria '{text}' aggiunta con successo!"
+                )
+
+    def _remove_bookmark_category(self):
+        """Rimuove la categoria selezionata."""
+        current_item = self.categories_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(
+                self,
+                "Nessuna Selezione",
+                "Seleziona una categoria da rimuovere."
+            )
+            return
+
+        category = current_item.text()
+
+        # Verifica che non sia Default
+        if category == "Default":
+            QMessageBox.warning(
+                self,
+                "Categoria Protetta",
+                "La categoria 'Default' non può essere rimossa."
+            )
+            return
+
+        # Chiedi conferma
+        reply = QMessageBox.question(
+            self,
+            "Conferma Rimozione",
+            f"Rimuovere la categoria '{category}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            if self.settings.remove_bookmark_category(category):
+                self._load_bookmark_categories()
+                QMessageBox.information(
+                    self,
+                    "Categoria Rimossa",
+                    f"Categoria '{category}' rimossa con successo!"
+                )
 
     def browse_library_path(self):
         """Apre un dialog per selezionare la directory della libreria."""
@@ -314,6 +694,26 @@ class SettingsDialog(QDialog):
         # Salva reader settings
         reading_direction = self.reading_direction_combo.currentData()
         self.settings.set("reader.reading_direction", reading_direction)
+
+        # Salva background settings
+        if hasattr(self, 'current_bg_color'):
+            self.settings.set("reader.background_color", self.current_bg_color)
+        if hasattr(self, 'bg_image_input'):
+            bg_image = self.bg_image_input.text()
+            if bg_image == "Nessuna" or not bg_image:
+                self.settings.set("reader.background_image", None)
+            else:
+                self.settings.set("reader.background_image", bg_image)
+
+        # Salva shortcuts
+        if hasattr(self, 'shortcut_inputs'):
+            for action, input_field in self.shortcut_inputs.items():
+                shortcut_value = input_field.text().strip()
+                self.settings.set_shortcut(action, shortcut_value)
+
+        # Salva bookmarks settings
+        if hasattr(self, 'auto_bookmark_check'):
+            self.settings.set("bookmarks.auto_bookmark", self.auto_bookmark_check.isChecked())
 
         self.settings.save()
         self.settings_changed.emit()
@@ -489,3 +889,87 @@ class SettingsDialog(QDialog):
         import webbrowser
         url = update_info.get('html_url', 'https://github.com/deam411/MangaReader/releases')
         webbrowser.open(url)
+
+    def export_settings(self):
+        """Esporta la configurazione corrente in un file JSON."""
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Esporta Configurazione",
+                os.path.expanduser("~/manga_reader_config.json"),
+                "File JSON (*.json)"
+            )
+
+            if file_path:
+                # Assicurati che abbia estensione .json
+                if not file_path.endswith('.json'):
+                    file_path += '.json'
+
+                # Esporta le impostazioni
+                self.settings.export_settings(file_path)
+
+                QMessageBox.information(
+                    self,
+                    "Export Completato",
+                    f"Configurazione esportata con successo in:\n{file_path}"
+                )
+                logger.info(f"Settings exported to: {file_path}")
+
+        except Exception as e:
+            logger.error(f"Error during export: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore Export",
+                f"Impossibile esportare la configurazione:\n{str(e)}"
+            )
+
+    def import_settings(self):
+        """Importa una configurazione da un file JSON."""
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Importa Configurazione",
+                os.path.expanduser("~"),
+                "File JSON (*.json)"
+            )
+
+            if file_path:
+                # Chiedi conferma prima di sovrascrivere
+                reply = QMessageBox.question(
+                    self,
+                    "Conferma Import",
+                    "L'importazione sovrascriverà tutte le impostazioni correnti.\n\n"
+                    "Continuare?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+
+                if reply == QMessageBox.Yes:
+                    # Importa le impostazioni
+                    self.settings.import_settings(file_path)
+
+                    # Ricarica i valori nella UI
+                    self._load_settings()
+
+                    QMessageBox.information(
+                        self,
+                        "Import Completato",
+                        "Configurazione importata con successo!\n\n"
+                        "Le nuove impostazioni sono state applicate."
+                    )
+                    logger.info(f"Settings imported from: {file_path}")
+
+                    # Emetti segnale per aggiornare altre parti dell'app
+                    self.settings_changed.emit()
+
+        except Exception as e:
+            logger.error(f"Error during import: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore Import",
+                f"Impossibile importare la configurazione:\n{str(e)}"
+            )

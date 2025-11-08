@@ -57,7 +57,10 @@ class Settings:
                 "import": "Ctrl+I",
                 "export": "Ctrl+E",
                 "new_manga": "Ctrl+N",
-                "refresh": "F5"
+                "refresh": "F5",
+                "help": "F1",
+                "settings": "Ctrl+,",
+                "bookmarks": "Ctrl+B"
             },
             "performance": {
                 "image_cache_size": DEFAULT_CACHE_SIZE,  # Numero di immagini in cache
@@ -67,7 +70,17 @@ class Settings:
             "reader": {
                 "reading_direction": "ltr",  # "ltr" (left-to-right) o "rtl" (right-to-left)
                 "view_mode": "single",  # "single" o "double" (doppia pagina)
-                "zoom_level": 1.0  # Livello zoom di default
+                "zoom_level": 1.0,  # Livello zoom di default
+                "background_color": "#2b2b2b",  # Colore sfondo reader
+                "background_image": None  # Percorso immagine sfondo custom (None = colore solido)
+            },
+            "themes": {
+                "custom_themes": [],  # Lista temi personalizzati dall'utente
+                "current_custom_theme": None  # None = usa tema predefinito
+            },
+            "bookmarks": {
+                "categories": ["Default", "To Read", "Favorites"],  # Categorie bookmarks
+                "auto_bookmark": True  # Bookmark automatico ultima pagina letta
             }
         }
 
@@ -176,3 +189,95 @@ class Settings:
         """Resetta tutte le impostazioni ai valori di default."""
         self.settings = self._get_default_settings()
         self.save()
+
+    def export_settings(self, file_path: str) -> bool:
+        """
+        Esporta le impostazioni correnti in un file JSON.
+
+        Args:
+            file_path: Percorso dove salvare le impostazioni
+
+        Returns:
+            True se export avvenuto con successo
+
+        Raises:
+            SettingsSaveError: Se l'export fallisce
+        """
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(self.settings, f, indent=4, ensure_ascii=False)
+            logger.info(f"Settings exported to: {file_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Error exporting settings: {e}")
+            raise SettingsSaveError(f"Impossibile esportare impostazioni in {file_path}") from e
+
+    def import_settings(self, file_path: str) -> bool:
+        """
+        Importa impostazioni da un file JSON.
+
+        Args:
+            file_path: Percorso del file da importare
+
+        Returns:
+            True se import avvenuto con successo
+
+        Raises:
+            SettingsLoadError: Se l'import fallisce
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                imported_settings = json.load(f)
+
+            # Merge con default per garantire compatibilità
+            default = self._get_default_settings()
+            for key, value in default.items():
+                if key not in imported_settings:
+                    imported_settings[key] = value
+
+            self.settings = imported_settings
+            self.save()
+            logger.info(f"Settings imported from: {file_path}")
+            return True
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in settings file: {e}")
+            raise SettingsLoadError(f"File impostazioni non valido: {file_path}") from e
+        except Exception as e:
+            logger.error(f"Error importing settings: {e}")
+            raise SettingsLoadError(f"Impossibile importare impostazioni da {file_path}") from e
+
+    def get_shortcut(self, action: str) -> str:
+        """Ottiene la scorciatoia per una specifica azione."""
+        return self.get(f"shortcuts.{action}", "")
+
+    def set_shortcut(self, action: str, shortcut: str) -> None:
+        """Imposta una scorciatoia per una specifica azione."""
+        self.set(f"shortcuts.{action}", shortcut)
+
+    def get_all_shortcuts(self) -> Dict[str, str]:
+        """Restituisce tutte le scorciatoie configurate."""
+        return self.get("shortcuts", {})
+
+    def get_bookmark_categories(self) -> list:
+        """Restituisce le categorie di bookmarks."""
+        return self.get("bookmarks.categories", ["Default"])
+
+    def add_bookmark_category(self, category: str) -> bool:
+        """Aggiunge una nuova categoria di bookmarks."""
+        categories = self.get_bookmark_categories()
+        if category not in categories:
+            categories.append(category)
+            self.set("bookmarks.categories", categories)
+            return True
+        return False
+
+    def remove_bookmark_category(self, category: str) -> bool:
+        """Rimuove una categoria di bookmarks."""
+        if category == "Default":
+            return False  # Non rimuovere Default
+        categories = self.get_bookmark_categories()
+        if category in categories:
+            categories.remove(category)
+            self.set("bookmarks.categories", categories)
+            return True
+        return False
