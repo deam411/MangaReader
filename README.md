@@ -43,7 +43,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) e [DEVELOPMENT_SUMMARY.md](DEVELOPMENT_SUMMARY
 ### 🎨 Interfaccia
 - **Navigazione a 4 livelli** - Libreria → Manga → Volume → Reader
 - **VolumeView dedicata** - Schermata per selezione capitoli con cover grande
-- **Pannello Scorciatoie** - Premi Ctrl+? per vedere tutte le combinazioni
+- **Pannello Scorciatoie** - Premi F1 per vedere tutte le combinazioni
 - **Tooltips informativi** - Passaci sopra per scoprire come usare ogni pulsante
 - **Temi Dark/Light/Sistema** con persistenza
 - **Visualizzazione griglia/lista** per la libreria
@@ -83,7 +83,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) e [DEVELOPMENT_SUMMARY.md](DEVELOPMENT_SUMMARY
 - **Zero Performance Penalty**: Tutte le feature di sicurezza hanno overhead trascurabile (<1ms)
 
 ### ⌨️ Shortcuts
-- `Ctrl+?` - **Mostra pannello scorciatoie** (nuovo!)
+- `F1` - **Mostra pannello scorciatoie**
 - `Ctrl+F` - Ricerca
 - `Ctrl+I` - Importa manga
 - `Ctrl+E` - Esporta manga

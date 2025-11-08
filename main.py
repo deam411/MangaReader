@@ -114,8 +114,8 @@ class MangaReader(QMainWindow):
         bookmark_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
         bookmark_shortcut.activated.connect(self.add_bookmark)
 
-        # Ctrl+? per mostrare pannello scorciatoie
-        help_shortcut = QShortcut(QKeySequence("Ctrl+?"), self)
+        # F1 per mostrare pannello scorciatoie
+        help_shortcut = QShortcut(QKeySequence("F1"), self)
         help_shortcut.activated.connect(self.show_shortcuts_dialog)
 
     def show_shortcuts_dialog(self):

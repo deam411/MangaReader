@@ -408,7 +408,7 @@ class LibraryView(QWidget):
         info_layout = QHBoxLayout()
 
         # Commands help
-        self.shortcuts_label = QLabel("Premi Ctrl+? per vedere tutti i comandi")
+        self.shortcuts_label = QLabel("Premi F1 per vedere tutti i comandi")
         self.shortcuts_label.setStyleSheet("color: gray; font-size: 9px;")
         info_layout.addWidget(self.shortcuts_label)
 
