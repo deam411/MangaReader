@@ -5,9 +5,14 @@ import os
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QLineEdit, QFileDialog, QComboBox,
                               QGroupBox, QMessageBox, QTabWidget, QWidget,
-                              QCheckBox, QSpinBox)
-from PyQt5.QtCore import Qt, pyqtSignal
+                              QCheckBox, QSpinBox, QProgressDialog, QTextEdit)
+from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from .settings import Settings
+from .updater import (check_for_updates, download_update, install_update,
+                      get_current_version, get_update_info_text)
+from .logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class SettingsDialog(QDialog):
@@ -110,6 +115,30 @@ class SettingsDialog(QDialog):
 
         library_group.setLayout(library_layout)
         layout.addWidget(library_group)
+
+        # Gruppo Aggiornamenti (v0.1.0)
+        update_group = QGroupBox("Aggiornamenti")
+        update_layout = QVBoxLayout()
+
+        # Versione corrente
+        version_label = QLabel(f"Versione corrente: v{get_current_version()}")
+        version_label.setStyleSheet("font-weight: bold;")
+        update_layout.addWidget(version_label)
+
+        # Pulsante controlla aggiornamenti
+        check_update_btn = QPushButton("🔍 Controlla aggiornamenti")
+        check_update_btn.clicked.connect(self.check_for_updates)
+        check_update_btn.setToolTip("Controlla su GitHub se è disponibile una nuova versione")
+        update_layout.addWidget(check_update_btn)
+
+        # Info label
+        update_info = QLabel("Controlla automaticamente su GitHub se ci sono nuove versioni disponibili.")
+        update_info.setStyleSheet("color: gray; font-size: 10px;")
+        update_info.setWordWrap(True)
+        update_layout.addWidget(update_info)
+
+        update_group.setLayout(update_layout)
+        layout.addWidget(update_group)
 
         layout.addStretch()
         widget.setLayout(layout)
@@ -308,4 +337,148 @@ class SettingsDialog(QDialog):
                 "Le impostazioni sono state ripristinate ai valori di default.\n"
                 "Riavvia l'applicazione per applicare tutte le modifiche."
             )
-            self.accept()
+
+    def check_for_updates(self):
+        """Controlla se ci sono aggiornamenti disponibili su GitHub."""
+        logger.info("Controllo aggiornamenti richiesto dall'utente")
+
+        # Mostra dialog "checking..."
+        progress = QMessageBox(self)
+        progress.setWindowTitle("Controllo aggiornamenti")
+        progress.setText("Controllo aggiornamenti su GitHub...")
+        progress.setStandardButtons(QMessageBox.NoButton)
+        progress.show()
+        QApplication.processEvents()
+
+        try:
+            update_info = check_for_updates()
+
+            progress.hide()
+
+            if update_info is None:
+                # Nessun aggiornamento disponibile
+                QMessageBox.information(
+                    self,
+                    "Nessun aggiornamento",
+                    f"Stai già utilizzando l'ultima versione (v{get_current_version()})!"
+                )
+                return
+
+            # Aggiornamento disponibile - mostra dialog con dettagli
+            self._show_update_dialog(update_info)
+
+        except Exception as e:
+            progress.hide()
+            logger.error(f"Errore durante controllo aggiornamenti: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore",
+                f"Impossibile controllare gli aggiornamenti:\n{str(e)}\n\n"
+                "Verifica la connessione internet e riprova."
+            )
+
+    def _show_update_dialog(self, update_info):
+        """Mostra dialog con dettagli aggiornamento e opzione download."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Aggiornamento disponibile")
+        dialog.setMinimumSize(500, 400)
+
+        layout = QVBoxLayout()
+
+        # Titolo
+        title = QLabel(f"📦 Nuova versione disponibile: v{update_info['version']}")
+        title.setStyleSheet("font-size: 14px; font-weight: bold;")
+        layout.addWidget(title)
+
+        # Release notes in text edit scrollabile
+        notes_text = QTextEdit()
+        notes_text.setReadOnly(True)
+        notes_text.setPlainText(update_info.get('release_notes', 'Nessuna nota disponibile'))
+        layout.addWidget(notes_text)
+
+        # Pulsanti
+        buttons_layout = QHBoxLayout()
+
+        download_btn = QPushButton("⬇️ Scarica e installa")
+        download_btn.clicked.connect(lambda: self._download_and_install(update_info, dialog))
+        buttons_layout.addWidget(download_btn)
+
+        view_github_btn = QPushButton("👁️ Vedi su GitHub")
+        view_github_btn.clicked.connect(lambda: self._open_github_release(update_info))
+        buttons_layout.addWidget(view_github_btn)
+
+        cancel_btn = QPushButton("Annulla")
+        cancel_btn.clicked.connect(dialog.reject)
+        buttons_layout.addWidget(cancel_btn)
+
+        layout.addLayout(buttons_layout)
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def _download_and_install(self, update_info, parent_dialog):
+        """Scarica e installa l'aggiornamento."""
+        parent_dialog.close()
+
+        # Progress dialog
+        progress = QProgressDialog("Download aggiornamento in corso...", "Annulla", 0, 100, self)
+        progress.setWindowTitle("Download")
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        def update_progress(downloaded, total):
+            if total > 0:
+                percent = int((downloaded / total) * 100)
+                progress.setValue(percent)
+                progress.setLabelText(f"Download: {downloaded // 1024} KB / {total // 1024} KB")
+            QApplication.processEvents()
+
+        try:
+            # Download
+            downloaded_file = download_update(update_info, progress_callback=update_progress)
+
+            progress.close()
+
+            if not downloaded_file:
+                QMessageBox.warning(self, "Errore", "Download fallito. Riprova più tardi.")
+                return
+
+            # Conferma installazione
+            reply = QMessageBox.question(
+                self,
+                "Installazione",
+                f"Download completato!\n\n"
+                f"L'applicazione si chiuderà per installare l'aggiornamento.\n"
+                f"Verrà riavviata automaticamente dopo l'installazione.\n\n"
+                f"Continuare?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Yes:
+                success = install_update(downloaded_file)
+
+                if success:
+                    # Chiudi l'applicazione - lo script di update la riavvierà
+                    QApplication.quit()
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Errore",
+                        "Installazione fallita. Prova a scaricare manualmente da GitHub."
+                    )
+
+        except Exception as e:
+            progress.close()
+            logger.error(f"Errore durante download/install: {e}")
+            QMessageBox.warning(
+                self,
+                "Errore",
+                f"Errore durante l'aggiornamento:\n{str(e)}"
+            )
+
+    def _open_github_release(self, update_info):
+        """Apre la pagina della release su GitHub."""
+        import webbrowser
+        url = update_info.get('html_url', 'https://github.com/deam411/MangaReader/releases')
+        webbrowser.open(url)
