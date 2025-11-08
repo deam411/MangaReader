@@ -19,6 +19,7 @@ from .metadata_manager import MetadataManager
 from .chapter_manager import ChapterManager
 from .bookmark_manager import BookmarkManager
 from .history_manager import HistoryManager
+from .manager import MangaDatabaseManager
 
 __all__ = [
     'BaseManager',
@@ -26,5 +27,6 @@ __all__ = [
     'MetadataManager',
     'ChapterManager',
     'BookmarkManager',
-    'HistoryManager'
+    'HistoryManager',
+    'MangaDatabaseManager'
 ]
