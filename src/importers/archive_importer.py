@@ -3,32 +3,25 @@ Modulo per importare manga da archivi compressi (CBZ, CBR).
 
 CBZ = Comic Book ZIP (archivio ZIP di immagini)
 CBR = Comic Book RAR (archivio RAR di immagini)
+
+v0.2.0: Usa security.py centralizzato per validazione e sanitizzazione.
 """
 
 import os
-import re
 import zipfile
 import tempfile
 import shutil
 from pathlib import Path
 from typing import Optional, List, Tuple
-import mimetypes
 
 from ..database import MangaDatabaseManager
 from ..constants import SUPPORTED_IMAGE_FORMATS, MANGA_FILE_EXTENSION, MAX_IMAGE_SIZE_MB
 from ..logger import get_logger
 from ..exceptions import ArchiveFormatError, ValidationError
+# v0.2.0: Import centralizzato security utilities
+from ..utils.security import sanitize_filename, is_safe_path, validate_image_size
 
 logger = get_logger(__name__)
-
-# Caratteri vietati nei filename (Windows + sicurezza)
-FORBIDDEN_FILENAME_CHARS = r'[<>:"/\\|?*\x00-\x1f]'
-# Nomi riservati Windows
-WINDOWS_RESERVED_NAMES = {
-    'CON', 'PRN', 'AUX', 'NUL',
-    'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
-    'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
-}
 
 # Prova a importare rarfile (opzionale)
 try:
@@ -46,79 +39,12 @@ class ArchiveImporter:
     Formati supportati:
     - CBZ (ZIP): Sempre disponibile
     - CBR (RAR): Richiede il modulo rarfile
+
+    v0.2.0: Usa funzioni security centralizzate da src.utils.security
     """
 
     def __init__(self):
         self.temp_dir = None
-
-    @staticmethod
-    def sanitize_filename(filename: str, max_length: int = 255) -> str:
-        """
-        Sanitizza un filename rimuovendo caratteri pericolosi e path traversal.
-
-        Args:
-            filename: Nome file da sanitizzare
-            max_length: Lunghezza massima del filename (default 255)
-
-        Returns:
-            Filename sanitizzato e sicuro
-
-        Raises:
-            ValidationError: Se filename risulta vuoto dopo sanitizzazione
-        """
-        if not filename:
-            raise ValidationError("Filename vuoto")
-
-        # Estrai solo il basename (rimuove path traversal ../ e simili)
-        filename = os.path.basename(filename)
-
-        # Rimuovi caratteri vietati
-        sanitized = re.sub(FORBIDDEN_FILENAME_CHARS, '_', filename)
-
-        # Rimuovi spazi multipli e trailing/leading spaces
-        sanitized = re.sub(r'\s+', ' ', sanitized).strip()
-
-        # Rimuovi punti multipli (potenziale path traversal)
-        sanitized = re.sub(r'\.{2,}', '_', sanitized)
-
-        # Rimuovi punti leading/trailing (file nascosti e problemi Windows)
-        sanitized = sanitized.strip('.')
-
-        # Verifica nomi riservati Windows (case-insensitive)
-        name_without_ext = Path(sanitized).stem.upper()
-        if name_without_ext in WINDOWS_RESERVED_NAMES:
-            sanitized = f"file_{sanitized}"
-
-        # Limita lunghezza preservando estensione
-        if len(sanitized) > max_length:
-            ext = Path(sanitized).suffix
-            max_name_len = max_length - len(ext)
-            sanitized = sanitized[:max_name_len] + ext
-
-        # Verifica che il risultato non sia vuoto
-        if not sanitized or sanitized.isspace():
-            raise ValidationError(f"Filename invalido dopo sanitizzazione: '{filename}'")
-
-        return sanitized
-
-    @staticmethod
-    def is_safe_path(base_path: str, target_path: str) -> bool:
-        """
-        Verifica che target_path sia contenuto in base_path (protezione path traversal).
-
-        Args:
-            base_path: Directory base sicura
-            target_path: Path target da validare
-
-        Returns:
-            True se il path è sicuro
-        """
-        # Risolvi path assoluti
-        base = os.path.realpath(base_path)
-        target = os.path.realpath(target_path)
-
-        # Verifica che target sia sotto base
-        return target.startswith(base + os.sep) or target == base
 
     @staticmethod
     def detect_archive_type(file_path: str) -> Optional[str]:
@@ -194,15 +120,14 @@ class ArchiveImporter:
 
                     if self.is_image_file(filename):
                         try:
-                            # Sanitizza filename prima di usarlo
-                            safe_filename = self.sanitize_filename(Path(filename).name)
+                            # v0.2.0: Usa sanitize_filename centralizzato
+                            safe_filename = sanitize_filename(Path(filename).name)
 
                             image_data = zip_file.read(filename)
 
-                            # Valida dimensione immagine
-                            image_size_mb = len(image_data) / (1024 * 1024)
-                            if image_size_mb > MAX_IMAGE_SIZE_MB:
-                                logger.warning(f"Immagine troppo grande saltata: {safe_filename} ({image_size_mb:.1f}MB)")
+                            # v0.2.0: Usa validate_image_size centralizzato
+                            if not validate_image_size(image_data, MAX_IMAGE_SIZE_MB):
+                                logger.warning(f"Immagine troppo grande saltata: {safe_filename}")
                                 continue
 
                             images.append((safe_filename, image_data))
@@ -250,15 +175,14 @@ class ArchiveImporter:
 
                     if self.is_image_file(filename):
                         try:
-                            # Sanitizza filename prima di usarlo
-                            safe_filename = self.sanitize_filename(Path(filename).name)
+                            # v0.2.0: Usa sanitize_filename centralizzato
+                            safe_filename = sanitize_filename(Path(filename).name)
 
                             image_data = rar_file.read(filename)
 
-                            # Valida dimensione immagine
-                            image_size_mb = len(image_data) / (1024 * 1024)
-                            if image_size_mb > MAX_IMAGE_SIZE_MB:
-                                logger.warning(f"Immagine troppo grande saltata: {safe_filename} ({image_size_mb:.1f}MB)")
+                            # v0.2.0: Usa validate_image_size centralizzato
+                            if not validate_image_size(image_data, MAX_IMAGE_SIZE_MB):
+                                logger.warning(f"Immagine troppo grande saltata: {safe_filename}")
                                 continue
 
                             images.append((safe_filename, image_data))
@@ -376,12 +300,12 @@ class ArchiveImporter:
             try:
                 # Inserisci pagine
                 for page_num, (filename, image_data) in enumerate(images, start=1):
-                    # Sanitizza filename per prevenire path traversal vulnerability
-                    safe_filename = self.sanitize_filename(filename)
+                    # v0.2.0: Sanitizza filename per prevenire path traversal vulnerability
+                    safe_filename = sanitize_filename(filename)
                     temp_image_path = os.path.join(self.temp_dir, safe_filename)
 
-                    # Verifica path traversal protection
-                    if not self.is_safe_path(self.temp_dir, temp_image_path):
+                    # v0.2.0: Verifica path traversal protection con security.py
+                    if not is_safe_path(self.temp_dir, temp_image_path):
                         logger.error(f"Path traversal rilevato per: {filename}")
                         continue
 
