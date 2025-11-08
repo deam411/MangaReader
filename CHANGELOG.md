@@ -1,5 +1,50 @@
 # Changelog - Manga Reader
 
+## [0.1.5] - 2025-11-08
+
+### 📊 Summary
+Release di stabilità con focus su **Auto-Update Fix** e miglioramenti **UX**.
+
+---
+
+### 🐛 Bug Fixes
+
+**1. Auto-Update Windows - Risolto Errore Libreria Python**
+- **Fix**: Script batch migliorato con attesa processo completo
+  - Loop di verifica con `tasklist` per assicurare chiusura app
+  - Timeout dinamico invece di fisso 2 secondi
+  - Backup automatico prima della sostituzione exe
+  - Ripristino automatico del backup in caso di errore
+  - Finestra console nascosta per migliore UX
+- **Fix**: Hidden imports aggiunti in `manga_reader.spec`
+  - PyQt5.sip, PyQt5.QtCore, PyQt5.QtGui, PyQt5.QtWidgets
+  - PIL._tkinter_finder, urllib, sqlite3, json
+  - Previene errori "libreria Python non disponibile" dopo update
+- **Impatto**: Auto-update ora funziona correttamente senza errori di riavvio
+- **File**: `src/updater.py:274-340`, `BuildTools/manga_reader.spec:18-28`
+
+---
+
+### ✨ UX Improvements
+
+**1. Scorciatoia Menu Help Cambiata**
+- **Change**: Da `Ctrl+?` a `F1` (standard universale Help)
+- **Motivo**: Evita conflitto con `Ctrl+S` nel Manga Creator
+- **Impatto**: Più intuitivo e standard-compliant
+- **File**: `main.py:117-119`, `views.py:411`, `src/views/dialogs.py:164`, `README.md`
+
+---
+
+### 📝 Files Changed
+- `src/updater.py` - Script batch robusto con error handling
+- `BuildTools/manga_reader.spec` - Hidden imports PyQt5/Pillow
+- `main.py` - Scorciatoia F1
+- `views.py` - Label info aggiornata
+- `src/views/dialogs.py` - Dialog scorciatoie aggiornato
+- `README.md` - Documentazione shortcuts
+
+---
+
 ## [0.1.0] - 2025-11-08
 
 ### 📊 Executive Summary

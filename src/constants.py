@@ -7,7 +7,7 @@ fornendo un unico punto di riferimento per versioni, limiti, formati e configura
 
 # Informazioni applicazione
 APP_NAME = "Manga Reader"
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.5"
 APP_AUTHOR = "Alessandro"
 APP_DESCRIPTION = "Lettore e gestore di manga desktop multi-piattaforma"
 
