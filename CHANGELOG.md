@@ -88,10 +88,14 @@
   - Image cache size (10-200)
   - Lazy loading toggle
   - Preload pages (0-10)
-- **ReaderTab** (155 lines): Reading direction + **LIBRARY Background**
+- **ReaderTab** (112 lines): Reading direction + **READER Background**
   - LTR/RTL selection
-  - **FIX CRITICO**: Background settings spostati da Reader a LibraryView
-  - Namespace: `reader.background_*` → `library.background_*`
+  - **SPLIT CORRETTO**: Background COLOR solo per ReaderView
+  - Namespace: `reader.background_color` (colore sfondo lettore)
+- **AppearanceTab** (131 lines): Theme + **LIBRARY Background**
+  - Theme selection (Sistema/Scuro/Chiaro)
+  - **LIBRARY Background IMAGE** per Home/LibraryView
+  - Namespace: `library.background_image` (immagine sfondo home)
 - **ShortcutsTab** (165 lines): Customizable shortcuts
   - Gruppi: Navigazione, Interfaccia, Manga
   - Reset to default button
@@ -107,11 +111,67 @@
 - Export/Import/Reset mantenu ti
 - Backward compatibility 100%
 
-**LibraryView Background Support**:
-- Aggiunto `apply_background_settings()` in LibraryView
-- Supporto colore E immagine sfondo
-- Priority: image > color
-- Re-apply automatico on settings change
+**Background Customization System** - 8 fix critici per funzionalità completa:
+
+1. **Settings Split** (`cb9f56d`):
+   - **Appearance Tab**: Background IMAGE per Library/Home (`library.background_image`)
+   - **Reader Tab**: Background COLOR per lettura (`reader.background_color`)
+   - Separazione corretta scope: home vs reading area
+
+2. **Theme Override Fix** (`b8e19b9`):
+   - SettingsDialog applica tema PRIMA di emettere `settings_changed`
+   - Previene tema globale da sovrascrivere sfondo custom
+   - LibraryView.on_settings_changed() ora solo riapplica sfondo locale
+
+3. **Custom Painting** (`4f4cbd0`) - Soluzione Architettonica:
+   - Override `paintEvent()` per disegnare sfondo con QPainter
+   - Background image disegnato PRIMA di super().paintEvent()
+   - Byp ass stylesheet CSS che non funziona con widget opachi
+   - setAttribute(Qt.WA_StyledBackground, False) per controllo completo
+
+4. **QListWidget Transparency** (`0c6621d`):
+   - Stylesheet trasparente per QListWidget quando sfondo attivo
+   - Semi-transparent hover: rgba(255,255,255,30)
+   - Semi-transparent selection: rgba(74,158,255,80)
+   - Reset a tema normale quando sfondo rimosso
+
+5. **Item Backgrounds Transparency** (`b8c68b4`):
+   - Flag `has_custom_background` nel MangaItemDelegate
+   - Skip fillRect() per item non selezionati con sfondo custom
+   - Selection overlay semi-trasparente
+   - Cache clearing per ridisegno immediato
+
+6. **Cover Padding Removal** (`34cffb9`) - Fix Finale:
+   - Con sfondo custom: usa scaled pixmap DIRETTAMENTE senza padding
+   - Skip persistent cache per evitare cover con padding vecchio
+   - Qt.transparent fill() non funzionava → soluzione: no padding
+   - Background completamente visibile attorno alle cover
+
+**Technical Implementation**:
+```python
+# LibraryView paintEvent() - Custom background rendering
+def paintEvent(self, event):
+    if self.background_pixmap:
+        painter = QPainter(self)
+        # Draw centered background image
+        painter.drawPixmap(x, y, self.background_pixmap)
+    super().paintEvent(event)  # Draw children on top
+
+# Delegate - Transparent items with custom background
+def paint(self, painter, option, index):
+    if not self.has_custom_background:
+        painter.fillRect(option.rect, palette.base())
+    # Cover without padding when custom background active
+    if self.has_custom_background:
+        target_pixmap = scaled_pixmap  # Direct, no padding
+```
+
+**User Experience**:
+- 🖼️ **Library**: Immagine personalizzata (PNG/JPG/JPEG/BMP)
+- 🎨 **Reader**: Colore personalizzato per area lettura
+- 👁️ Cover manga trasparenti mostrano sfondo completamente
+- ✨ Hover e selection con overlay semi-trasparenti
+- 🔄 Ripristino automatico a tema normale senza sfondo
 
 **Benefits**:
 - 📦 Moduli < 250 lines (eccetto GeneralTab con UpdateThread)
@@ -120,7 +180,13 @@
 - 🔧 Extensibility facile (nuovo tab = nuovo file)
 
 **File creati**: 7 file in `src/settings_tabs/`, backup `settings_dialog_legacy.py`
-**File modificati**: `settings_dialog.py`, `library_view.py`
+**File modificati**:
+- `settings_dialog.py` (theme application timing fix)
+- `settings_tabs/appearance_tab.py` (library background image)
+- `settings_tabs/reader_tab.py` (reader background color)
+- `views/library_view.py` (paintEvent + transparency)
+- `views/widgets.py` (MangaItemDelegate transparency)
+- `views/reader_view.py` (background color support)
 
 ---
 
