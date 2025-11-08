@@ -747,22 +747,47 @@ class LibraryView(QWidget):
                 # Abilita auto-fill per assicurarsi che paintEvent venga chiamato
                 self.setAutoFillBackground(False)
 
-                # Rendi trasparente il QListWidget per mostrare lo sfondo
+                # Informa il delegate che c'è uno sfondo personalizzato
+                self.delegate.has_custom_background = True
+
+                # Pulisci la cache del delegate per forzare il ridisegno con trasparenza
+                self.delegate.cover_cache.clear()
+
+                # Rendi trasparente il QListWidget e i suoi item per mostrare lo sfondo
                 # Applica DOPO aver caricato l'immagine per sovrascrivere il tema
                 self.manga_grid_view.setStyleSheet("""
                     QListWidget {
                         background-color: transparent;
                         border: none;
                     }
+                    QListWidget::item {
+                        background-color: transparent;
+                    }
+                    QListWidget::item:hover {
+                        background-color: rgba(255, 255, 255, 30);
+                    }
+                    QListWidget::item:selected {
+                        background-color: rgba(74, 158, 255, 80);
+                    }
                 """)
 
-            # Forza il ridisegno del widget
+            # Forza il ridisegno del widget e della lista
             self.update()
+            self.manga_grid_view.viewport().update()
         else:
             # Reset pixmap e stylesheet se non c'è immagine
             self.background_pixmap = None
+
+            # Informa il delegate che NON c'è più uno sfondo personalizzato
+            self.delegate.has_custom_background = False
+
             # Rimuovi trasparenza se non c'è sfondo personalizzato
             self.manga_grid_view.setStyleSheet("")
+
+            # Pulisci la cache del delegate per forzare il ridisegno con il tema normale
+            self.delegate.cover_cache.clear()
+
             self.update()
+            self.manga_grid_view.viewport().update()
             logger.debug("No library background image set")
 
