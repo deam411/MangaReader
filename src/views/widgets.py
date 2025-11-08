@@ -210,25 +210,33 @@ class MangaItemDelegate(QStyledItemDelegate):
 
         if self.is_grid_view:
             # Draw title
-            # Imposta colore testo esplicito per garantire leggibilità
+            # Usa palette consistente dall'applicazione invece di option.palette
+            # per evitare colori inconsistenti tra diversi item
+            from PyQt5.QtWidgets import QApplication
+            app_palette = QApplication.instance().palette()
+
             if option.state & QStyle.State_Selected:
                 # Item selezionato: usa highlightedText (bianco)
-                painter.setPen(option.palette.highlightedText().color())
+                painter.setPen(app_palette.highlightedText().color())
             else:
                 # Item normale: usa text color del tema
-                painter.setPen(option.palette.text().color())
+                painter.setPen(app_palette.text().color())
 
             text_rect = option.rect.adjusted(5, 380, -5, -5)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, title)
         else:
             # List view painting
-            # Imposta colore testo esplicito per garantire leggibilità
+            # Usa palette consistente dall'applicazione invece di option.palette
+            # per evitare colori inconsistenti tra diversi item
+            from PyQt5.QtWidgets import QApplication
+            app_palette = QApplication.instance().palette()
+
             if option.state & QStyle.State_Selected:
                 # Item selezionato: usa highlightedText (bianco)
-                painter.setPen(option.palette.highlightedText().color())
+                painter.setPen(app_palette.highlightedText().color())
             else:
                 # Item normale: usa text color del tema
-                painter.setPen(option.palette.text().color())
+                painter.setPen(app_palette.text().color())
 
             # Draw text
             text_left = 250 + 15 # icon width + padding
