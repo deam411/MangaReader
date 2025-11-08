@@ -6,7 +6,19 @@ from .exceptions import (
     DatabaseError,
     DatabaseSchemaError,
     DatabaseConnectionError,
-    DatabaseQueryError
+    DatabaseQueryError,
+    ValidationError
+)
+from .utils.validation import (
+    validate_title,
+    validate_author,
+    validate_description,
+    validate_language,
+    validate_year,
+    validate_tags,
+    validate_chapter_name,
+    validate_volume_name,
+    validate_order
 )
 
 logger = get_logger(__name__)
@@ -282,10 +294,32 @@ class MangaDatabaseManager:
 
     def insert_metadata(self, title, author=None, description=None, language=None, cover=None, year=None, tags=None):
         """
-        Inserisce i metadati per il manga.
-        Restituisce True in caso di successo, False altrimenti.
+        Inserisce i metadati per il manga con validazione input.
+
+        Args:
+            title: Titolo manga (required)
+            author: Autore (optional)
+            description: Descrizione (optional)
+            language: Lingua (optional)
+            cover: Cover image blob (optional)
+            year: Anno pubblicazione (optional)
+            tags: Tags comma-separated (optional)
+
+        Returns:
+            True in caso di successo, False altrimenti
+
+        Raises:
+            ValidationError: Se metadata non validi
         """
         try:
+            # Valida e sanitizza input
+            title = validate_title(title)
+            author = validate_author(author)
+            description = validate_description(description)
+            language = validate_language(language)
+            year = validate_year(year)
+            tags = validate_tags(tags)
+
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
                 c.execute('''
@@ -294,6 +328,9 @@ class MangaDatabaseManager:
                 ''', (title, author, description, language, cover, year, tags))
                 conn.commit()
                 return True
+        except ValidationError:
+            # Re-raise validation errors
+            raise
         except sqlite3.Error as e:
             logger.error(f"Errore durante l'inserimento dei metadati: {e}")
             return False
@@ -342,10 +379,24 @@ class MangaDatabaseManager:
 
     def insert_volume(self, name, order, cover=None):
         """
-        Inserisce un nuovo volume.
-        Restituisce l'ID del volume in caso di successo, o None in caso di errore.
+        Inserisce un nuovo volume con validazione input.
+
+        Args:
+            name: Nome volume
+            order: Ordine volume
+            cover: Cover image blob (optional)
+
+        Returns:
+            ID del volume in caso di successo, None in caso di errore
+
+        Raises:
+            ValidationError: Se input non validi
         """
         try:
+            # Valida input
+            name = validate_volume_name(name)
+            order = validate_order(order)
+
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
                 c.execute('''
@@ -354,6 +405,9 @@ class MangaDatabaseManager:
                 ''', (name, order, cover))
                 conn.commit()
                 return c.lastrowid
+        except ValidationError:
+            # Re-raise validation errors
+            raise
         except sqlite3.Error as e:
             logger.error(f"Errore durante l'inserimento del volume: {e}")
             return None
@@ -420,10 +474,26 @@ class MangaDatabaseManager:
 
     def insert_chapter(self, name, order, volume_id, description=None):
         """
-        Inserisce un nuovo capitolo e restituisce l'ID del capitolo in caso di successo,
-        o None in caso di errore.
+        Inserisce un nuovo capitolo con validazione input.
+
+        Args:
+            name: Nome capitolo
+            order: Ordine capitolo
+            volume_id: ID volume parent
+            description: Descrizione (optional)
+
+        Returns:
+            ID del capitolo in caso di successo, None in caso di errore
+
+        Raises:
+            ValidationError: Se input non validi
         """
         try:
+            # Valida input
+            name = validate_chapter_name(name)
+            order = validate_order(order)
+            description = validate_description(description)
+
             with sqlite3.connect(self.db_path) as conn:
                 c = conn.cursor()
                 c.execute('''
@@ -432,6 +502,9 @@ class MangaDatabaseManager:
                 ''', (name, order, description, volume_id))
                 conn.commit()
                 return c.lastrowid
+        except ValidationError:
+            # Re-raise validation errors
+            raise
         except sqlite3.Error as e:
             logger.error(f"Errore durante l'inserimento del capitolo: {e}")
             return None
