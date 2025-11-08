@@ -18,7 +18,7 @@ from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer
 from src.paths import get_manga_dir
 from src.settings import Settings
 from src.settings_dialog import SettingsDialog
-from src.constants import APP_VERSION, APP_NAME, DIALOG_MIN_WIDTH
+from src.constants import APP_VERSION, APP_NAME, DIALOG_MIN_WIDTH, GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT
 from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
 from src.logger import get_logger
