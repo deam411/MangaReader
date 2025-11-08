@@ -23,7 +23,7 @@ from src.database import MangaDatabaseManager
 from src.importers import ArchiveImporter
 from src.logger import get_logger
 from src.views.dialogs import ArchiveImportDialog
-from src.views.widgets import LibraryLoaderThread, MangaItemDelegate
+from src.views.widgets import LibraryLoaderThread, MangaItemDelegate, DeselectableListWidget
 from src.creator.manga_creator_app import MangaCreatorApp
 from src.updater import check_for_updates, download_update, install_update, get_update_info_text
 
