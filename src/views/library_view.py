@@ -702,23 +702,39 @@ class LibraryView(QWidget):
 
         # Applica immagine di sfondo se presente e valida
         if bg_image and os.path.exists(bg_image):
-            # Converti path Windows in formato URL se necessario
+            # Converti path in formato URL per Qt CSS
+            # Qt richiede il formato file:/// per path assoluti
             bg_image_url = bg_image.replace('\\', '/')
+            if not bg_image_url.startswith('file:///'):
+                # Aggiungi prefisso file:// per path assoluti
+                if bg_image_url.startswith('/'):
+                    bg_image_url = f'file://{bg_image_url}'
+                else:
+                    bg_image_url = f'file:///{bg_image_url}'
 
             # Imposta object name per targetizzare con stylesheet
             self.setObjectName("library_view")
 
+            # Disabilita auto-fill per permettere all'immagine di essere visibile
+            self.setAutoFillBackground(True)
+
+            # Applica stylesheet con !important per sovrascrivere il tema globale
             stylesheet = f"""
                 QWidget#library_view {{
                     background-image: url({bg_image_url});
                     background-repeat: no-repeat;
                     background-position: center;
+                    background-color: transparent;
                 }}
             """
             self.setStyleSheet(stylesheet)
-            logger.info(f"Applied library background image: {bg_image}")
+            # Forza l'aggiornamento visuale del widget
+            self.update()
+            logger.info(f"Applied library background image: {bg_image_url}")
         else:
-            # Reset stylesheet se non c'è immagine
+            # Reset stylesheet e auto-fill se non c'è immagine
+            self.setAutoFillBackground(False)
             self.setStyleSheet("")
+            self.update()
             logger.debug("No library background image set")
 
