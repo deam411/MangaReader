@@ -134,6 +134,13 @@ class SettingsDialog(QDialog):
         if self.bookmarks_tab:
             all_values.update(self.bookmarks_tab.get_values())
 
+        # Controlla se il tema è cambiato
+        theme_changed = False
+        if "theme" in all_values:
+            old_theme = self.settings.get_theme()
+            new_theme = all_values["theme"]
+            theme_changed = (old_theme != new_theme)
+
         # Salva tutti i valori
         for key, value in all_values.items():
             # Gestione speciale per shortcuts (hanno prefisso "shortcuts.")
@@ -145,6 +152,13 @@ class SettingsDialog(QDialog):
 
         # Salva settings su disco
         self.settings.save()
+
+        # Applica il tema PRIMA di emettere il segnale se è cambiato
+        if theme_changed:
+            from PyQt5.QtWidgets import QApplication
+            from .theme_manager import apply_theme
+            apply_theme(QApplication.instance())
+            logger.info(f"Theme applied: {new_theme}")
 
         # Emetti segnale per notificare il cambio
         self.settings_changed.emit()
