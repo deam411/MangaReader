@@ -162,37 +162,39 @@ class MangaItemDelegate(QStyledItemDelegate):
                 if file_path:
                     cached_path = self.cache_manager.get_cached(file_path, fixed_size.width())
 
-                if cached_path:
-                    # Carica dalla cache persistent
+                # Con sfondo custom, skippa la cache persistent per avere sempre trasparenza
+                if cached_path and not self.has_custom_background:
+                    # Carica dalla cache persistent solo se non c'è sfondo custom
                     target_pixmap = QPixmap(cached_path)
                 else:
                     # Crea e cacha la cover
                     pixmap = QPixmap()
                     pixmap.loadFromData(cover_data)
 
-                    # Crea una pixmap della dimensione fissa desiderata
-                    target_pixmap = QPixmap(fixed_size)
-                    # Usa trasparenza se c'è sfondo custom, altrimenti colore del tema
-                    if self.has_custom_background:
-                        target_pixmap.fill(Qt.transparent)
-                    else:
-                        target_pixmap.fill(option.palette.alternateBase().color())
-
                     # Scala la pixmap originale per adattarla alla dimensione fissa
                     scaled_pixmap = pixmap.scaled(fixed_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-                    # Calcola la posizione per centrare la pixmap scalata
-                    x = (fixed_size.width() - scaled_pixmap.width()) // 2
-                    y = (fixed_size.height() - scaled_pixmap.height()) // 2
+                    if self.has_custom_background:
+                        # Con sfondo custom, usa direttamente la cover scalata senza padding
+                        # Questo permette allo sfondo di essere visibile attorno alle cover
+                        target_pixmap = scaled_pixmap
+                    else:
+                        # Senza sfondo custom, crea un pixmap con padding centrato
+                        target_pixmap = QPixmap(fixed_size)
+                        target_pixmap.fill(option.palette.alternateBase().color())
 
-                    # Disegna la pixmap scalata sulla pixmap target
-                    target_painter = QPainter(target_pixmap)
-                    target_painter.drawPixmap(x, y, scaled_pixmap)
-                    target_painter.end()
+                        # Calcola la posizione per centrare la pixmap scalata
+                        x = (fixed_size.width() - scaled_pixmap.width()) // 2
+                        y = (fixed_size.height() - scaled_pixmap.height()) // 2
 
-                    # Salva nella cache persistent
-                    if file_path:
-                        self.cache_manager.save_to_cache(file_path, fixed_size.width(), target_pixmap)
+                        # Disegna la pixmap scalata sulla pixmap target
+                        target_painter = QPainter(target_pixmap)
+                        target_painter.drawPixmap(x, y, scaled_pixmap)
+                        target_painter.end()
+
+                        # Salva nella cache persistent solo se non c'è sfondo custom
+                        if file_path:
+                            self.cache_manager.save_to_cache(file_path, fixed_size.width(), target_pixmap)
 
                 # Fix: Usa metodo put() della LRUCache
                 self.cover_cache.put(cache_key, target_pixmap)
