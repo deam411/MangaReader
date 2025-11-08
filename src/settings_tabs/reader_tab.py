@@ -1,13 +1,14 @@
 """
-Tab impostazioni reader: modalità lettura.
+Tab impostazioni reader: modalità lettura e sfondo.
 """
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                              QComboBox, QGroupBox)
+                              QComboBox, QGroupBox, QPushButton, QColorDialog)
+from PyQt5.QtGui import QColor
 from ..settings import Settings
 
 
 class ReaderTab(QWidget):
-    """Tab per impostazioni reader (direzione lettura, ecc.)."""
+    """Tab per impostazioni reader (direzione lettura + sfondo)."""
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -49,8 +50,53 @@ class ReaderTab(QWidget):
         reading_group.setLayout(reading_layout)
         layout.addWidget(reading_group)
 
+        # Gruppo Personalizzazione Sfondo READER
+        background_group = QGroupBox("Sfondo Reader")
+        background_layout = QVBoxLayout()
+
+        # Info importante
+        reader_info = QLabel(
+            "Personalizza il colore di sfondo del lettore manga (area di lettura pagine)"
+        )
+        reader_info.setWordWrap(True)
+        reader_info.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
+        background_layout.addWidget(reader_info)
+
+        # Colore sfondo
+        color_layout = QHBoxLayout()
+        color_label = QLabel("Colore sfondo:")
+        color_layout.addWidget(color_label)
+
+        self.bg_color_button = QPushButton("Seleziona Colore")
+        self.current_bg_color = self.settings.get("reader.background_color", "#2b2b2b")
+        self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+        self.bg_color_button.clicked.connect(self._select_bg_color)
+        color_layout.addWidget(self.bg_color_button)
+
+        self.bg_color_label = QLabel(self.current_bg_color)
+        self.bg_color_label.setStyleSheet("color: gray; font-size: 10px;")
+        color_layout.addWidget(self.bg_color_label)
+        color_layout.addStretch()
+        background_layout.addLayout(color_layout)
+
+        background_group.setLayout(background_layout)
+        layout.addWidget(background_group)
+
         layout.addStretch()
         self.setLayout(layout)
+
+    def _select_bg_color(self):
+        """Apre il dialog per selezionare il colore di sfondo."""
+        color = QColorDialog.getColor(
+            QColor(self.current_bg_color),
+            self,
+            "Seleziona Colore Sfondo Reader"
+        )
+
+        if color.isValid():
+            self.current_bg_color = color.name()
+            self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
+            self.bg_color_label.setText(self.current_bg_color)
 
     def get_values(self):
         """Ritorna i valori correnti del tab."""
@@ -58,5 +104,6 @@ class ReaderTab(QWidget):
         reading_direction = self.reading_direction_combo.currentData()
 
         return {
-            "reader.reading_direction": reading_direction
+            "reader.reading_direction": reading_direction,
+            "reader.background_color": self.current_bg_color
         }

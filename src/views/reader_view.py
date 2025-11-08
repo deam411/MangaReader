@@ -9,6 +9,7 @@ Gestisce:
 - Zoom e pan
 """
 
+import os
 import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
                               QScrollArea, QMessageBox, QProgressBar, QDialog)
@@ -17,6 +18,7 @@ from PyQt5.QtCore import Qt, QTimer, QRect
 
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
+from src.settings import Settings
 from src.chapter_reader_window import PageDisplayWidget
 from src.views.dialogs import BookmarkDialog
 
@@ -30,6 +32,7 @@ class ReaderView(QWidget):
         self.manga_file = None
         self.current_chapter_id = None
         self.db_manager = None
+        self.settings = Settings()  # Per accedere alle impostazioni di sfondo
 
         # Timer per auto-save posizione lettura ogni 30 secondi
         self.autosave_timer = QTimer(self)
@@ -37,6 +40,7 @@ class ReaderView(QWidget):
         self.autosave_timer.setInterval(30000)  # 30 secondi
 
         self.initUI()
+        self.apply_background_settings()  # Applica sfondo personalizzato reader
 
     def initUI(self):
         main_layout = QVBoxLayout(self)
@@ -302,3 +306,27 @@ class ReaderView(QWidget):
             self.back_to_manga_details()
         else:
             super().keyPressEvent(event)
+
+    def apply_background_settings(self):
+        """
+        Applica le impostazioni di sfondo personalizzato al ReaderView.
+
+        Legge da reader.background_color e applica il colore di sfondo
+        allo scroll_area (area di visualizzazione pagine manga).
+        """
+        # Leggi impostazione colore sfondo
+        bg_color = self.settings.get("reader.background_color", None)
+
+        # Applica colore di sfondo se presente
+        if bg_color:
+            stylesheet = f"""
+                QScrollArea {{
+                    background-color: {bg_color};
+                }}
+            """
+            self.scroll_area.setStyleSheet(stylesheet)
+            logger.info(f"Applied reader background color: {bg_color}")
+        else:
+            # Reset stylesheet se non c'è colore
+            self.scroll_area.setStyleSheet("")
+            logger.debug("No reader background color set")

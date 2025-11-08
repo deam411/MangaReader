@@ -1,16 +1,15 @@
 """
-Tab impostazioni aspetto: tema applicazione e sfondo libreria.
+Tab impostazioni aspetto: tema applicazione e sfondo home.
 """
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
-                              QGroupBox, QPushButton, QLineEdit, QFileDialog, QColorDialog)
+                              QGroupBox, QPushButton, QLineEdit, QFileDialog)
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QColor
 from ..settings import Settings
 
 
 class AppearanceTab(QWidget):
-    """Tab per impostazioni aspetto (tema)."""
+    """Tab per impostazioni aspetto (tema + sfondo home)."""
 
     theme_changed = pyqtSignal()  # Segnale emesso quando il tema cambia
 
@@ -45,34 +44,17 @@ class AppearanceTab(QWidget):
         theme_group.setLayout(theme_layout)
         layout.addWidget(theme_group)
 
-        # Gruppo Personalizzazione Sfondo LIBRERIA
-        background_group = QGroupBox("Sfondo Libreria")
+        # Gruppo Sfondo Home
+        background_group = QGroupBox("Sfondo Home (Libreria)")
         background_layout = QVBoxLayout()
 
-        # Info importante
-        library_info = QLabel(
-            "Personalizza lo sfondo della schermata principale (LibraryView)"
+        # Info
+        home_info = QLabel(
+            "Personalizza lo sfondo della schermata home (LibraryView)"
         )
-        library_info.setWordWrap(True)
-        library_info.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
-        background_layout.addWidget(library_info)
-
-        # Colore sfondo
-        color_layout = QHBoxLayout()
-        color_label = QLabel("Colore sfondo:")
-        color_layout.addWidget(color_label)
-
-        self.bg_color_button = QPushButton("Seleziona Colore")
-        self.current_bg_color = self.settings.get("library.background_color", "#2b2b2b")
-        self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
-        self.bg_color_button.clicked.connect(self._select_bg_color)
-        color_layout.addWidget(self.bg_color_button)
-
-        self.bg_color_label = QLabel(self.current_bg_color)
-        self.bg_color_label.setStyleSheet("color: gray; font-size: 10px;")
-        color_layout.addWidget(self.bg_color_label)
-        color_layout.addStretch()
-        background_layout.addLayout(color_layout)
+        home_info.setWordWrap(True)
+        home_info.setStyleSheet("color: gray; font-size: 10px; font-style: italic; padding: 5px;")
+        background_layout.addWidget(home_info)
 
         # Immagine sfondo
         image_layout = QHBoxLayout()
@@ -95,11 +77,8 @@ class AppearanceTab(QWidget):
 
         background_layout.addLayout(image_layout)
 
-        # Info
-        bg_info_label = QLabel(
-            "L'immagine di sfondo ha priorità sul colore.\n"
-            "Formati supportati: PNG, JPG, JPEG, BMP"
-        )
+        # Info formati
+        bg_info_label = QLabel("Formati supportati: PNG, JPG, JPEG, BMP")
         bg_info_label.setWordWrap(True)
         bg_info_label.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
         background_layout.addWidget(bg_info_label)
@@ -114,24 +93,11 @@ class AppearanceTab(QWidget):
         """Handler per cambio tema."""
         self.theme_changed.emit()
 
-    def _select_bg_color(self):
-        """Apre il dialog per selezionare il colore di sfondo."""
-        color = QColorDialog.getColor(
-            QColor(self.current_bg_color),
-            self,
-            "Seleziona Colore Sfondo Libreria"
-        )
-
-        if color.isValid():
-            self.current_bg_color = color.name()
-            self.bg_color_button.setStyleSheet(f"background-color: {self.current_bg_color}; color: white;")
-            self.bg_color_label.setText(self.current_bg_color)
-
     def _select_bg_image(self):
-        """Apre il dialog per selezionare l'immagine di sfondo."""
+        """Apre il dialog per selezionare l'immagine di sfondo home."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Seleziona Immagine Sfondo Libreria",
+            "Seleziona Immagine Sfondo Home",
             os.path.expanduser("~"),
             "Immagini (*.png *.jpg *.jpeg *.bmp)"
         )
@@ -140,7 +106,7 @@ class AppearanceTab(QWidget):
             self.bg_image_input.setText(file_path)
 
     def _clear_bg_image(self):
-        """Rimuove l'immagine di sfondo."""
+        """Rimuove l'immagine di sfondo home."""
         self.bg_image_input.setText("Nessuna")
 
     def get_values(self):
@@ -153,13 +119,12 @@ class AppearanceTab(QWidget):
         else:
             theme = "light"
 
-        # Background settings
+        # Background image per home
         bg_image = self.bg_image_input.text()
         if bg_image == "Nessuna":
             bg_image = ""
 
         return {
             "theme": theme,
-            "library.background_color": self.current_bg_color,
             "library.background_image": bg_image
         }
