@@ -10,8 +10,8 @@ Gestisce:
 
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
-                              QListView, QListWidget, QLineEdit, QComboBox, QFileDialog,
-                              QMessageBox, QProgressBar, QMenu)
+                              QListView, QListWidget, QListWidgetItem, QLineEdit, QComboBox,
+                              QFileDialog, QMessageBox, QProgressBar, QMenu, QApplication)
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QPalette, QColor
 from PyQt5.QtCore import Qt, QSize, QSortFilterProxyModel, QTimer
 
