@@ -747,11 +747,22 @@ class LibraryView(QWidget):
                 # Abilita auto-fill per assicurarsi che paintEvent venga chiamato
                 self.setAutoFillBackground(False)
 
+                # Rendi trasparente il QListWidget per mostrare lo sfondo
+                # Applica DOPO aver caricato l'immagine per sovrascrivere il tema
+                self.manga_grid_view.setStyleSheet("""
+                    QListWidget {
+                        background-color: transparent;
+                        border: none;
+                    }
+                """)
+
             # Forza il ridisegno del widget
             self.update()
         else:
-            # Reset pixmap se non c'è immagine
+            # Reset pixmap e stylesheet se non c'è immagine
             self.background_pixmap = None
+            # Rimuovi trasparenza se non c'è sfondo personalizzato
+            self.manga_grid_view.setStyleSheet("")
             self.update()
             logger.debug("No library background image set")
 
