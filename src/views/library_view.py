@@ -852,6 +852,12 @@ class LibraryView(QWidget):
         # Attendi che la pulizia della cache sia completata
         QApplication.instance().processEvents()
 
+        # RICREA il delegate completamente per assicurarsi che abbia il palette aggiornato
+        old_delegate = self.delegate
+        self.delegate = MangaItemDelegate(self)
+        self.manga_grid_view.setItemDelegate(self.delegate)
+        old_delegate.deleteLater()  # Pulisci il vecchio delegate
+
         # Forza il refresh del palette della grid view e del viewport
         self.manga_grid_view.setPalette(QApplication.instance().palette())
         self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
@@ -859,16 +865,8 @@ class LibraryView(QWidget):
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
-        # Invalida ogni singolo item per forzare il delegate a rigenerare le cover
-        for i in range(self.manga_grid_view.count()):
-            item = self.manga_grid_view.item(i)
-            if item:
-                # Invalida il rect di questo item per forzare il ridisegno
-                rect = self.manga_grid_view.visualItemRect(item)
-                self.manga_grid_view.viewport().update(rect)
-
-        # Forza un repaint sincrono finale per completare tutto
-        self.manga_grid_view.viewport().repaint()
+        # Ricarica la libreria per applicare il nuovo tema a tutte le cover
+        self.load_library()
 
     def paintEvent(self, event):
         """
@@ -1026,6 +1024,13 @@ class LibraryView(QWidget):
 
         # Attendi che la pulizia della cache sia completata
         QApplication.instance().processEvents()
+
+        # RICREA il delegate completamente per assicurarsi che abbia il palette aggiornato
+        # Questo risolve il problema dove il delegate usa il vecchio palette durante il render
+        old_delegate = self.delegate
+        self.delegate = MangaItemDelegate(self)
+        self.manga_grid_view.setItemDelegate(self.delegate)
+        old_delegate.deleteLater()  # Pulisci il vecchio delegate
 
         # Forza il refresh del palette della grid view e del viewport
         self.manga_grid_view.setPalette(QApplication.instance().palette())
