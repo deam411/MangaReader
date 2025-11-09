@@ -842,6 +842,9 @@ class LibraryView(QWidget):
         """Callback quando le impostazioni cambiano."""
         # Il tema viene già applicato dal SettingsDialog prima di emettere questo segnale
 
+        # BLOCCA tutti i rendering durante il cambio tema per evitare flickering
+        self.manga_grid_view.setUpdatesEnabled(False)
+
         # Forza Qt a processare tutti gli eventi pendenti per applicare completamente il tema
         QApplication.instance().processEvents()
 
@@ -872,6 +875,9 @@ class LibraryView(QWidget):
 
         # Ri-popola la vista con i dati già caricati invece di ricaricare dal disco
         self._populate_view(self.all_manga_data)
+
+        # RIABILITA i rendering - ora tutte le cover appariranno insieme con il colore corretto
+        self.manga_grid_view.setUpdatesEnabled(True)
 
     def paintEvent(self, event):
         """
@@ -1016,6 +1022,9 @@ class LibraryView(QWidget):
         self.settings.set("theme", theme_name)
         self.settings.save()
 
+        # BLOCCA tutti i rendering durante il cambio tema per evitare flickering
+        self.manga_grid_view.setUpdatesEnabled(False)
+
         # Applica il tema immediatamente
         from src.theme_manager import apply_theme
         apply_theme(QApplication.instance())
@@ -1049,6 +1058,9 @@ class LibraryView(QWidget):
         # Ri-popola la vista con i dati già caricati invece di ricaricare dal disco
         # Questo è molto più veloce e forza comunque la rigenerazione delle cover
         self._populate_view(self.all_manga_data)
+
+        # RIABILITA i rendering - ora tutte le cover appariranno insieme con il colore corretto
+        self.manga_grid_view.setUpdatesEnabled(True)
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
