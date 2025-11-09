@@ -842,22 +842,33 @@ class LibraryView(QWidget):
         """Callback quando le impostazioni cambiano."""
         # Il tema viene già applicato dal SettingsDialog prima di emettere questo segnale
 
+        # Forza Qt a processare tutti gli eventi pendenti per applicare completamente il tema
+        QApplication.instance().processEvents()
+
         # Pulisci ENTRAMBE le cache (in-memory e persistent) per applicare i nuovi colori del tema
         self.delegate.cover_cache.clear()  # Cache LRU in memoria
         self.delegate.cache_manager.clear_all_cache()  # Cache persistent su disco
 
+        # Attendi che la pulizia della cache sia completata
+        QApplication.instance().processEvents()
+
+        # Forza il refresh del palette della grid view e del viewport
+        self.manga_grid_view.setPalette(QApplication.instance().palette())
+        self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
+
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
-        # Forza il ridisegno COMPLETO e immediato di tutte le cover
-        self.manga_grid_view.viewport().repaint()  # Ridisegno sincrono invece di asincrono
-
-        # Invalida anche il layout per forzare il delegate a ridisegnare ogni item
+        # Invalida ogni singolo item per forzare il delegate a rigenerare le cover
         for i in range(self.manga_grid_view.count()):
             item = self.manga_grid_view.item(i)
             if item:
-                # Forza Qt a richiedere un nuovo rendering per questo item
-                self.manga_grid_view.update(self.manga_grid_view.visualItemRect(item))
+                # Invalida il rect di questo item per forzare il ridisegno
+                rect = self.manga_grid_view.visualItemRect(item)
+                self.manga_grid_view.viewport().update(rect)
+
+        # Forza un repaint sincrono finale per completare tutto
+        self.manga_grid_view.viewport().repaint()
 
     def paintEvent(self, event):
         """
@@ -1006,19 +1017,30 @@ class LibraryView(QWidget):
         from src.theme_manager import apply_theme
         apply_theme(QApplication.instance())
 
+        # Forza Qt a processare tutti gli eventi pendenti per applicare completamente il tema
+        QApplication.instance().processEvents()
+
         # Pulisci ENTRAMBE le cache (in-memory e persistent) per applicare i nuovi colori del tema
         self.delegate.cover_cache.clear()  # Cache LRU in memoria
         self.delegate.cache_manager.clear_all_cache()  # Cache persistent su disco
 
-        # Forza il ridisegno COMPLETO e immediato di tutte le cover
-        self.manga_grid_view.viewport().repaint()  # Ridisegno sincrono invece di asincrono
+        # Attendi che la pulizia della cache sia completata
+        QApplication.instance().processEvents()
 
-        # Invalida anche il layout per forzare il delegate a ridisegnare ogni item
+        # Forza il refresh del palette della grid view e del viewport
+        self.manga_grid_view.setPalette(QApplication.instance().palette())
+        self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
+
+        # Invalida ogni singolo item per forzare il delegate a rigenerare le cover
         for i in range(self.manga_grid_view.count()):
             item = self.manga_grid_view.item(i)
             if item:
-                # Forza Qt a richiedere un nuovo rendering per questo item
-                self.manga_grid_view.update(self.manga_grid_view.visualItemRect(item))
+                # Invalida il rect di questo item per forzare il ridisegno
+                rect = self.manga_grid_view.visualItemRect(item)
+                self.manga_grid_view.viewport().update(rect)
+
+        # Forza un repaint sincrono finale per completare tutto
+        self.manga_grid_view.viewport().repaint()
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
