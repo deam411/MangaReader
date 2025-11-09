@@ -1,34 +1,281 @@
-"""Sistema collections per organizzazione manga."""
-from typing import List, Dict
+"""Sistema collections per organizzazione manga con persistenza database."""
+import sqlite3
+import os
+from typing import List, Dict, Optional
 from ..logger import get_logger
+from ..paths import get_app_data_dir
 
 logger = get_logger(__name__)
 
 class CollectionManager:
-    """Gestore collections manga."""
+    """
+    Gestore collections manga con persistenza database.
+
+    Le collections sono salvate in un database SQLite separato
+    per permettere organizzazione cross-manga.
+    """
 
     def __init__(self):
+        self.db_path = os.path.join(get_app_data_dir(), "collections.db")
+        self._init_database()
         self.collections: Dict[str, List[str]] = {}
-        logger.info("CollectionManager inizializzato")
+        self._load_collections()
+        logger.info(f"CollectionManager inizializzato con database: {self.db_path}")
 
-    def create_collection(self, name: str) -> bool:
-        """Crea una nuova collection."""
+    def _init_database(self):
+        """Crea lo schema database per le collections."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Tabella collections
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS collections (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT UNIQUE NOT NULL,
+                        description TEXT,
+                        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+                    )
+                ''')
+
+                # Tabella collection_items (relazione many-to-many)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS collection_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        collection_id INTEGER NOT NULL,
+                        manga_path TEXT NOT NULL,
+                        added_at INTEGER DEFAULT (strftime('%s', 'now')),
+                        FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                        UNIQUE(collection_id, manga_path)
+                    )
+                ''')
+
+                # Indici per performance
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
+                    ON collection_items(collection_id)
+                ''')
+
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_collection_items_manga_path
+                    ON collection_items(manga_path)
+                ''')
+
+                conn.commit()
+                logger.debug("Schema collections database creato")
+        except sqlite3.Error as e:
+            logger.error(f"Errore creazione database collections: {e}")
+
+    def _load_collections(self):
+        """Carica tutte le collections dal database in memoria."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Carica collections
+                cursor.execute('SELECT id, name FROM collections')
+                collections_data = cursor.fetchall()
+
+                self.collections = {}
+                for collection in collections_data:
+                    coll_id = collection['id']
+                    coll_name = collection['name']
+
+                    # Carica manga items per questa collection
+                    cursor.execute('''
+                        SELECT manga_path FROM collection_items
+                        WHERE collection_id = ?
+                        ORDER BY added_at
+                    ''', (coll_id,))
+
+                    items = cursor.fetchall()
+                    self.collections[coll_name] = [item['manga_path'] for item in items]
+
+                logger.debug(f"Caricate {len(self.collections)} collections dal database")
+        except sqlite3.Error as e:
+            logger.error(f"Errore caricamento collections: {e}")
+            self.collections = {}
+
+    def create_collection(self, name: str, description: str = "") -> bool:
+        """
+        Crea una nuova collection.
+
+        Args:
+            name: Nome della collection
+            description: Descrizione opzionale
+
+        Returns:
+            True se creata, False se esiste già
+        """
+        if name in self.collections:
+            return False
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO collections (name, description)
+                    VALUES (?, ?)
+                ''', (name, description))
+                conn.commit()
+
+                self.collections[name] = []
+                logger.info(f"Collection creata: {name}")
+                return True
+        except sqlite3.IntegrityError:
+            logger.warning(f"Collection già esistente: {name}")
+            return False
+        except sqlite3.Error as e:
+            logger.error(f"Errore creazione collection: {e}")
+            return False
+
+    def delete_collection(self, name: str) -> bool:
+        """
+        Elimina una collection.
+
+        Args:
+            name: Nome della collection
+
+        Returns:
+            True se eliminata, False se non esiste
+        """
         if name not in self.collections:
-            self.collections[name] = []
-            logger.info(f"Collection creata: {name}")
-            return True
-        return False
+            return False
 
-    def add_to_collection(self, collection_name: str, manga_path: str):
-        """Aggiunge manga a collection."""
-        if collection_name in self.collections:
-            self.collections[collection_name].append(manga_path)
-            logger.debug(f"Manga aggiunto a {collection_name}")
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM collections WHERE name = ?', (name,))
+                conn.commit()
+
+                del self.collections[name]
+                logger.info(f"Collection eliminata: {name}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore eliminazione collection: {e}")
+            return False
+
+    def add_to_collection(self, collection_name: str, manga_path: str) -> bool:
+        """
+        Aggiunge manga a collection.
+
+        Args:
+            collection_name: Nome della collection
+            manga_path: Path al file .manga
+
+        Returns:
+            True se aggiunto, False altrimenti
+        """
+        if collection_name not in self.collections:
+            logger.warning(f"Collection non esistente: {collection_name}")
+            return False
+
+        if manga_path in self.collections[collection_name]:
+            logger.debug(f"Manga già in collection {collection_name}")
+            return False
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Get collection_id
+                cursor.execute('SELECT id FROM collections WHERE name = ?', (collection_name,))
+                result = cursor.fetchone()
+                if not result:
+                    return False
+
+                collection_id = result[0]
+
+                # Add manga to collection
+                cursor.execute('''
+                    INSERT INTO collection_items (collection_id, manga_path)
+                    VALUES (?, ?)
+                ''', (collection_id, manga_path))
+                conn.commit()
+
+                self.collections[collection_name].append(manga_path)
+                logger.debug(f"Manga aggiunto a {collection_name}: {manga_path}")
+                return True
+        except sqlite3.IntegrityError:
+            logger.debug(f"Manga già in collection {collection_name}")
+            return False
+        except sqlite3.Error as e:
+            logger.error(f"Errore aggiunta manga a collection: {e}")
+            return False
+
+    def remove_from_collection(self, collection_name: str, manga_path: str) -> bool:
+        """
+        Rimuove manga da collection.
+
+        Args:
+            collection_name: Nome della collection
+            manga_path: Path al file .manga
+
+        Returns:
+            True se rimosso, False altrimenti
+        """
+        if collection_name not in self.collections:
+            return False
+
+        if manga_path not in self.collections[collection_name]:
+            return False
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # Get collection_id
+                cursor.execute('SELECT id FROM collections WHERE name = ?', (collection_name,))
+                result = cursor.fetchone()
+                if not result:
+                    return False
+
+                collection_id = result[0]
+
+                # Remove manga from collection
+                cursor.execute('''
+                    DELETE FROM collection_items
+                    WHERE collection_id = ? AND manga_path = ?
+                ''', (collection_id, manga_path))
+                conn.commit()
+
+                self.collections[collection_name].remove(manga_path)
+                logger.debug(f"Manga rimosso da {collection_name}: {manga_path}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore rimozione manga da collection: {e}")
+            return False
 
     def get_collection(self, name: str) -> List[str]:
-        """Ritorna i manga in una collection."""
+        """
+        Ritorna i manga in una collection.
+
+        Args:
+            name: Nome della collection
+
+        Returns:
+            Lista di path ai file .manga
+        """
         return self.collections.get(name, [])
 
     def get_all_collections(self) -> List[str]:
-        """Ritorna tutte le collections."""
+        """
+        Ritorna tutte le collections.
+
+        Returns:
+            Lista di nomi collection
+        """
         return list(self.collections.keys())
+
+    def get_collections_for_manga(self, manga_path: str) -> List[str]:
+        """
+        Ritorna tutte le collections che contengono un manga.
+
+        Args:
+            manga_path: Path al file .manga
+
+        Returns:
+            Lista di nomi collection
+        """
+        return [name for name, items in self.collections.items() if manga_path in items]

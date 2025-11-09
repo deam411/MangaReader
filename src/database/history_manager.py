@@ -182,28 +182,38 @@ class HistoryManager(BaseManager):
                         'percentage': 0.0
                     }
 
-                # OTTIMIZZATO: Pre-calcola l'order del capitolo corrente
+                # OTTIMIZZATO: Pre-calcola l'order del capitolo corrente e del volume
                 # invece di usare una subquery annidata
-                c.execute('SELECT "order" FROM chapters WHERE id = ?', (position['chapter_id'],))
-                current_chapter_order_row = c.fetchone()
+                # FIX: Considera sia volume_id che chapter order per calcolo corretto su multi-volume
+                c.execute('''
+                    SELECT ch."order", v."order"
+                    FROM chapters ch
+                    JOIN volumes v ON ch.volume_id = v.id
+                    WHERE ch.id = ?
+                ''', (position['chapter_id'],))
+                current_order_row = c.fetchone()
 
-                if not current_chapter_order_row:
+                if not current_order_row:
                     return {
                         'total_pages': total_pages,
                         'read_pages': 0,
                         'percentage': 0.0
                     }
 
-                current_chapter_order = current_chapter_order_row[0]
+                current_chapter_order = current_order_row[0]
+                current_volume_order = current_order_row[1]
 
                 # Conta pagine lette fino alla posizione corrente
-                # Query ottimizzata senza subquery annidata
+                # Query ottimizzata che considera sia volume che chapter order
                 c.execute('''
                     SELECT COUNT(*) FROM pages p
                     JOIN chapters ch ON p.chapter_id = ch.id
-                    WHERE ch."order" < ?
+                    JOIN volumes v ON ch.volume_id = v.id
+                    WHERE v."order" < ?
+                       OR (v."order" = ? AND ch."order" < ?)
                        OR (ch.id = ? AND p.page_number <= ?)
-                ''', (current_chapter_order, position['chapter_id'], position['page_number']))
+                ''', (current_volume_order, current_volume_order, current_chapter_order,
+                      position['chapter_id'], position['page_number']))
 
                 read_pages = c.fetchone()[0]
                 percentage = (read_pages / total_pages) * 100
