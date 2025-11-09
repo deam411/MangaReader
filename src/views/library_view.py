@@ -842,8 +842,9 @@ class LibraryView(QWidget):
         """Callback quando le impostazioni cambiano."""
         # Il tema viene già applicato dal SettingsDialog prima di emettere questo segnale
 
-        # Pulisci la cache delle cover per applicare i nuovi colori del tema
-        self.delegate.cover_cache.clear()
+        # Pulisci ENTRAMBE le cache (in-memory e persistent) per applicare i nuovi colori del tema
+        self.delegate.cover_cache.clear()  # Cache LRU in memoria
+        self.delegate.cache_manager.clear_all_cache()  # Cache persistent su disco
 
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
@@ -998,8 +999,9 @@ class LibraryView(QWidget):
         from src.theme_manager import apply_theme
         apply_theme(QApplication.instance())
 
-        # Pulisci la cache delle cover per applicare i nuovi colori del tema
-        self.delegate.cover_cache.clear()
+        # Pulisci ENTRAMBE le cache (in-memory e persistent) per applicare i nuovi colori del tema
+        self.delegate.cover_cache.clear()  # Cache LRU in memoria
+        self.delegate.cache_manager.clear_all_cache()  # Cache persistent su disco
 
         # Forza il ridisegno della vista per mostrare le cover con i nuovi colori
         self.manga_grid_view.viewport().update()
