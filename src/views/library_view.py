@@ -28,6 +28,7 @@ from src.creator.manga_creator_app import MangaCreatorApp
 from src.updater import check_for_updates, download_update, install_update, get_update_info_text
 from src.views.utils import sanitize_filename
 from src.stats.stats_widget import StatsWidget
+from src.collections import CollectionManager
 
 logger = get_logger(__name__)
 
@@ -41,6 +42,7 @@ class LibraryView(QWidget):
         self.first_load = True  # Per mostrare il messaggio solo al primo caricamento
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.background_pixmap = None  # Pixmap per lo sfondo personalizzato
+        self.collection_manager = CollectionManager()  # Gestore collections (v0.3.0)
 
         # Imposta attributi per permettere custom painting dello sfondo
         self.setAttribute(Qt.WA_StyledBackground, False)
@@ -71,7 +73,50 @@ class LibraryView(QWidget):
         self.tag_filter_combo.setMinimumWidth(150)
         search_layout.addWidget(self.tag_filter_combo, 1)  # 1/4 width
 
+        # Advanced Search Toggle (v0.3.0)
+        self.advanced_search_button = QPushButton('🔍+', self)
+        self.advanced_search_button.setFixedSize(40, 30)
+        self.advanced_search_button.setToolTip('Mostra/Nascondi filtri avanzati')
+        self.advanced_search_button.setCheckable(True)
+        self.advanced_search_button.clicked.connect(self._toggle_advanced_search)
+        search_layout.addWidget(self.advanced_search_button)
+
         layout.addLayout(search_layout)
+
+        # Advanced Search Panel (v0.3.0) - Initially hidden
+        self.advanced_search_panel = QWidget()
+        advanced_layout = QHBoxLayout(self.advanced_search_panel)
+        advanced_layout.setContentsMargins(0, 5, 0, 5)
+
+        # Reading Status Filter
+        status_label = QLabel("Stato:")
+        advanced_layout.addWidget(status_label)
+
+        self.status_filter_combo = QComboBox(self)
+        self.status_filter_combo.addItems([
+            "Tutti",
+            "Non letti",
+            "In lettura",
+            "Completati"
+        ])
+        self.status_filter_combo.currentTextChanged.connect(self.filter_manga)
+        self.status_filter_combo.setMinimumWidth(120)
+        advanced_layout.addWidget(self.status_filter_combo)
+
+        # Author Filter
+        author_label = QLabel("Autore:")
+        advanced_layout.addWidget(author_label)
+
+        self.author_filter_combo = QComboBox(self)
+        self.author_filter_combo.addItem("Tutti gli autori")
+        self.author_filter_combo.currentTextChanged.connect(self.filter_manga)
+        self.author_filter_combo.setMinimumWidth(150)
+        advanced_layout.addWidget(self.author_filter_combo)
+
+        advanced_layout.addStretch()
+
+        self.advanced_search_panel.setVisible(False)
+        layout.addWidget(self.advanced_search_panel)
 
         # Progress bar per il caricamento
         self.progress_bar = QProgressBar(self)
@@ -149,6 +194,14 @@ class LibraryView(QWidget):
         self.add_manga_button.setToolTip('Crea nuovo manga (Ctrl+N)')
         self.add_manga_button.clicked.connect(self.launch_manga_creator)
         controls_layout.addWidget(self.add_manga_button)
+
+        # Theme Switcher (v0.3.0)
+        self.theme_combo = QComboBox(self)
+        self.theme_combo.setToolTip('Cambia tema rapidamente')
+        self.theme_combo.setMinimumWidth(100)
+        self._populate_theme_combo()
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        controls_layout.addWidget(self.theme_combo)
 
         self.settings_button = QPushButton('⚙', self)
         self.settings_button.setFixedSize(40, 40)
@@ -274,28 +327,45 @@ class LibraryView(QWidget):
             self.progress_bar.setValue(int((current / total) * 100))
 
     def populate_tag_filter(self):
-        """Popola la combobox tag con tutti i tag unici dalla libreria."""
+        """Popola la combobox tag e autori con tutti i valori unici dalla libreria (v0.3.0)."""
         all_tags = set()
+        all_authors = set()
 
         for manga in self.all_manga_data:
             if 'tags' in manga and manga['tags']:
                 tags = [t.strip() for t in manga['tags'].split(',') if t.strip()]
                 all_tags.update(tags)
 
-        # Salva selezione corrente
-        current_selection = self.tag_filter_combo.currentText()
+            if 'author' in manga and manga['author'] and manga['author'] != 'Sconosciuto':
+                all_authors.add(manga['author'])
 
-        # Aggiorna la combobox
+        # Salva selezioni correnti
+        current_tag_selection = self.tag_filter_combo.currentText()
+        current_author_selection = self.author_filter_combo.currentText()
+
+        # Aggiorna la combobox tag
         self.tag_filter_combo.clear()
         self.tag_filter_combo.addItem("All Tags")
 
         for tag in sorted(all_tags):
             self.tag_filter_combo.addItem(tag)
 
-        # Ripristina selezione se possibile
-        index = self.tag_filter_combo.findText(current_selection)
+        # Ripristina selezione tag se possibile
+        index = self.tag_filter_combo.findText(current_tag_selection)
         if index >= 0:
             self.tag_filter_combo.setCurrentIndex(index)
+
+        # Aggiorna la combobox autori (v0.3.0)
+        self.author_filter_combo.clear()
+        self.author_filter_combo.addItem("Tutti gli autori")
+
+        for author in sorted(all_authors):
+            self.author_filter_combo.addItem(author)
+
+        # Ripristina selezione autore se possibile
+        index = self.author_filter_combo.findText(current_author_selection)
+        if index >= 0:
+            self.author_filter_combo.setCurrentIndex(index)
 
     def on_loading_complete(self, corrupted_files):
         """Callback quando il caricamento è completato."""
@@ -364,9 +434,11 @@ class LibraryView(QWidget):
             self._add_manga_to_view(manga_info)
 
     def filter_manga(self, text=None):
-        """Filtra i manga per testo di ricerca e tag selezionato."""
+        """Filtra i manga per testo, tag, stato e autore (v0.3.0 enhanced)."""
         search_text = self.search_input.text().lower()
         selected_tag = self.tag_filter_combo.currentText()
+        selected_status = self.status_filter_combo.currentText() if hasattr(self, 'status_filter_combo') else "Tutti"
+        selected_author = self.author_filter_combo.currentText() if hasattr(self, 'author_filter_combo') else "Tutti gli autori"
 
         # Ottimizzazione: Usa il dizionario per lookup O(1) invece di loop O(n)
         if not hasattr(self, 'manga_data_map'):
@@ -394,8 +466,27 @@ class LibraryView(QWidget):
                 else:
                     tag_match = False
 
-            # Mostra solo se entrambi i filtri passano
-            item.setHidden(not (text_match and tag_match))
+            # Filtro stato lettura (v0.3.0)
+            status_match = True
+            if selected_status != "Tutti":
+                progress = manga_data.get('progress') if manga_data else None
+                if selected_status == "Non letti":
+                    status_match = not progress or progress['percentage'] == 0
+                elif selected_status == "In lettura":
+                    status_match = progress and 0 < progress['percentage'] < 100
+                elif selected_status == "Completati":
+                    status_match = progress and progress['percentage'] >= 100
+
+            # Filtro autore (v0.3.0)
+            author_match = True
+            if selected_author and selected_author != "Tutti gli autori":
+                if manga_data and 'author' in manga_data:
+                    author_match = manga_data['author'] == selected_author
+                else:
+                    author_match = False
+
+            # Mostra solo se tutti i filtri passano
+            item.setHidden(not (text_match and tag_match and status_match and author_match))
 
     def sort_manga(self, index):
         if index == 0:
@@ -467,7 +558,7 @@ class LibraryView(QWidget):
         QTimer.singleShot(200, lambda: reader_view.scroll_to_page_index(page_index))
 
     def show_manga_context_menu(self, position):
-        """Mostra il menu contestuale per un manga."""
+        """Mostra il menu contestuale per un manga (v0.3.0 con collections)."""
         item = self.manga_grid_view.itemAt(position)
         if not item:
             return
@@ -480,11 +571,36 @@ class LibraryView(QWidget):
         # Azione per cancellare la cronologia
         clear_history_action = menu.addAction("Cancella cronologia")
 
+        # Submenu Collections (v0.3.0)
+        collections_menu = menu.addMenu("📁 Collections")
+
+        # Crea nuova collection
+        new_collection_action = collections_menu.addAction("➕ Nuova Collection...")
+
+        collections_menu.addSeparator()
+
+        # Aggiungi collection esistenti
+        existing_collections = self.collection_manager.get_all_collections()
+        collection_actions = {}
+
+        if existing_collections:
+            for collection_name in existing_collections:
+                action = collections_menu.addAction(f"📌 {collection_name}")
+                collection_actions[action] = collection_name
+        else:
+            no_collections_action = collections_menu.addAction("(Nessuna collection)")
+            no_collections_action.setEnabled(False)
+
         # Mostra il menu e ottieni l'azione selezionata
         action = menu.exec_(self.manga_grid_view.mapToGlobal(position))
 
         if action == clear_history_action:
             self.clear_manga_history(manga_file, item)
+        elif action == new_collection_action:
+            self._create_new_collection(manga_file)
+        elif action in collection_actions:
+            collection_name = collection_actions[action]
+            self._add_to_collection(manga_file, collection_name)
 
     def clear_manga_history(self, manga_file, item):
         """Cancella la cronologia di lettura per un manga."""
@@ -809,3 +925,103 @@ class LibraryView(QWidget):
         unread = total - completed - reading
 
         self.stats_widget.update_stats(total, completed, reading, unread)
+
+    def _populate_theme_combo(self):
+        """Popola la combobox con i temi disponibili (v0.3.0)."""
+        from src.theme_manager import load_themes
+
+        themes = load_themes()
+        current_theme = self.settings.get_theme()
+
+        # Blocca i segnali durante il popolamento per evitare trigger indesiderati
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+
+        for theme_name in themes.keys():
+            # Capitalizza il nome del tema per visualizzazione migliore
+            display_name = theme_name.capitalize()
+            self.theme_combo.addItem(display_name, theme_name)
+
+        # Seleziona il tema corrente
+        index = self.theme_combo.findData(current_theme)
+        if index >= 0:
+            self.theme_combo.setCurrentIndex(index)
+
+        self.theme_combo.blockSignals(False)
+
+    def _on_theme_changed(self, display_name):
+        """Applica il tema selezionato (v0.3.0)."""
+        if not display_name:
+            return
+
+        # Ottieni il nome reale del tema dai dati dell'item corrente
+        theme_name = self.theme_combo.currentData()
+        if not theme_name:
+            return
+
+        # Salva nelle impostazioni
+        self.settings.set("theme", theme_name)
+        self.settings.save()
+
+        # Applica il tema immediatamente
+        from src.theme_manager import apply_theme
+        apply_theme(QApplication.instance())
+
+        logger.info(f"Tema cambiato a: {theme_name}")
+
+    def _create_new_collection(self, manga_file):
+        """Crea una nuova collection e aggiunge il manga (v0.3.0)."""
+        from PyQt5.QtWidgets import QInputDialog
+
+        collection_name, ok = QInputDialog.getText(
+            self,
+            "Nuova Collection",
+            "Nome della collection:"
+        )
+
+        if not ok or not collection_name.strip():
+            return
+
+        collection_name = collection_name.strip()
+
+        # Crea la collection
+        if self.collection_manager.create_collection(collection_name):
+            # Aggiungi il manga alla collection
+            self.collection_manager.add_to_collection(collection_name, manga_file)
+
+            QMessageBox.information(
+                self,
+                "Collection Creata",
+                f"Collection '{collection_name}' creata e manga aggiunto!"
+            )
+            logger.info(f"Collection '{collection_name}' creata con manga: {manga_file}")
+        else:
+            QMessageBox.warning(
+                self,
+                "Errore",
+                f"Collection '{collection_name}' già esistente!"
+            )
+
+    def _add_to_collection(self, manga_file, collection_name):
+        """Aggiunge il manga a una collection esistente (v0.3.0)."""
+        self.collection_manager.add_to_collection(collection_name, manga_file)
+
+        QMessageBox.information(
+            self,
+            "Manga Aggiunto",
+            f"Manga aggiunto alla collection '{collection_name}'!"
+        )
+        logger.info(f"Manga {manga_file} aggiunto a collection: {collection_name}")
+
+    def _toggle_advanced_search(self):
+        """Mostra/nascondi il pannello di ricerca avanzata (v0.3.0)."""
+        is_visible = not self.advanced_search_panel.isVisible()
+        self.advanced_search_panel.setVisible(is_visible)
+
+        # Aggiorna il pulsante
+        if is_visible:
+            self.advanced_search_button.setText('🔍-')
+        else:
+            self.advanced_search_button.setText('🔍+')
+
+        logger.debug(f"Advanced search panel {'shown' if is_visible else 'hidden'}")
