@@ -124,6 +124,53 @@ class TranslationManager:
         """
         return self.translate(key, default)
 
+    def get(self, key: str, default: Optional[str] = None) -> str:
+        """
+        Alias per translate() per compatibilità con test.
+
+        Args:
+            key: Chiave traduzione
+            default: Valore di default
+
+        Returns:
+            Stringa tradotta
+        """
+        return self.translate(key, default)
+
+    def get_current_language(self) -> str:
+        """
+        Ritorna il codice della lingua corrente.
+
+        Returns:
+            Codice lingua corrente (es. 'en', 'it')
+        """
+        return self.current_language
+
+    def has_translation(self, key: str) -> bool:
+        """
+        Controlla se esiste una traduzione per la chiave data.
+
+        Args:
+            key: Chiave traduzione da controllare
+
+        Returns:
+            True se la traduzione esiste, False altrimenti
+        """
+        if self.current_language not in self.translations:
+            return False
+        return key in self.translations[self.current_language]
+
+    def get_all(self) -> Dict[str, str]:
+        """
+        Ritorna tutte le traduzioni per la lingua corrente.
+
+        Returns:
+            Dizionario con tutte le coppie chiave-valore per la lingua corrente
+        """
+        if self.current_language not in self.translations:
+            return {}
+        return self.translations[self.current_language].copy()
+
     def get_available_languages(self) -> List[str]:
         """
         Ritorna lingue disponibili.

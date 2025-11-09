@@ -189,9 +189,33 @@ class MangaDatabaseManager:
         """Alias for get_pages_for_chapter() for test compatibility."""
         return self.get_pages_for_chapter(chapter_id)
 
-    def insert_page(self, chapter_id: int, page_number: int, image_path: str) -> bool:
-        """Insert page with format conversion (delegated to ChapterManager)."""
-        return self.chapters.insert_page(chapter_id, page_number, image_path)
+    def get_page(self, page_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get single page by ID (delegated to ChapterManager).
+
+        Args:
+            page_id: Simulated page ID
+
+        Returns:
+            Dict with page data or None
+        """
+        return self.chapters.get_page_by_id(page_id)
+
+    def insert_page(self, chapter_id: int, page_number: int, image_data_or_path) -> int:
+        """
+        Insert page with format conversion (delegated to ChapterManager).
+
+        Supports both file paths (str) and raw bytes.
+
+        Args:
+            chapter_id: Chapter ID
+            page_number: Page number
+            image_data_or_path: File path (str) or image data (bytes)
+
+        Returns:
+            Simulated page ID or 0 on error
+        """
+        return self.chapters.insert_page(chapter_id, page_number, image_data_or_path)
 
     def delete_page(self, chapter_id: int, page_number: int) -> bool:
         """Delete page (delegated to ChapterManager)."""
