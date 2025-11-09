@@ -26,7 +26,8 @@ class TestStatsManager:
         monkeypatch.setattr("src.stats.stats_manager.get_app_data_dir",
                            mock_get_app_data_dir)
 
-        manager = StatsManager()
+        # Pass explicit db_path to ensure manager uses the test database
+        manager = StatsManager(str(db_path))
         yield manager, str(db_path)
 
         # Cleanup
@@ -409,8 +410,8 @@ class TestStatsManager:
             timestamp = cursor.fetchone()[0]
 
             assert timestamp is not None
-            # Verifica formato timestamp
-            datetime.fromisoformat(timestamp)  # Dovrebbe non lanciare eccezione
+            # Verifica formato timestamp (stored as Unix timestamp integer)
+            datetime.fromtimestamp(timestamp)  # Dovrebbe non lanciare eccezione
 
     def test_multiple_sessions_same_day(self, temp_stats_db):
         """Test multiple sessioni nello stesso giorno (streak = 1)."""

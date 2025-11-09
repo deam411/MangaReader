@@ -362,7 +362,7 @@ class StatsManager:
 
                 cursor.execute('''
                     SELECT * FROM reading_sessions
-                    ORDER BY timestamp DESC
+                    ORDER BY timestamp DESC, id DESC
                     LIMIT ?
                 ''', (limit,))
 
@@ -456,6 +456,32 @@ class StatsManager:
                 return True
         except sqlite3.Error as e:
             logger.error(f"Errore eliminazione sessioni vecchie: {e}")
+            return False
+
+    def delete_sessions_before(self, cutoff_date: str) -> bool:
+        """
+        Elimina sessioni prima di una data specifica.
+
+        Args:
+            cutoff_date: Data limite (formato 'YYYY-MM-DD') - sessioni prima di questa data vengono eliminate
+
+        Returns:
+            True se eliminate, False altrimenti
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    DELETE FROM reading_sessions
+                    WHERE session_date < ?
+                ''', (cutoff_date,))
+                deleted = cursor.rowcount
+                conn.commit()
+
+                logger.info(f"Eliminate {deleted} sessioni prima di {cutoff_date}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore eliminazione sessioni prima della data: {e}")
             return False
 
     def close(self) -> None:
