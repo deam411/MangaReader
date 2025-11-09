@@ -133,17 +133,21 @@ class MangaItemDelegate(QStyledItemDelegate):
         file_path = index.data(Qt.UserRole)  # Percorso file manga
 
         # Draw background
+        # Usa palette consistente dall'applicazione invece di option.palette
+        # per evitare colori inconsistenti tra diversi item
+        app_palette = QApplication.instance().palette()
+
         # Se c'è uno sfondo personalizzato, usa trasparenza per item non selezionati
         if option.state & QStyle.State_Selected:
             # Item selezionato: usa colore semi-trasparente per evidenziare
             if self.has_custom_background:
                 painter.fillRect(option.rect, QColor(74, 158, 255, 80))
             else:
-                painter.fillRect(option.rect, option.palette.highlight())
+                painter.fillRect(option.rect, app_palette.highlight())
         else:
             # Item normale: trasparente se c'è sfondo custom, altrimenti usa tema
             if not self.has_custom_background:
-                painter.fillRect(option.rect, option.palette.base())
+                painter.fillRect(option.rect, app_palette.base())
 
         # Draw cover
         if cover_data:
@@ -180,8 +184,10 @@ class MangaItemDelegate(QStyledItemDelegate):
                         target_pixmap = scaled_pixmap
                     else:
                         # Senza sfondo custom, crea un pixmap con padding centrato
+                        # Usa palette applicazione per consistenza colori
+                        app_palette = QApplication.instance().palette()
                         target_pixmap = QPixmap(fixed_size)
-                        target_pixmap.fill(option.palette.alternateBase().color())
+                        target_pixmap.fill(app_palette.alternateBase().color())
 
                         # Calcola la posizione per centrare la pixmap scalata
                         x = (fixed_size.width() - scaled_pixmap.width()) // 2
