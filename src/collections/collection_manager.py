@@ -259,14 +259,28 @@ class CollectionManager:
         """
         return self.collections.get(name, [])
 
-    def get_all_collections(self) -> List[str]:
+    def get_all_collections(self) -> List[Dict]:
         """
-        Ritorna tutte le collections.
+        Ritorna tutte le collections con metadata completo.
 
         Returns:
-            Lista di nomi collection
+            Lista di dict con info collection (id, name, description, created_at)
         """
-        return list(self.collections.keys())
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, name, description, created_at
+                    FROM collections
+                    ORDER BY created_at DESC
+                ''')
+                collections = [dict(row) for row in cursor.fetchall()]
+                logger.debug(f"Recuperate {len(collections)} collections")
+                return collections
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero collections: {e}")
+            return []
 
     def get_collections_for_manga(self, manga_path: str) -> List[str]:
         """
@@ -279,3 +293,14 @@ class CollectionManager:
             Lista di nomi collection
         """
         return [name for name, items in self.collections.items() if manga_path in items]
+
+    def close(self) -> None:
+        """
+        Chiude le connessioni al database.
+
+        Questo metodo è fornito per compatibilità con i test.
+        CollectionManager usa context manager per le connessioni,
+        quindi non mantiene connessioni persistenti da chiudere.
+        """
+        logger.debug("CollectionManager close() chiamato (no-op, usa context manager)")
+        pass

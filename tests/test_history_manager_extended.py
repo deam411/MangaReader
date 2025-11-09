@@ -18,6 +18,9 @@ class TestHistoryManagerExtended:
     @pytest.fixture
     def temp_manga_db(self):
         """Crea un database manga temporaneo con struttura completa."""
+        from tests.conftest import create_temp_image
+        from pathlib import Path
+
         fd, path = tempfile.mkstemp(suffix='.manga')
         os.close(fd)
 
@@ -39,10 +42,14 @@ class TestHistoryManagerExtended:
         ch3_id = db_manager.insert_chapter("Chapter 3", 1, vol2_id)
         ch4_id = db_manager.insert_chapter("Chapter 4", 2, vol2_id)
 
+        # Crea temp directory per immagini
+        temp_dir = Path(tempfile.mkdtemp())
+        test_image = create_temp_image(temp_dir, "test_page.png")
+
         # 10 pagine per capitolo
         for ch_id in [ch1_id, ch2_id, ch3_id, ch4_id]:
             for i in range(1, 11):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, str(test_image))
 
         yield path, db_manager
 
@@ -50,6 +57,10 @@ class TestHistoryManagerExtended:
         db_manager.close()
         if os.path.exists(path):
             os.remove(path)
+        # Cleanup temp images
+        import shutil
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def test_save_reading_position_first_time(self, temp_manga_db):
         """Test salvataggio prima posizione di lettura."""

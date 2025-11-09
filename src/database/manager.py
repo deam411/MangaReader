@@ -157,6 +157,10 @@ class MangaDatabaseManager:
         """Get chapters for volume (delegated to ChapterManager)."""
         return self.chapters.get_chapters_for_volume(volume_id)
 
+    def get_chapters(self, volume_id: int) -> List[Any]:
+        """Alias for get_chapters_for_volume() for test compatibility."""
+        return self.get_chapters_for_volume(volume_id)
+
     def get_all_chapters(self) -> List[Any]:
         """Get all chapters (delegated to ChapterManager)."""
         return self.chapters.get_all_chapters()
@@ -180,6 +184,10 @@ class MangaDatabaseManager:
     def get_pages_for_chapter(self, chapter_id: int) -> List[Any]:
         """Get pages for chapter (delegated to ChapterManager)."""
         return self.chapters.get_pages_for_chapter(chapter_id)
+
+    def get_pages(self, chapter_id: int) -> List[Any]:
+        """Alias for get_pages_for_chapter() for test compatibility."""
+        return self.get_pages_for_chapter(chapter_id)
 
     def insert_page(self, chapter_id: int, page_number: int, image_path: str) -> bool:
         """Insert page with format conversion (delegated to ChapterManager)."""

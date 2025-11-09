@@ -83,6 +83,18 @@ class TranslationManager:
         logger.info(f"Lingua caricata: {lang_code}")
         return True
 
+    def set_language(self, lang_code: str) -> bool:
+        """
+        Alias per load_language() per compatibilità con test.
+
+        Args:
+            lang_code: Codice lingua (es. 'en', 'it', 'es')
+
+        Returns:
+            True se caricata, False altrimenti
+        """
+        return self.load_language(lang_code)
+
     def translate(self, key: str, default: Optional[str] = None) -> str:
         """
         Traduce una stringa.
