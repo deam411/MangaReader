@@ -86,13 +86,54 @@
 
 ---
 
+### 🎨 FASE 6: UI Enhancements & User Experience
+
+**6.1 Stats Widget in LibraryView** 📊
+- Widget statistiche visibile nella vista libreria
+- Mostra: Totale manga, Completati, In lettura, Non letti
+- Aggiornamento real-time al caricamento libreria
+- Design compatto e informativo
+- **File**: `src/stats/stats_widget.py`, modifiche in `src/views/library_view.py`
+
+**6.2 Backup Tab in Settings Dialog** 💾
+- Tab dedicato per gestione backup nel Settings Dialog
+- UI completa per creare/ripristinare/eliminare backup
+- Lista backup disponibili con dimensione e data
+- Progress dialog durante operazioni
+- Supporto backup personalizzati (Salva Come...)
+- **File**: `src/settings_tabs/backup_tab.py`
+
+**6.3 Theme Switcher in Toolbar** 🎨
+- Combobox rapida per cambio tema nella toolbar principale
+- Switch immediato tra temi senza aprire impostazioni
+- Sincronizzazione automatica con settings
+- Mostra tutti i temi disponibili da themes.json
+- **Modifiche**: `src/views/library_view.py` (lines 154-161, 821-889)
+
+**6.4 Collections Quick Menu** 📁
+- Menu contestuale migliorato con sottomenu Collections
+- Creazione nuove collections con dialog input
+- Aggiunta rapida manga a collections esistenti
+- Visual feedback con emoji e messaggi informativi
+- **Modifiche**: `src/views/library_view.py` (context menu enhancement)
+
+**6.5 Advanced Search Bar** 🔍
+- Toggle per mostrare/nascondere filtri avanzati
+- Filtro per stato lettura (Tutti/Non letti/In lettura/Completati)
+- Filtro per autore con lista autori disponibili
+- Combinazione multipla filtri (testo + tag + stato + autore)
+- **Modifiche**: `src/views/library_view.py` (advanced search panel)
+
+---
+
 ### 📈 Overall Statistics v0.3.0
 
 **Code Changes**:
 - **Nuovi Moduli**: 7 nuovi package creati (i18n, stats, collections, backup, metadata, schemas, views/virtual)
-- **Nuovi File**: ~15 file produzione + test suite
-- **Linee Codice**: ~2000 nuove linee
+- **Nuovi File**: ~18 file produzione + test suite
+- **Linee Codice**: ~2500+ nuove linee
 - **Architettura**: Modulare e scalabile per estensioni future
+- **UI Enhancements**: 6 nuove funzionalità UI visibili all'utente
 
 **Quality Metrics**:
 - ✅ Tutti i moduli seguono best practices

@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import pyqtSignal
 from .settings import Settings
 from .settings_tabs import (GeneralTab, AppearanceTab, PerformanceTab,
-                            ReaderTab, ShortcutsTab, BookmarksTab)
+                            ReaderTab, ShortcutsTab, BookmarksTab, BackupTab)
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,6 +41,7 @@ class SettingsDialog(QDialog):
         self.reader_tab = None
         self.shortcuts_tab = None
         self.bookmarks_tab = None
+        self.backup_tab = None
 
         self.initUI()
 
@@ -69,6 +70,9 @@ class SettingsDialog(QDialog):
 
         self.bookmarks_tab = BookmarksTab(self.settings, self)
         tabs.addTab(self.bookmarks_tab, "Segnalibri")
+
+        self.backup_tab = BackupTab(self)
+        tabs.addTab(self.backup_tab, "Backup")
 
         layout.addWidget(tabs)
 
