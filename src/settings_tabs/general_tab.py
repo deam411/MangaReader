@@ -4,7 +4,8 @@ Tab impostazioni generali: libreria e aggiornamenti.
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QLineEdit, QFileDialog, QGroupBox,
-                              QMessageBox, QProgressDialog, QTextEdit, QApplication)
+                              QMessageBox, QProgressDialog, QTextEdit, QApplication,
+                              QComboBox)
 from PyQt5.QtCore import QThread, pyqtSignal
 from ..settings import Settings
 from ..updater import (check_for_updates, download_update, install_update,
@@ -81,6 +82,42 @@ class GeneralTab(QWidget):
 
         library_group.setLayout(library_layout)
         layout.addWidget(library_group)
+
+        # Gruppo Lingua (v0.3.0)
+        language_group = QGroupBox("Lingua")
+        language_layout = QVBoxLayout()
+
+        # Selezione lingua
+        lang_layout = QHBoxLayout()
+        lang_label = QLabel("Lingua:")
+        lang_layout.addWidget(lang_label)
+
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("Italiano", "it")
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("Español", "es")
+        self.language_combo.addItem("Français", "fr")
+        self.language_combo.addItem("Deutsch", "de")
+        self.language_combo.addItem("日本語", "ja")
+
+        # Imposta la lingua corrente
+        current_lang = self.settings.get("language", "it")
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+
+        lang_layout.addWidget(self.language_combo)
+        lang_layout.addStretch()
+        language_layout.addLayout(lang_layout)
+
+        # Info label
+        lang_info = QLabel("Seleziona la lingua dell'interfaccia.\n(Richiede riavvio dell'applicazione)")
+        lang_info.setStyleSheet("color: gray; font-size: 10px;")
+        lang_info.setWordWrap(True)
+        language_layout.addWidget(lang_info)
+
+        language_group.setLayout(language_layout)
+        layout.addWidget(language_group)
 
         # Gruppo Aggiornamenti (v0.1.0)
         update_group = QGroupBox("Aggiornamenti")
@@ -239,6 +276,10 @@ class GeneralTab(QWidget):
         if "(default)" in library_path:
             library_path = library_path.replace(" (default)", "").strip()
 
+        # Ottieni lingua selezionata
+        selected_language = self.language_combo.currentData()
+
         return {
-            "library.path": library_path
+            "library.path": library_path,
+            "language": selected_language
         }
