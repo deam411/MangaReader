@@ -227,6 +227,11 @@ class MangaItemDelegate(QStyledItemDelegate):
                 # Item normale: usa text color del tema
                 painter.setPen(app_palette.text().color())
 
+            # Usa font applicazione con proprietà consistenti
+            font = QApplication.instance().font()
+            font.setBold(False)  # Grid view: testo normale (non bold)
+            painter.setFont(font)
+
             text_rect = option.rect.adjusted(5, 380, -5, -5)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, title)
         else:
@@ -246,13 +251,14 @@ class MangaItemDelegate(QStyledItemDelegate):
             text_left = 250 + 15 # icon width + padding
             text_rect = QRect(text_left, option.rect.top() + 5, option.rect.width() - text_left - 5, option.rect.height() - 10)
 
-            font = painter.font()
-            font.setBold(True)
+            # Usa font applicazione con proprietà consistenti
+            font = QApplication.instance().font()
+            font.setBold(True)  # List view: titolo in grassetto
             painter.setFont(font)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignTop, title)
 
             if description:
-                font.setBold(False)
+                font.setBold(False)  # Descrizione: testo normale
                 painter.setFont(font)
                 font_metrics = painter.fontMetrics()
                 title_height = font_metrics.height()
