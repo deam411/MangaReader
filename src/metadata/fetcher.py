@@ -11,7 +11,7 @@ class MetadataFetcher:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'MangaReader/0.3.0'
+            'User-Agent': 'MangaReader/0.2.8'
         })
         logger.info("MetadataFetcher inizializzato")
 
