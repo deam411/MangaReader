@@ -218,7 +218,6 @@ class MangaItemDelegate(QStyledItemDelegate):
             # Draw title
             # Usa palette consistente dall'applicazione invece di option.palette
             # per evitare colori inconsistenti tra diversi item
-            from PyQt5.QtWidgets import QApplication
             app_palette = QApplication.instance().palette()
 
             if option.state & QStyle.State_Selected:
@@ -234,7 +233,6 @@ class MangaItemDelegate(QStyledItemDelegate):
             # List view painting
             # Usa palette consistente dall'applicazione invece di option.palette
             # per evitare colori inconsistenti tra diversi item
-            from PyQt5.QtWidgets import QApplication
             app_palette = QApplication.instance().palette()
 
             if option.state & QStyle.State_Selected:
