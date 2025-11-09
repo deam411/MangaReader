@@ -192,13 +192,28 @@ class GeneralTab(QWidget):
         progress.setModal(True)
         progress.show()
 
+        # Callback per aggiornare la progress bar
+        def update_progress(downloaded, total):
+            if total > 0:
+                percent = int((downloaded / total) * 100)
+                progress.setValue(percent)
+                QApplication.processEvents()
+                # Controlla se l'utente ha annullato
+                if progress.wasCanceled():
+                    raise Exception("Download annullato dall'utente")
+
         try:
-            # Download
-            update_file = download_update(update_info, progress)
+            # Download con callback per progress
+            update_file = download_update(update_info, update_progress)
 
             if not update_file:
                 progress.close()
-                QMessageBox.warning(self, "Errore", "Download annullato o fallito.")
+                QMessageBox.warning(
+                    self,
+                    "Errore",
+                    "Download fallito.\n\nControlla i log per maggiori dettagli:\n"
+                    "AppData/Local/MangaReader/manga_reader.log"
+                )
                 return
 
             progress.setLabelText("Installazione in corso...")
@@ -226,11 +241,21 @@ class GeneralTab(QWidget):
 
         except Exception as e:
             progress.close()
-            QMessageBox.warning(
-                self,
-                "Errore",
-                f"Errore durante l'aggiornamento:\n{str(e)}"
-            )
+            error_msg = str(e)
+            if "annullato dall'utente" in error_msg.lower():
+                QMessageBox.information(
+                    self,
+                    "Download annullato",
+                    "Download annullato dall'utente."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Errore",
+                    f"Errore durante l'aggiornamento:\n{error_msg}\n\n"
+                    "Controlla i log per maggiori dettagli:\n"
+                    "AppData/Local/MangaReader/manga_reader.log"
+                )
 
     def get_values(self):
         """Ritorna i valori correnti del tab."""

@@ -161,6 +161,10 @@ def _get_platform_asset(assets: list) -> Tuple[Optional[str], Optional[str]]:
     """
     system = platform.system()
 
+    # Log per debug: mostra tutti gli asset disponibili
+    logger.info(f"Piattaforma rilevata: {system}")
+    logger.info(f"Asset disponibili nella release: {[asset.get('name', '') for asset in assets]}")
+
     # Mapping piattaforma -> pattern nome file
     platform_patterns = {
         'Windows': 'MangaReader.exe',
@@ -173,6 +177,8 @@ def _get_platform_asset(assets: list) -> Tuple[Optional[str], Optional[str]]:
         logger.warning(f"Piattaforma non supportata: {system}")
         return None, None
 
+    logger.info(f"Cerco asset con pattern: {pattern}")
+
     for asset in assets:
         name = asset.get('name', '')
         # Match più preciso per evitare false positive
@@ -180,12 +186,15 @@ def _get_platform_asset(assets: list) -> Tuple[Optional[str], Optional[str]]:
         if system == 'Linux':
             # Linux: match esatto o senza estensione
             if name == pattern or (name.startswith(pattern) and '.' not in name):
+                logger.info(f"Asset trovato: {name} -> {asset.get('browser_download_url')}")
                 return name, asset.get('browser_download_url')
         else:
             # Windows/macOS: match per estensione
             if name.endswith(pattern) or name == pattern:
+                logger.info(f"Asset trovato: {name} -> {asset.get('browser_download_url')}")
                 return name, asset.get('browser_download_url')
 
+    logger.error(f"Nessun asset trovato per {system} con pattern {pattern}")
     return None, None
 
 
@@ -204,7 +213,8 @@ def download_update(update_info: Dict, progress_callback=None) -> Optional[str]:
     asset_name = update_info.get('asset_name')
 
     if not download_url or not asset_name:
-        logger.error("URL download o nome asset mancante")
+        logger.error(f"URL download o nome asset mancante: download_url={download_url}, asset_name={asset_name}")
+        logger.error(f"Update info completo: {update_info}")
         return None
 
     try:
@@ -212,26 +222,47 @@ def download_update(update_info: Dict, progress_callback=None) -> Optional[str]:
         temp_dir = tempfile.mkdtemp(prefix='mangareader_update_')
         dest_path = os.path.join(temp_dir, asset_name)
 
-        logger.info(f"Download aggiornamento da: {download_url}")
-        logger.info(f"Destinazione: {dest_path}")
+        logger.info(f"Inizio download aggiornamento")
+        logger.info(f"  URL: {download_url}")
+        logger.info(f"  Destinazione: {dest_path}")
+        logger.info(f"  Asset name: {asset_name}")
 
         # Download con progress
         def _report_progress(block_num, block_size, total_size):
             if progress_callback:
                 downloaded = block_num * block_size
+                if total_size > 0:
+                    percent = (downloaded / total_size) * 100
+                    logger.debug(f"Download progress: {percent:.1f}% ({downloaded}/{total_size} bytes)")
                 progress_callback(downloaded, total_size)
 
+        logger.info("Avvio urllib.request.urlretrieve...")
         urllib.request.urlretrieve(
             download_url,
             dest_path,
             reporthook=_report_progress
         )
 
-        logger.info(f"Download completato: {dest_path}")
+        # Verifica che il file sia stato effettivamente scaricato
+        if not os.path.exists(dest_path):
+            logger.error(f"File non trovato dopo download: {dest_path}")
+            return None
+
+        file_size = os.path.getsize(dest_path)
+        logger.info(f"Download completato con successo!")
+        logger.info(f"  Path: {dest_path}")
+        logger.info(f"  Dimensione: {file_size} bytes")
+
         return dest_path
 
+    except urllib.error.URLError as e:
+        logger.error(f"Errore URLError durante download: {e}")
+        logger.error(f"  Motivo: {e.reason if hasattr(e, 'reason') else 'Unknown'}")
+        return None
     except Exception as e:
-        logger.error(f"Errore durante download: {e}")
+        logger.error(f"Errore generico durante download: {type(e).__name__}: {e}")
+        import traceback
+        logger.error(f"Stack trace:\n{traceback.format_exc()}")
         return None
 
 
