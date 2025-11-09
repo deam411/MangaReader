@@ -265,5 +265,5 @@ class GeneralTab(QWidget):
             library_path = library_path.replace(" (default)", "").strip()
 
         return {
-            "library.path": library_path
+            "library_path": library_path  # Fix: usa underscore invece di punto
         }
