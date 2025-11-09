@@ -568,14 +568,35 @@ class LibraryView(QWidget):
         # Seleziona l'item per mostrare visivamente cosa si sta selezionando
         self.manga_grid_view.setCurrentItem(item)
 
-        # Crea il menu
+        # Forza l'evidenziazione dell'item anche durante il menu
+        item.setSelected(True)
+
+        # Crea il menu con stile migliorato per visibilità
         menu = QMenu(self)
+
+        # Applica stylesheet per rendere più visibile l'hover
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: palette(window);
+                border: 1px solid palette(dark);
+            }
+            QMenu::item {
+                padding: 5px 20px 5px 20px;
+            }
+            QMenu::item:selected {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
+        """)
 
         # Azione per cancellare la cronologia
         clear_history_action = menu.addAction("Cancella cronologia")
 
         # Submenu Collections (v0.3.0)
         collections_menu = menu.addMenu("Collections")
+
+        # Applica stesso stile al submenu
+        collections_menu.setStyleSheet(menu.styleSheet())
 
         # Crea nuova collection
         new_collection_action = collections_menu.addAction("Nuova Collection...")
