@@ -544,7 +544,7 @@ class LibraryView(QWidget):
                     most_recent_manga = manga_file
                     most_recent_position = position
             except Exception as e:
-                print(f"Errore caricamento posizione per {manga_file}: {e}")
+                logger.error(f"Errore caricamento posizione per {manga_file}: {e}")
                 continue
 
         if not most_recent_manga or not most_recent_position:
@@ -555,9 +555,51 @@ class LibraryView(QWidget):
             )
             return
 
-        # Naviga direttamente al reader con il capitolo salvato
+        # Valida che il chapter_id esista ancora nel database
         chapter_id = most_recent_position['chapter_id']
         page_number = most_recent_position['page_number']
+
+        try:
+            import sqlite3
+            with sqlite3.connect(most_recent_manga) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Verifica che il capitolo esista
+                cursor.execute("SELECT id, volume_id FROM chapters WHERE id = ?", (chapter_id,))
+                chapter_info = cursor.fetchone()
+
+                if not chapter_info:
+                    logger.warning(f"Chapter {chapter_id} not found in {most_recent_manga}")
+                    QMessageBox.warning(
+                        self,
+                        'Capitolo non trovato',
+                        'Il capitolo salvato non esiste più in questo manga.\n'
+                        'La cronologia potrebbe essere corrotta.'
+                    )
+                    return
+
+                # Verifica che il volume esista
+                volume_id = chapter_info['volume_id']
+                cursor.execute("SELECT id FROM volumes WHERE id = ?", (volume_id,))
+                if not cursor.fetchone():
+                    logger.warning(f"Volume {volume_id} not found for chapter {chapter_id}")
+                    QMessageBox.warning(
+                        self,
+                        'Volume non trovato',
+                        'Il volume del capitolo salvato non esiste più.\n'
+                        'La cronologia potrebbe essere corrotta.'
+                    )
+                    return
+
+        except Exception as e:
+            logger.error(f"Errore validazione chapter: {e}")
+            QMessageBox.warning(
+                self,
+                'Errore',
+                f'Impossibile validare il capitolo salvato:\n{str(e)}'
+            )
+            return
 
         # Carica il capitolo nel reader
         self.stacked_widget.setCurrentIndex(3)  # ReaderView
