@@ -75,22 +75,23 @@ class StatsWidget(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setSpacing(0)
 
-        # Titolo
-        title_label = QLabel(title)
-        title_font = QFont()
-        title_font.setPointSize(9)
-        title_label.setFont(title_font)
-        title_label.setAlignment(Qt.AlignCenter)
-
-        # Valore
+        # Valore (numero grande in alto)
         value_label = QLabel(value)
         value_font = QFont()
         value_font.setPointSize(16)
         value_font.setBold(True)
         value_label.setFont(value_font)
         value_label.setAlignment(Qt.AlignCenter)
+
+        # Titolo (nome sotto il numero, con margine superiore)
+        title_label = QLabel(title)
+        title_font = QFont()
+        title_font.setPointSize(9)
+        title_label.setFont(title_font)
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setContentsMargins(0, 5, 0, 0)  # Spazio superiore di 5px
 
         layout.addWidget(value_label)
         layout.addWidget(title_label)

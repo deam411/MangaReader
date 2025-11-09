@@ -74,8 +74,8 @@ class LibraryView(QWidget):
         search_layout.addWidget(self.tag_filter_combo, 1)  # 1/4 width
 
         # Advanced Search Toggle (v0.3.0)
-        self.advanced_search_button = QPushButton('🔍+', self)
-        self.advanced_search_button.setFixedSize(40, 30)
+        self.advanced_search_button = QPushButton('▼', self)
+        self.advanced_search_button.setFixedSize(30, 30)
         self.advanced_search_button.setToolTip('Mostra/Nascondi filtri avanzati')
         self.advanced_search_button.setCheckable(True)
         self.advanced_search_button.clicked.connect(self._toggle_advanced_search)
@@ -565,6 +565,9 @@ class LibraryView(QWidget):
 
         manga_file = item.data(Qt.UserRole)
 
+        # Seleziona l'item per mostrare visivamente cosa si sta selezionando
+        self.manga_grid_view.setCurrentItem(item)
+
         # Crea il menu
         menu = QMenu(self)
 
@@ -572,10 +575,10 @@ class LibraryView(QWidget):
         clear_history_action = menu.addAction("Cancella cronologia")
 
         # Submenu Collections (v0.3.0)
-        collections_menu = menu.addMenu("📁 Collections")
+        collections_menu = menu.addMenu("Collections")
 
         # Crea nuova collection
-        new_collection_action = collections_menu.addAction("➕ Nuova Collection...")
+        new_collection_action = collections_menu.addAction("Nuova Collection...")
 
         collections_menu.addSeparator()
 
@@ -585,7 +588,7 @@ class LibraryView(QWidget):
 
         if existing_collections:
             for collection_name in existing_collections:
-                action = collections_menu.addAction(f"📌 {collection_name}")
+                action = collections_menu.addAction(collection_name)
                 collection_actions[action] = collection_name
         else:
             no_collections_action = collections_menu.addAction("(Nessuna collection)")
@@ -1020,8 +1023,8 @@ class LibraryView(QWidget):
 
         # Aggiorna il pulsante
         if is_visible:
-            self.advanced_search_button.setText('🔍-')
+            self.advanced_search_button.setText('▲')
         else:
-            self.advanced_search_button.setText('🔍+')
+            self.advanced_search_button.setText('▼')
 
         logger.debug(f"Advanced search panel {'shown' if is_visible else 'hidden'}")
