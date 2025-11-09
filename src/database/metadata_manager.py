@@ -111,10 +111,11 @@ class MetadataManager(BaseManager):
         """
         Aggiorna i metadati per un manga esistente.
 
-        Note: Il title è usato come chiave per identificare il manga.
+        Note: Ogni file .manga ha un solo record metadata, quindi aggiorna
+        tutti i campi senza WHERE clause.
 
         Args:
-            title: Titolo manga (chiave di ricerca)
+            title: Nuovo titolo manga
             author: Nuovo autore (optional)
             description: Nuova descrizione (optional)
             language: Nuova lingua (optional)
@@ -133,26 +134,39 @@ class MetadataManager(BaseManager):
             )
         """
         try:
-            logger.debug(f"Updating metadata for: {title}")
+            # Valida e sanitizza tutti gli input
+            title = validate_title(title)
+            author = validate_author(author)
+            description = validate_description(description)
+            language = validate_language(language)
+            year = validate_year(year)
+            tags = validate_tags(tags)
+
+            logger.debug(f"Updating metadata to: {title}")
 
             with self.get_connection() as conn:
                 c = conn.cursor()
+                # Fix: Rimuovo WHERE clause perché ogni .manga ha un solo record metadata
+                # Questo permette di cambiare anche il titolo senza problemi
                 c.execute('''
                     UPDATE metadata SET
+                        title = ?,
                         author = ?,
                         description = ?,
                         language = ?,
                         cover = ?,
                         year = ?,
                         tags = ?
-                    WHERE title = ?
-                ''', (author, description, language, cover, year, tags, title))
+                ''', (title, author, description, language, cover, year, tags))
 
-            logger.info(f"Metadata updated successfully for: {title}")
+            logger.info(f"Metadata updated successfully to: {title}")
             return True
 
+        except ValidationError:
+            # Re-raise validation errors per gestione upstream
+            raise
         except sqlite3.Error as e:
-            logger.error(f"Error updating metadata for {title}: {e}")
+            logger.error(f"Error updating metadata to {title}: {e}")
             return False
 
     def get_metadata(self) -> Optional[Dict[str, Any]]:
