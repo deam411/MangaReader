@@ -32,7 +32,8 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.settings = Settings()
         self.setWindowTitle("Impostazioni")
-        self.setMinimumSize(600, 500)
+        # Apri il dialog a schermo intero
+        self.showFullScreen()
 
         # Referenze ai tab (per raccogliere valori in accept())
         self.general_tab = None
