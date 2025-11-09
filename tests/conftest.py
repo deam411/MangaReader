@@ -68,6 +68,28 @@ def sample_image_path(temp_dir):
     # Il cleanup è fatto dalla fixture temp_dir
 
 
+def create_temp_image(temp_dir, name="temp_image.png"):
+    """
+    Helper function per creare un'immagine temporanea per i test.
+
+    Questa funzione è utile quando serve creare immagini all'interno
+    di fixture che già usano temp_dir.
+
+    Args:
+        temp_dir: Path alla directory temporanea
+        name: Nome del file immagine
+
+    Returns:
+        Path: Percorso all'immagine creata
+    """
+    from PIL import Image
+
+    image_path = temp_dir / name if isinstance(temp_dir, Path) else Path(temp_dir) / name
+    img = Image.new('RGB', (100, 100), color='blue')
+    img.save(str(image_path))
+    return image_path
+
+
 @pytest.fixture
 def mock_settings(temp_dir, monkeypatch):
     """

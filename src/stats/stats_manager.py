@@ -302,3 +302,14 @@ class StatsManager:
         except sqlite3.Error as e:
             logger.error(f"Errore cancellazione stats: {e}")
             return False
+
+    def close(self) -> None:
+        """
+        Chiude le connessioni al database.
+
+        Questo metodo è fornito per compatibilità con i test.
+        StatsManager usa context manager per le connessioni,
+        quindi non mantiene connessioni persistenti da chiudere.
+        """
+        logger.debug("StatsManager close() chiamato (no-op, usa context manager)")
+        pass

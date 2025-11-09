@@ -6,7 +6,9 @@ Verifica inserimento, recupero, ordinamento e relazioni tra volume/chapter/page.
 import pytest
 import tempfile
 import os
+from pathlib import Path
 from src.database import MangaDatabaseManager
+from tests.conftest import create_temp_image
 
 
 class TestVolumeChapterOperations:
@@ -14,23 +16,30 @@ class TestVolumeChapterOperations:
 
     @pytest.fixture
     def temp_db(self):
-        """Crea database temporaneo con metadata."""
+        """Crea database temporaneo con metadata e test image."""
         fd, path = tempfile.mkstemp(suffix='.manga')
         os.close(fd)
 
         db_manager = MangaDatabaseManager(path)
         db_manager.insert_metadata("Test Manga", "Author", "Description")
 
-        yield path, db_manager
+        # Crea immagine di test
+        temp_dir = Path(tempfile.mkdtemp())
+        test_image = create_temp_image(temp_dir, "test_page.png")
+
+        yield path, db_manager, str(test_image)
 
         # Cleanup
         db_manager.close()
         if os.path.exists(path):
             os.remove(path)
+        import shutil
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def test_insert_volume_success(self, temp_db):
         """Test inserimento volume con successo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -44,7 +53,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_multiple_volumes(self, temp_db):
         """Test inserimento multipli volumi."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -59,7 +68,7 @@ class TestVolumeChapterOperations:
 
     def test_volumes_ordered_by_order_field(self, temp_db):
         """Test che volumi siano ordinati per campo order."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         # Inserisci fuori ordine
         db_manager.insert_volume("Volume 3", 3)
@@ -75,7 +84,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_volume_duplicate_order(self, temp_db):
         """Test inserimento volumi con stesso order number."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         # Due volumi con order = 1
         vol1_id = db_manager.insert_volume("Volume A", 1)
@@ -90,7 +99,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_chapter_success(self, temp_db):
         """Test inserimento capitolo con successo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
@@ -104,7 +113,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_multiple_chapters_same_volume(self, temp_db):
         """Test inserimento multipli capitoli nello stesso volume."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -117,7 +126,7 @@ class TestVolumeChapterOperations:
 
     def test_chapters_ordered_by_order_field(self, temp_db):
         """Test che capitoli siano ordinati per campo order."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -135,7 +144,7 @@ class TestVolumeChapterOperations:
 
     def test_chapter_order_resets_per_volume(self, temp_db):
         """Test che chapter order possa riprendere da 1 per ogni volume."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -159,7 +168,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_page_success(self, temp_db):
         """Test inserimento pagina con successo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
@@ -175,14 +184,14 @@ class TestVolumeChapterOperations:
 
     def test_insert_multiple_pages(self, temp_db):
         """Test inserimento multiple pagine."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
 
         # Inserisci 10 pagine
         for i in range(1, 11):
-            page_id = db_manager.insert_page(chapter_id, i, b"image_data")
+            page_id = db_manager.insert_page(chapter_id, i, test_image)
             assert page_id > 0
 
         pages = db_manager.get_pages(chapter_id)
@@ -190,16 +199,16 @@ class TestVolumeChapterOperations:
 
     def test_pages_ordered_by_page_number(self, temp_db):
         """Test che pagine siano ordinate per page_number."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
 
         # Inserisci fuori ordine
-        db_manager.insert_page(chapter_id, 5, b"page5")
-        db_manager.insert_page(chapter_id, 2, b"page2")
-        db_manager.insert_page(chapter_id, 1, b"page1")
-        db_manager.insert_page(chapter_id, 3, b"page3")
+        db_manager.insert_page(chapter_id, 5, test_image)
+        db_manager.insert_page(chapter_id, 2, test_image)
+        db_manager.insert_page(chapter_id, 1, test_image)
+        db_manager.insert_page(chapter_id, 3, test_image)
 
         pages = db_manager.get_pages(chapter_id)
 
@@ -211,7 +220,7 @@ class TestVolumeChapterOperations:
 
     def test_get_page_by_id(self, temp_db):
         """Test recupero singola pagina per ID."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
@@ -228,7 +237,7 @@ class TestVolumeChapterOperations:
 
     def test_get_pages_empty_chapter(self, temp_db):
         """Test recupero pagine da capitolo vuoto."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Empty Chapter", 1, volume_id)
@@ -240,7 +249,7 @@ class TestVolumeChapterOperations:
 
     def test_get_chapters_empty_volume(self, temp_db):
         """Test recupero capitoli da volume vuoto."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Empty Volume", 1)
 
@@ -251,7 +260,7 @@ class TestVolumeChapterOperations:
 
     def test_hierarchical_structure(self, temp_db):
         """Test struttura gerarchica completa volume>chapter>page."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         # Crea struttura completa
         vol1_id = db_manager.insert_volume("Volume 1", 1)
@@ -261,11 +270,11 @@ class TestVolumeChapterOperations:
 
         # Chapter 1: 5 pagine
         for i in range(1, 6):
-            db_manager.insert_page(ch1_id, i, b"ch1_page_data")
+            db_manager.insert_page(ch1_id, i, test_image)
 
         # Chapter 2: 3 pagine
         for i in range(1, 4):
-            db_manager.insert_page(ch2_id, i, b"ch2_page_data")
+            db_manager.insert_page(ch2_id, i, test_image)
 
         # Verifica struttura
         volumes = db_manager.get_volumes()
@@ -282,7 +291,7 @@ class TestVolumeChapterOperations:
 
     def test_volume_with_unicode_name(self, temp_db):
         """Test volume con nome unicode."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         unicode_name = "第一巻"
         volume_id = db_manager.insert_volume(unicode_name, 1)
@@ -292,7 +301,7 @@ class TestVolumeChapterOperations:
 
     def test_chapter_with_unicode_name(self, temp_db):
         """Test capitolo con nome unicode."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -304,7 +313,7 @@ class TestVolumeChapterOperations:
 
     def test_large_image_data(self, temp_db):
         """Test inserimento immagine di grandi dimensioni."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Chapter 1", 1, volume_id)
@@ -323,7 +332,7 @@ class TestVolumeChapterOperations:
         """Test inserimento di molte pagine."""
         import time
 
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
         chapter_id = db_manager.insert_chapter("Long Chapter", 1, volume_id)
@@ -332,7 +341,7 @@ class TestVolumeChapterOperations:
         start = time.time()
 
         for i in range(1, 101):
-            db_manager.insert_page(chapter_id, i, b"page_data")
+            db_manager.insert_page(chapter_id, i, test_image)
 
         elapsed = time.time() - start
 
@@ -344,7 +353,7 @@ class TestVolumeChapterOperations:
 
     def test_get_volumes_count(self, temp_db):
         """Test conteggio volumi."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         # Aggiungi 5 volumi
         for i in range(1, 6):
@@ -355,7 +364,7 @@ class TestVolumeChapterOperations:
 
     def test_get_chapters_count_per_volume(self, temp_db):
         """Test conteggio capitoli per volume."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -376,7 +385,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_volume_with_long_name(self, temp_db):
         """Test volume con nome molto lungo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         long_name = "A" * 500
 
@@ -388,7 +397,7 @@ class TestVolumeChapterOperations:
 
     def test_insert_chapter_with_long_name(self, temp_db):
         """Test capitolo con nome molto lungo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -402,7 +411,7 @@ class TestVolumeChapterOperations:
 
     def test_volume_chapter_page_ids_unique(self, temp_db):
         """Test che ID siano univoci e incrementali."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -414,14 +423,14 @@ class TestVolumeChapterOperations:
 
         assert ch1_id != ch2_id
 
-        page1_id = db_manager.insert_page(ch1_id, 1, b"data")
-        page2_id = db_manager.insert_page(ch2_id, 1, b"data")
+        page1_id = db_manager.insert_page(ch1_id, 1, test_image)
+        page2_id = db_manager.insert_page(ch2_id, 1, test_image)
 
         assert page1_id != page2_id
 
     def test_get_page_count_for_chapter(self, temp_db):
         """Test conteggio pagine per capitolo."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         volume_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -430,11 +439,11 @@ class TestVolumeChapterOperations:
 
         # Chapter 1: 10 pagine
         for i in range(1, 11):
-            db_manager.insert_page(ch1_id, i, b"data")
+            db_manager.insert_page(ch1_id, i, test_image)
 
         # Chapter 2: 5 pagine
         for i in range(1, 6):
-            db_manager.insert_page(ch2_id, i, b"data")
+            db_manager.insert_page(ch2_id, i, test_image)
 
         pages_ch1 = db_manager.get_pages(ch1_id)
         pages_ch2 = db_manager.get_pages(ch2_id)
@@ -444,7 +453,7 @@ class TestVolumeChapterOperations:
 
     def test_total_pages_count(self, temp_db):
         """Test conteggio totale pagine nel manga."""
-        path, db_manager = temp_db
+        path, db_manager, test_image = temp_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
 
@@ -454,13 +463,13 @@ class TestVolumeChapterOperations:
 
         # 10 + 15 + 20 = 45 pagine totali
         for i in range(1, 11):
-            db_manager.insert_page(ch1_id, i, b"data")
+            db_manager.insert_page(ch1_id, i, test_image)
 
         for i in range(1, 16):
-            db_manager.insert_page(ch2_id, i, b"data")
+            db_manager.insert_page(ch2_id, i, test_image)
 
         for i in range(1, 21):
-            db_manager.insert_page(ch3_id, i, b"data")
+            db_manager.insert_page(ch3_id, i, test_image)
 
         # Conta tutte le pagine
         import sqlite3
