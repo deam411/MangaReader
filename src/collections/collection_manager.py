@@ -17,6 +17,12 @@ class CollectionManager:
 
     def __init__(self):
         self.db_path = os.path.join(get_app_data_dir(), "collections.db")
+
+        # Assicurati che la directory padre esista
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
         self._init_database()
         self.collections: Dict[str, List[str]] = {}
         self._load_collections()
@@ -130,20 +136,35 @@ class CollectionManager:
             logger.error(f"Errore creazione collection: {e}")
             return False
 
-    def delete_collection(self, name: str) -> bool:
+    def delete_collection(self, collection_id_or_name) -> bool:
         """
         Elimina una collection.
 
         Args:
-            name: Nome della collection
+            collection_id_or_name: ID (int) o nome (str) della collection
 
         Returns:
             True se eliminata, False se non esiste
         """
-        if name not in self.collections:
-            return False
-
         try:
+            # Determina se è un ID o un nome
+            if isinstance(collection_id_or_name, int):
+                # È un ID, cerca il nome corrispondente
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT name FROM collections WHERE id = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        logger.warning(f"Collection ID non esistente: {collection_id_or_name}")
+                        return False
+                    name = row['name']
+            else:
+                # È un nome
+                name = collection_id_or_name
+                if name not in self.collections:
+                    return False
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('DELETE FROM collections WHERE name = ?', (name,))
@@ -156,26 +177,41 @@ class CollectionManager:
             logger.error(f"Errore eliminazione collection: {e}")
             return False
 
-    def add_to_collection(self, collection_name: str, manga_path: str) -> bool:
+    def add_to_collection(self, collection_id_or_name, manga_path: str) -> bool:
         """
         Aggiunge manga a collection.
 
         Args:
-            collection_name: Nome della collection
+            collection_id_or_name: ID (int) o nome (str) della collection
             manga_path: Path al file .manga
 
         Returns:
             True se aggiunto, False altrimenti
         """
-        if collection_name not in self.collections:
-            logger.warning(f"Collection non esistente: {collection_name}")
-            return False
-
-        if manga_path in self.collections[collection_name]:
-            logger.debug(f"Manga già in collection {collection_name}")
-            return False
-
         try:
+            # Determina se è un ID o un nome
+            if isinstance(collection_id_or_name, int):
+                # È un ID, cerca il nome corrispondente
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT name FROM collections WHERE id = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        logger.warning(f"Collection ID non esistente: {collection_id_or_name}")
+                        return False
+                    collection_name = row['name']
+            else:
+                # È un nome
+                collection_name = collection_id_or_name
+                if collection_name not in self.collections:
+                    logger.warning(f"Collection non esistente: {collection_name}")
+                    return False
+
+            if manga_path in self.collections[collection_name]:
+                logger.debug(f"Manga già in collection {collection_name}")
+                return False
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
 
@@ -198,30 +234,45 @@ class CollectionManager:
                 logger.debug(f"Manga aggiunto a {collection_name}: {manga_path}")
                 return True
         except sqlite3.IntegrityError:
-            logger.debug(f"Manga già in collection {collection_name}")
+            logger.debug(f"Manga già in collection")
             return False
         except sqlite3.Error as e:
             logger.error(f"Errore aggiunta manga a collection: {e}")
             return False
 
-    def remove_from_collection(self, collection_name: str, manga_path: str) -> bool:
+    def remove_from_collection(self, collection_id_or_name, manga_path: str) -> bool:
         """
         Rimuove manga da collection.
 
         Args:
-            collection_name: Nome della collection
+            collection_id_or_name: ID (int) o nome (str) della collection
             manga_path: Path al file .manga
 
         Returns:
             True se rimosso, False altrimenti
         """
-        if collection_name not in self.collections:
-            return False
-
-        if manga_path not in self.collections[collection_name]:
-            return False
-
         try:
+            # Determina se è un ID o un nome
+            if isinstance(collection_id_or_name, int):
+                # È un ID, cerca il nome corrispondente
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT name FROM collections WHERE id = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        logger.warning(f"Collection ID non esistente: {collection_id_or_name}")
+                        return False
+                    collection_name = row['name']
+            else:
+                # È un nome
+                collection_name = collection_id_or_name
+                if collection_name not in self.collections:
+                    return False
+
+            if manga_path not in self.collections[collection_name]:
+                return False
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
 
@@ -259,17 +310,44 @@ class CollectionManager:
         """
         return self.collections.get(name, [])
 
-    def get_collection_items(self, name: str) -> List[str]:
+    def get_collection_items(self, collection_id_or_name):
         """
-        Alias per get_collection() per compatibilità con test.
+        Ritorna gli items di una collection con metadata.
 
         Args:
-            name: Nome della collection
+            collection_id_or_name: ID (int) o nome (str) della collection
 
         Returns:
-            Lista di path ai file .manga
+            Lista di dict con manga_path e added_at
         """
-        return self.get_collection(name)
+        try:
+            # Determina se è un ID o un nome e ottieni l'ID
+            if isinstance(collection_id_or_name, int):
+                collection_id = collection_id_or_name
+            else:
+                # È un nome, cerca l'ID
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM collections WHERE name = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        return []
+                    collection_id = row['id']
+
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT manga_path, added_at
+                    FROM collection_items
+                    WHERE collection_id = ?
+                    ORDER BY added_at
+                ''', (collection_id,))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero items collection: {e}")
+            return []
 
     def get_all_collections(self) -> List[Dict]:
         """
@@ -354,22 +432,37 @@ class CollectionManager:
             logger.error(f"Errore rinomina collection: {e}")
             return False
 
-    def update_collection_description(self, name: str, description: str) -> bool:
+    def update_collection_description(self, collection_id_or_name, description: str) -> bool:
         """
         Aggiorna la descrizione di una collection.
 
         Args:
-            name: Nome della collection
+            collection_id_or_name: ID (int) o nome (str) della collection
             description: Nuova descrizione
 
         Returns:
             True se aggiornata, False altrimenti
         """
-        if name not in self.collections:
-            logger.warning(f"Collection non esistente: {name}")
-            return False
-
         try:
+            # Determina se è un ID o un nome
+            if isinstance(collection_id_or_name, int):
+                # È un ID, cerca il nome corrispondente
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT name FROM collections WHERE id = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        logger.warning(f"Collection ID non esistente: {collection_id_or_name}")
+                        return False
+                    name = row['name']
+            else:
+                # È un nome
+                name = collection_id_or_name
+                if name not in self.collections:
+                    logger.warning(f"Collection non esistente: {name}")
+                    return False
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('UPDATE collections SET description = ? WHERE name = ?', (description, name))
