@@ -27,7 +27,12 @@ class TestCollectionsManager:
         monkeypatch.setattr("src.collections.collection_manager.get_app_data_dir",
                            mock_get_app_data_dir)
 
+        # Create manager directly with test db path
         manager = CollectionManager()
+        manager.db_path = str(db_path)
+        manager._init_database()
+        manager._load_collections()
+
         yield manager, str(db_path)
 
         # Cleanup
