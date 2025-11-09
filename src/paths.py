@@ -79,3 +79,9 @@ def get_data_dir():
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     return data_dir
+
+
+# Alias per compatibilità con nuovi moduli v0.3.0
+def get_app_data_dir():
+    """Alias per get_data_dir() per compatibilità."""
+    return get_data_dir()
