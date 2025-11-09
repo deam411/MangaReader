@@ -255,6 +255,34 @@ def apply_theme(app, theme_name: Optional[str] = None) -> None:
                 theme_name = "light" if bg_color.lightness() > 128 else "dark"
                 logger.debug(f"Tema rilevato da palette Qt: {theme_name}")
 
+        # Carica i colori del tema
+        themes = load_themes()
+        if theme_name not in themes:
+            logger.warning(f"Tema '{theme_name}' non trovato, uso 'dark' come fallback")
+            theme_name = "dark"
+
+        colors = themes[theme_name]["colors"]
+
+        # Aggiorna la QPalette dell'applicazione per sincronizzare con lo stylesheet
+        # Questo è necessario perché il delegate usa palette() invece dello stylesheet
+        from PyQt5.QtGui import QPalette, QColor
+        palette = QPalette()
+
+        # Imposta i colori principali dalla definizione del tema
+        palette.setColor(QPalette.Window, QColor(colors['widget_bg']))
+        palette.setColor(QPalette.WindowText, QColor(colors['widget_fg']))
+        palette.setColor(QPalette.Base, QColor(colors['listwidget_bg']))
+        palette.setColor(QPalette.AlternateBase, QColor(colors['widget_bg']))
+        palette.setColor(QPalette.Text, QColor(colors['widget_fg']))
+        palette.setColor(QPalette.Button, QColor(colors['button_bg']))
+        palette.setColor(QPalette.ButtonText, QColor(colors['button_fg']))
+        palette.setColor(QPalette.Highlight, QColor(colors['button_hover_bg']))
+        palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+
+        # Applica la palette
+        app.setPalette(palette)
+        logger.debug(f"QPalette aggiornata per tema '{theme_name}'")
+
         # Genera e applica lo stylesheet
         stylesheet = generate_stylesheet(theme_name)
         if stylesheet:
