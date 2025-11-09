@@ -30,6 +30,7 @@ def calculate_reading_progress_fast(cursor, user='default'):
     """
     try:
         # Query singola ottimizzata per calcolare progresso
+        # FIX: Considera sia volume_id che chapter order per calcolo corretto su multi-volume
         cursor.execute('''
             SELECT
                 (SELECT COUNT(*) FROM pages) as total_pages,
@@ -37,12 +38,34 @@ def calculate_reading_progress_fast(cursor, user='default'):
                     (SELECT COUNT(*)
                      FROM pages p
                      JOIN chapters ch ON p.chapter_id = ch.id
-                     WHERE ch."order" < (
-                         SELECT c2."order" FROM chapters c2
-                         WHERE c2.id = (
-                             SELECT chapter_id FROM history
-                             WHERE user = ?
-                             ORDER BY timestamp DESC LIMIT 1
+                     JOIN volumes v ON ch.volume_id = v.id
+                     WHERE (
+                         v."order" < (
+                             SELECT v2."order" FROM volumes v2
+                             JOIN chapters c2 ON v2.id = c2.volume_id
+                             WHERE c2.id = (
+                                 SELECT chapter_id FROM history
+                                 WHERE user = ?
+                                 ORDER BY timestamp DESC LIMIT 1
+                             )
+                         )
+                     ) OR (
+                         v."order" = (
+                             SELECT v2."order" FROM volumes v2
+                             JOIN chapters c2 ON v2.id = c2.volume_id
+                             WHERE c2.id = (
+                                 SELECT chapter_id FROM history
+                                 WHERE user = ?
+                                 ORDER BY timestamp DESC LIMIT 1
+                             )
+                         )
+                         AND ch."order" < (
+                             SELECT c2."order" FROM chapters c2
+                             WHERE c2.id = (
+                                 SELECT chapter_id FROM history
+                                 WHERE user = ?
+                                 ORDER BY timestamp DESC LIMIT 1
+                             )
                          )
                      ) OR (
                          ch.id = (SELECT chapter_id FROM history WHERE user = ? ORDER BY timestamp DESC LIMIT 1)
@@ -50,7 +73,7 @@ def calculate_reading_progress_fast(cursor, user='default'):
                      )
                     ), 0
                 ) as read_pages
-        ''', (user, user, user))
+        ''', (user, user, user, user, user))
 
         row = cursor.fetchone()
         if row:

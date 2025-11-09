@@ -6,14 +6,27 @@
 **Release "Enhanced User Experience"** con focus su scalabilità, internazionalizzazione e funzionalità avanzate.
 
 **Highlights**:
-- ✅ Virtual Scrolling per librerie 5000+ manga
-- 🌍 Sistema internazionalizzazione (i18n) multi-lingua
-- 📊 Sistema statistiche lettura avanzate
-- 📚 Collections per organizzazione manga
+- 🐛 **FIXED**: Percentuale lettura ora calcola correttamente il progresso su tutti i volumi del manga
+- ✅ Virtual Scrolling implementato (VirtualListView pronto, integrazione UI da completare)
+- 🌍 Sistema internazionalizzazione (i18n) con file JSON (EN, IT)
+- 📊 Sistema statistiche lettura con persistenza database e streak tracking
+- 📚 Collections con persistenza database SQLite
 - 💾 Sistema backup e restore completo
-- 🌐 Metadata fetcher da fonti online
 - ✅ JSON Schema validation per temi
 - 🎨 Performance e stabilità migliorate
+
+---
+
+### 🐛 Bug Fixes
+
+**Fix: Reading Progress Multi-Volume**
+- **Problema risolto**: La percentuale di lettura ora considera tutti i volumi del manga, non solo il volume corrente
+- Prima, l'ordine dei capitoli ripartiva da 1 per ogni volume, causando calcoli errati
+- Ora la query considera sia `volume.order` che `chapter.order` per il calcolo corretto
+- **File modificati**:
+  - `src/views/utils.py` - `calculate_reading_progress_fast()`
+  - `src/database/history_manager.py` - `get_reading_progress()`
+- **Impact**: Tutte le percentuali di lettura nella libreria ora sono accurate
 
 ---
 
@@ -39,31 +52,43 @@
 
 ### 🌍 FASE 2: Internazionalizzazione (i18n)
 
-**Sistema i18n Foundation** 🌐
-- Nuovo modulo `src/i18n/` per gestione traduzioni
-- `TranslationManager` per switch lingue dinamico
-- Supporto lingue: Italiano, English, Español, Français, 日本語
-- Base per traduzioni future con Qt Translator
-- **File**: `src/i18n/translator.py`
+**Sistema i18n con File JSON** ✅ 🌐
+- Nuovo modulo `src/i18n/` per gestione traduzioni con file JSON
+- `TranslationManager` completo con caricamento traduzioni
+- Supporto file JSON per traduzioni (`src/i18n/locales/`)
+- Traduzioni implementate: English (`en.json`), Italiano (`it.json`)
+- API completa: `translate()`, `t()`, `get_available_languages()`, `get_language_name()`
+- 50+ stringhe tradotte per UI principale
+- **File**:
+  - `src/i18n/translator.py` (completo con persistenza JSON)
+  - `src/i18n/locales/en.json` (English translations)
+  - `src/i18n/locales/it.json` (Italian translations)
 
 ---
 
 ### 📊 FASE 3: Statistiche e Collections
 
-**3.1 Sistema Statistiche Lettura** 📈
-- Nuovo `StatsManager` per tracking abitudini lettura
-- Statistiche: manga letti, pagine totali, tempo lettura
-- Streak tracking (giorni consecutivi)
-- Registrazione sessioni di lettura
+**3.1 Sistema Statistiche Lettura con Persistenza Database** ✅ 📈
+- Nuovo `StatsManager` completo per tracking abitudini lettura
+- **Persistenza database SQLite** (`reading_stats.db`)
+- Statistiche complete: manga letti, pagine totali, tempo lettura
+- **Streak tracking reale** con calcolo giorni consecutivi
+- Registrazione sessioni di lettura con timestamp
+- API completa: `record_session()`, `get_reading_stats()`, `get_manga_stats()`, `get_reading_history()`
+- Schema database ottimizzato con indici per performance
 - Base per dashboard statistiche future
-- **File**: `src/stats/stats_manager.py`
+- **File**: `src/stats/stats_manager.py` (268 linee, completo)
 
-**3.2 Collections System** 📚
-- Nuovo `CollectionManager` per organizzazione manga
-- Creazione collections personalizzate
+**3.2 Collections System con Persistenza Database** ✅ 📚
+- Nuovo `CollectionManager` con **persistenza database SQLite** (`collections.db`)
+- Schema relazionale: tabelle `collections` e `collection_items`
+- Creazione/eliminazione collections personalizzate
 - Aggiunta/rimozione manga da collections
-- Gestione collections multiple
-- **File**: `src/collections/collection_manager.py`
+- Query inverse: trova collections per un manga specifico
+- API completa: `create_collection()`, `delete_collection()`, `add_to_collection()`, `remove_from_collection()`, `get_collections_for_manga()`
+- Gestione collections multiple con many-to-many relationship
+- Indici database per performance
+- **File**: `src/collections/collection_manager.py` (282 linee, completo)
 
 ---
 
