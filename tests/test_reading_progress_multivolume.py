@@ -8,9 +8,11 @@ import pytest
 import sqlite3
 import tempfile
 import os
+from pathlib import Path
 from src.database import MangaDatabaseManager
 from src.database.history_manager import HistoryManager
 from src.views.utils import calculate_reading_progress_fast
+from tests.conftest import create_temp_image
 
 
 class TestReadingProgressMultiVolume:
@@ -32,16 +34,23 @@ class TestReadingProgressMultiVolume:
             description="Test description"
         )
 
-        yield path, db_manager
+        # Crea immagine di test
+        temp_dir = Path(tempfile.mkdtemp())
+        test_image = create_temp_image(temp_dir, "test_page.png")
+
+        yield path, db_manager, str(test_image)
 
         # Cleanup
         db_manager.close()
         if os.path.exists(path):
             os.remove(path)
+        import shutil
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def test_progress_single_volume(self, temp_manga_db):
         """Test progresso su manga con singolo volume."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         # Crea volume con 2 capitoli
         volume_id = db_manager.insert_volume("Volume 1", 1)
@@ -50,8 +59,8 @@ class TestReadingProgressMultiVolume:
 
         # Aggiungi 10 pagine per capitolo
         for i in range(1, 11):
-            db_manager.insert_page(chapter1_id, i, b"fake_image_data")
-            db_manager.insert_page(chapter2_id, i, b"fake_image_data")
+            db_manager.insert_page(chapter1_id, i, test_image)
+            db_manager.insert_page(chapter2_id, i, test_image)
 
         # Salva posizione a pagina 5 del capitolo 1
         history_mgr = HistoryManager(path)
@@ -67,7 +76,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_multi_volume_first_volume(self, temp_manga_db):
         """Test progresso su primo volume di manga multi-volume."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         # Crea 3 volumi con 1 capitolo ciascuno
         vol1_id = db_manager.insert_volume("Volume 1", 1)
@@ -81,7 +90,7 @@ class TestReadingProgressMultiVolume:
         # 10 pagine per capitolo (30 totali)
         for ch_id in [ch1_id, ch2_id, ch3_id]:
             for i in range(1, 11):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, test_image)
 
         # Lettura a metà del primo volume
         history_mgr = HistoryManager(path)
@@ -96,7 +105,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_multi_volume_second_volume(self, temp_manga_db):
         """Test progresso su secondo volume di manga multi-volume."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         # Crea 3 volumi con 1 capitolo ciascuno
         vol1_id = db_manager.insert_volume("Volume 1", 1)
@@ -110,7 +119,7 @@ class TestReadingProgressMultiVolume:
         # 10 pagine per capitolo
         for ch_id in [ch1_id, ch2_id, ch3_id]:
             for i in range(1, 11):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, test_image)
 
         # Lettura a metà del secondo volume
         history_mgr = HistoryManager(path)
@@ -126,7 +135,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_multi_volume_last_page(self, temp_manga_db):
         """Test progresso all'ultima pagina dell'ultimo volume."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -136,7 +145,7 @@ class TestReadingProgressMultiVolume:
 
         for ch_id in [ch1_id, ch2_id]:
             for i in range(1, 11):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, test_image)
 
         # Ultima pagina
         history_mgr = HistoryManager(path)
@@ -152,7 +161,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_fast_calculation(self, temp_manga_db):
         """Test calcolo veloce progresso (utilizzato in library view)."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -162,7 +171,7 @@ class TestReadingProgressMultiVolume:
 
         for ch_id in [ch1_id, ch2_id]:
             for i in range(1, 11):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, test_image)
 
         # Salva posizione
         history_mgr = HistoryManager(path)
@@ -182,7 +191,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_multiple_chapters_per_volume(self, temp_manga_db):
         """Test progresso con più capitoli per volume."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         vol2_id = db_manager.insert_volume("Volume 2", 2)
@@ -198,7 +207,7 @@ class TestReadingProgressMultiVolume:
         # 5 pagine per capitolo (20 totali)
         for ch_id in [ch1_id, ch2_id, ch3_id, ch4_id]:
             for i in range(1, 6):
-                db_manager.insert_page(ch_id, i, b"fake_image_data")
+                db_manager.insert_page(ch_id, i, test_image)
 
         # Lettura al capitolo 3, pagina 2
         history_mgr = HistoryManager(path)
@@ -214,7 +223,7 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_zero_pages(self, temp_manga_db):
         """Test progresso su manga senza pagine."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         ch1_id = db_manager.insert_chapter("Chapter 1", 1, vol1_id)
@@ -228,13 +237,13 @@ class TestReadingProgressMultiVolume:
 
     def test_progress_no_history(self, temp_manga_db):
         """Test progresso senza cronologia di lettura."""
-        path, db_manager = temp_manga_db
+        path, db_manager, test_image = temp_manga_db
 
         vol1_id = db_manager.insert_volume("Volume 1", 1)
         ch1_id = db_manager.insert_chapter("Chapter 1", 1, vol1_id)
 
         for i in range(1, 6):
-            db_manager.insert_page(ch1_id, i, b"fake_image_data")
+            db_manager.insert_page(ch1_id, i, test_image)
 
         # Nessuna posizione salvata
         history_mgr = HistoryManager(path)
