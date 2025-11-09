@@ -865,8 +865,8 @@ class LibraryView(QWidget):
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
-        # Ricarica la libreria per applicare il nuovo tema a tutte le cover
-        self.load_library()
+        # Ri-popola la vista con i dati già caricati invece di ricaricare dal disco
+        self._populate_view(self.all_manga_data)
 
     def paintEvent(self, event):
         """
@@ -1036,10 +1036,9 @@ class LibraryView(QWidget):
         self.manga_grid_view.setPalette(QApplication.instance().palette())
         self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
 
-        # Ricarica completamente la libreria per forzare la rigenerazione di tutte le cover
-        # con il nuovo palette. Questo è l'unico modo per garantire che TUTTE le cover
-        # siano generate con il colore corretto del nuovo tema.
-        self.load_library()
+        # Ri-popola la vista con i dati già caricati invece di ricaricare dal disco
+        # Questo è molto più veloce e forza comunque la rigenerazione delle cover
+        self._populate_view(self.all_manga_data)
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
