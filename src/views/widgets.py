@@ -184,10 +184,11 @@ class MangaItemDelegate(QStyledItemDelegate):
                         target_pixmap = scaled_pixmap
                     else:
                         # Senza sfondo custom, crea un pixmap con padding centrato
-                        # Usa palette applicazione per consistenza colori
+                        # Usa colore di background del widget per il padding (scuro nel tema dark)
                         app_palette = QApplication.instance().palette()
                         target_pixmap = QPixmap(fixed_size)
-                        target_pixmap.fill(app_palette.alternateBase().color())
+                        # Usa base() invece di alternateBase() per evitare quadrati bianchi nel tema dark
+                        target_pixmap.fill(app_palette.base().color())
 
                         # Calcola la posizione per centrare la pixmap scalata
                         x = (fixed_size.width() - scaled_pixmap.width()) // 2
@@ -224,8 +225,8 @@ class MangaItemDelegate(QStyledItemDelegate):
                 # Item selezionato: usa highlightedText (bianco)
                 painter.setPen(app_palette.highlightedText().color())
             else:
-                # Item normale: usa text color del tema
-                painter.setPen(app_palette.text().color())
+                # Item normale: usa windowText che rispetta meglio il tema (bianco in dark)
+                painter.setPen(app_palette.windowText().color())
 
             # Usa font applicazione con proprietà consistenti
             font = QApplication.instance().font()
@@ -244,8 +245,8 @@ class MangaItemDelegate(QStyledItemDelegate):
                 # Item selezionato: usa highlightedText (bianco)
                 painter.setPen(app_palette.highlightedText().color())
             else:
-                # Item normale: usa text color del tema
-                painter.setPen(app_palette.text().color())
+                # Item normale: usa windowText che rispetta meglio il tema (bianco in dark)
+                painter.setPen(app_palette.windowText().color())
 
             # Draw text
             text_left = 250 + 15 # icon width + padding
