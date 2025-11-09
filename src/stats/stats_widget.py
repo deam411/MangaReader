@@ -91,7 +91,7 @@ class StatsWidget(QWidget):
         title_font.setPointSize(9)
         title_label.setFont(title_font)
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setContentsMargins(0, 5, 0, 0)  # Spazio superiore di 5px
+        title_label.setContentsMargins(0, 10, 0, 0)  # Spazio superiore di 10px
 
         layout.addWidget(value_label)
         layout.addWidget(title_label)
