@@ -1031,16 +1031,10 @@ class LibraryView(QWidget):
         self.manga_grid_view.setPalette(QApplication.instance().palette())
         self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
 
-        # Invalida ogni singolo item per forzare il delegate a rigenerare le cover
-        for i in range(self.manga_grid_view.count()):
-            item = self.manga_grid_view.item(i)
-            if item:
-                # Invalida il rect di questo item per forzare il ridisegno
-                rect = self.manga_grid_view.visualItemRect(item)
-                self.manga_grid_view.viewport().update(rect)
-
-        # Forza un repaint sincrono finale per completare tutto
-        self.manga_grid_view.viewport().repaint()
+        # Ricarica completamente la libreria per forzare la rigenerazione di tutte le cover
+        # con il nuovo palette. Questo è l'unico modo per garantire che TUTTE le cover
+        # siano generate con il colore corretto del nuovo tema.
+        self.load_library()
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
