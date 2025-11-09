@@ -68,7 +68,7 @@ class StatsWidget(QWidget):
         frame_layout.addStretch()
         main_layout.addWidget(frame)
 
-        self.setMaximumHeight(60)
+        self.setMaximumHeight(80)
 
     def _create_stat_label(self, title, value):
         """Crea un label per una statistica."""
