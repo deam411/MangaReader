@@ -17,6 +17,7 @@ class CollectionManager:
 
     def __init__(self):
         self.db_path = os.path.join(get_app_data_dir(), "collections.db")
+        self._closed = False
 
         # Assicurati che la directory padre esista
         db_dir = os.path.dirname(self.db_path)
@@ -114,6 +115,10 @@ class CollectionManager:
         Returns:
             True se creata, False se esiste già
         """
+        if self._closed:
+            logger.warning("CollectionManager is closed")
+            return False
+
         if name in self.collections:
             return False
 
@@ -167,6 +172,15 @@ class CollectionManager:
 
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+
+                # Prima cancella tutti gli items della collection (cascade)
+                cursor.execute('SELECT id FROM collections WHERE name = ?', (name,))
+                result = cursor.fetchone()
+                if result:
+                    collection_id = result[0]
+                    cursor.execute('DELETE FROM collection_items WHERE collection_id = ?', (collection_id,))
+
+                # Poi cancella la collection stessa
                 cursor.execute('DELETE FROM collections WHERE name = ?', (name,))
                 conn.commit()
 
@@ -363,7 +377,7 @@ class CollectionManager:
                 cursor.execute('''
                     SELECT id, name, description, created_at
                     FROM collections
-                    ORDER BY created_at DESC
+                    ORDER BY created_at ASC
                 ''')
                 collections = [dict(row) for row in cursor.fetchall()]
                 logger.debug(f"Recuperate {len(collections)} collections")
@@ -372,7 +386,7 @@ class CollectionManager:
             logger.error(f"Errore recupero collections: {e}")
             return []
 
-    def get_collections_for_manga(self, manga_path: str) -> List[str]:
+    def get_collections_for_manga(self, manga_path: str) -> List[Dict]:
         """
         Ritorna tutte le collections che contengono un manga.
 
@@ -380,9 +394,23 @@ class CollectionManager:
             manga_path: Path al file .manga
 
         Returns:
-            Lista di nomi collection
+            Lista di dict con info collection (id, name, description)
         """
-        return [name for name, items in self.collections.items() if manga_path in items]
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT c.id, c.name, c.description, c.created_at
+                    FROM collections c
+                    INNER JOIN collection_items ci ON c.id = ci.collection_id
+                    WHERE ci.manga_path = ?
+                    ORDER BY c.name
+                ''', (manga_path,))
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero collections per manga: {e}")
+            return []
 
     def rename_collection(self, collection_id_or_name, new_name: str) -> bool:
         """
@@ -474,14 +502,43 @@ class CollectionManager:
             logger.error(f"Errore aggiornamento descrizione: {e}")
             return False
 
-    def get_collection_count(self) -> int:
+    def get_collection_count(self, collection_id_or_name=None) -> int:
         """
-        Ritorna il numero totale di collections.
+        Ritorna il numero di items in una collection, oppure il numero totale di collections.
+
+        Args:
+            collection_id_or_name: ID (int) o nome (str) della collection. Se None, ritorna il totale delle collections.
 
         Returns:
-            Numero di collections
+            Numero di items nella collection, oppure numero totale di collections
         """
-        return len(self.collections)
+        if collection_id_or_name is None:
+            # Nessun parametro: ritorna numero totale collections
+            return len(self.collections)
+
+        # Parametro fornito: conta items nella collection
+        try:
+            # Determina se è un ID o un nome e ottieni l'ID
+            if isinstance(collection_id_or_name, int):
+                collection_id = collection_id_or_name
+            else:
+                # È un nome, cerca l'ID
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM collections WHERE name = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        return 0
+                    collection_id = row['id']
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM collection_items WHERE collection_id = ?', (collection_id,))
+                return cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            logger.error(f"Errore conteggio items collection: {e}")
+            return 0
 
     def close(self) -> None:
         """
@@ -491,5 +548,5 @@ class CollectionManager:
         CollectionManager usa context manager per le connessioni,
         quindi non mantiene connessioni persistenti da chiudere.
         """
-        logger.debug("CollectionManager close() chiamato (no-op, usa context manager)")
-        pass
+        self._closed = True
+        logger.debug("CollectionManager closed")
