@@ -849,8 +849,15 @@ class LibraryView(QWidget):
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
-        # Forza il ridisegno della vista
-        self.manga_grid_view.viewport().update()
+        # Forza il ridisegno COMPLETO e immediato di tutte le cover
+        self.manga_grid_view.viewport().repaint()  # Ridisegno sincrono invece di asincrono
+
+        # Invalida anche il layout per forzare il delegate a ridisegnare ogni item
+        for i in range(self.manga_grid_view.count()):
+            item = self.manga_grid_view.item(i)
+            if item:
+                # Forza Qt a richiedere un nuovo rendering per questo item
+                self.manga_grid_view.update(self.manga_grid_view.visualItemRect(item))
 
     def paintEvent(self, event):
         """
@@ -1003,8 +1010,15 @@ class LibraryView(QWidget):
         self.delegate.cover_cache.clear()  # Cache LRU in memoria
         self.delegate.cache_manager.clear_all_cache()  # Cache persistent su disco
 
-        # Forza il ridisegno della vista per mostrare le cover con i nuovi colori
-        self.manga_grid_view.viewport().update()
+        # Forza il ridisegno COMPLETO e immediato di tutte le cover
+        self.manga_grid_view.viewport().repaint()  # Ridisegno sincrono invece di asincrono
+
+        # Invalida anche il layout per forzare il delegate a ridisegnare ogni item
+        for i in range(self.manga_grid_view.count()):
+            item = self.manga_grid_view.item(i)
+            if item:
+                # Forza Qt a richiedere un nuovo rendering per questo item
+                self.manga_grid_view.update(self.manga_grid_view.visualItemRect(item))
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
