@@ -33,6 +33,7 @@ class ReaderView(QWidget):
         self.current_chapter_id = None
         self.db_manager = None
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
+        self.opened_from_resume = False  # Flag per sapere se aperto da "Riprendi Lettura"
 
         # Timer per auto-save posizione lettura ogni 30 secondi
         self.autosave_timer = QTimer(self)
@@ -108,12 +109,13 @@ class ReaderView(QWidget):
         self._cleanup_connections()
         super().hideEvent(event)
 
-    def load_chapter(self, manga_file, chapter_id):
+    def load_chapter(self, manga_file, chapter_id, from_resume=False):
         """Carica i metadati del volume per caricamento on-demand."""
         self._cleanup_connections()
 
         self.manga_file = manga_file
         self.current_chapter_id = chapter_id
+        self.opened_from_resume = from_resume  # Salva da dove è stato aperto
         try:
             self.db_conn = sqlite3.connect(manga_file)
             self.db_conn.row_factory = sqlite3.Row
@@ -246,7 +248,13 @@ class ReaderView(QWidget):
         # Pulisce la cache del widget
         self.page_display_widget.loaded_pages_cache.clear()
         self.page_display_widget.image_cache.clear()
-        self.stacked_widget.setCurrentIndex(2)  # Torna alla VolumeView
+
+        # Se aperto da "Riprendi Lettura", torna alla libreria invece che al volume
+        if self.opened_from_resume:
+            self.opened_from_resume = False  # Reset flag
+            self.stacked_widget.setCurrentIndex(0)  # Torna alla LibraryView
+        else:
+            self.stacked_widget.setCurrentIndex(2)  # Torna alla VolumeView
 
     def eventFilter(self, obj, event):
         """Intercetta gli eventi della scroll area per gestire ESC."""
