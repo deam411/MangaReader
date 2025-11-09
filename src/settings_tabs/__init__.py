@@ -18,6 +18,7 @@ from .performance_tab import PerformanceTab
 from .reader_tab import ReaderTab
 from .shortcuts_tab import ShortcutsTab
 from .bookmarks_tab import BookmarksTab
+from .backup_tab import BackupTab
 
 __all__ = [
     'GeneralTab',
@@ -26,5 +27,6 @@ __all__ = [
     'ReaderTab',
     'ShortcutsTab',
     'BookmarksTab',
+    'BackupTab',
     'UpdateThread'
 ]
