@@ -841,8 +841,15 @@ class LibraryView(QWidget):
     def on_settings_changed(self):
         """Callback quando le impostazioni cambiano."""
         # Il tema viene già applicato dal SettingsDialog prima di emettere questo segnale
-        # Riapplica solo lo sfondo personalizzato della libreria
+
+        # Pulisci la cache delle cover per applicare i nuovi colori del tema
+        self.delegate.cover_cache.clear()
+
+        # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
+
+        # Forza il ridisegno della vista
+        self.manga_grid_view.viewport().update()
 
     def paintEvent(self, event):
         """
@@ -990,6 +997,12 @@ class LibraryView(QWidget):
         # Applica il tema immediatamente
         from src.theme_manager import apply_theme
         apply_theme(QApplication.instance())
+
+        # Pulisci la cache delle cover per applicare i nuovi colori del tema
+        self.delegate.cover_cache.clear()
+
+        # Forza il ridisegno della vista per mostrare le cover con i nuovi colori
+        self.manga_grid_view.viewport().update()
 
         logger.info(f"Tema cambiato a: {theme_name}")
 
