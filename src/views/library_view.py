@@ -601,10 +601,10 @@ class LibraryView(QWidget):
             )
             return
 
-        # Carica il capitolo nel reader
+        # Carica il capitolo nel reader con flag from_resume=True
         self.stacked_widget.setCurrentIndex(3)  # ReaderView
         reader_view = self.stacked_widget.widget(3)
-        reader_view.load_chapter(most_recent_manga, chapter_id)
+        reader_view.load_chapter(most_recent_manga, chapter_id, from_resume=True)
 
         # Scrolla alla pagina salvata dopo che il reader ha caricato
         # page_number è 1-based, page_index è 0-based
