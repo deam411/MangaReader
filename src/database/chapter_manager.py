@@ -9,7 +9,7 @@ Gestisce:
 import sqlite3
 import os
 from io import BytesIO
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from PIL import Image
 from .base_manager import BaseManager
 from ..logger import get_logger
@@ -404,55 +404,102 @@ class ChapterManager(BaseManager):
             logger.error(f"Error retrieving pages for chapter {chapter_id}: {e}")
             return []
 
-    def insert_page(self, chapter_id: int, page_number: int, image_path: str) -> bool:
+    def get_page_by_id(self, page_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Recupera una singola pagina tramite ID simulato.
+
+        L'ID simulato è calcolato come: chapter_id * 10000 + page_number
+
+        Args:
+            page_id: ID simulato della pagina
+
+        Returns:
+            Dict con 'page_number', 'image', 'chapter_id' o None se non trovata
+        """
+        try:
+            # Decodifica ID simulato
+            chapter_id = page_id // 10000
+            page_number = page_id % 10000
+
+            logger.debug(f"Getting page with ID {page_id} (chapter={chapter_id}, page={page_number})")
+
+            with self.get_connection() as conn:
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+                c.execute('''
+                    SELECT page_number, image_data
+                    FROM pages
+                    WHERE chapter_id = ? AND page_number = ?
+                ''', (chapter_id, page_number))
+
+                row = c.fetchone()
+                if row:
+                    return {
+                        'page_number': row['page_number'],
+                        'image': row['image_data'],
+                        'chapter_id': chapter_id
+                    }
+                return None
+
+        except sqlite3.Error as e:
+            logger.error(f"Error retrieving page {page_id}: {e}")
+            return None
+
+    def insert_page(self, chapter_id: int, page_number: int, image_data_or_path) -> int:
         """
         Inserisce una nuova pagina in un capitolo.
 
-        Supporta conversione automatica formati:
-        - .webp, .jfif → PNG (se trasparenza) o JPEG (quality 95)
-        - Altri formati → salvati direttamente
+        Supporta sia file path che bytes diretti:
+        - str: Percorso al file immagine (supporta conversione .webp, .jfif)
+        - bytes: Dati immagine diretti
 
         Args:
             chapter_id: ID del capitolo
             page_number: Numero pagina
-            image_path: Percorso al file immagine
+            image_data_or_path: Path al file (str) o dati immagine (bytes)
 
         Returns:
-            True in caso di successo, False altrimenti
+            ID simulato della pagina (chapter_id * 10000 + page_number) o 0 se errore
 
         Example:
-            success = chapter_mgr.insert_page(
-                chapter_id=1,
-                page_number=1,
-                image_path="/path/to/page001.webp"
-            )
+            page_id = chapter_mgr.insert_page(1, 1, "/path/to/page001.webp")
+            page_id = chapter_mgr.insert_page(1, 2, b"raw_image_data")
         """
         try:
             logger.debug(f"Inserting page {page_number} for chapter {chapter_id}")
 
-            # Controlla se il file è webp o jfif e convertilo
-            file_ext = os.path.splitext(image_path)[1].lower()
-            if file_ext in ['.webp', '.jfif']:
-                # Converti usando Pillow
-                img = Image.open(image_path)
+            # Determina se è un path o bytes
+            if isinstance(image_data_or_path, bytes):
+                # Dati immagine diretti
+                image_data = image_data_or_path
+            elif isinstance(image_data_or_path, str):
+                # Path al file
+                image_path = image_data_or_path
+                file_ext = os.path.splitext(image_path)[1].lower()
 
-                # Converti in RGB se necessario (per PNG con trasparenza)
-                if img.mode in ('RGBA', 'LA', 'P'):
-                    # Mantieni trasparenza se presente → PNG
-                    buffer = BytesIO()
-                    img.save(buffer, format='PNG')
-                    image_data = buffer.getvalue()
+                if file_ext in ['.webp', '.jfif']:
+                    # Converti usando Pillow
+                    img = Image.open(image_path)
+
+                    # Converti in RGB se necessario (per PNG con trasparenza)
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        # Mantieni trasparenza se presente → PNG
+                        buffer = BytesIO()
+                        img.save(buffer, format='PNG')
+                        image_data = buffer.getvalue()
+                    else:
+                        # Converti in JPEG per immagini senza trasparenza (più efficiente)
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        buffer = BytesIO()
+                        img.save(buffer, format='JPEG', quality=95)
+                        image_data = buffer.getvalue()
                 else:
-                    # Converti in JPEG per immagini senza trasparenza (più efficiente)
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
-                    buffer = BytesIO()
-                    img.save(buffer, format='JPEG', quality=95)
-                    image_data = buffer.getvalue()
+                    # Formati standard, leggi direttamente
+                    with open(image_path, 'rb') as f:
+                        image_data = f.read()
             else:
-                # Formati standard, leggi direttamente
-                with open(image_path, 'rb') as f:
-                    image_data = f.read()
+                raise TypeError(f"image_data_or_path deve essere str o bytes, ricevuto {type(image_data_or_path)}")
 
             with self.get_connection() as conn:
                 c = conn.cursor()
@@ -462,11 +509,14 @@ class ChapterManager(BaseManager):
                 ''', (chapter_id, page_number, image_data))
 
             logger.info(f"Page {page_number} inserted successfully for chapter {chapter_id}")
-            return True
+
+            # Ritorna ID simulato: chapter_id * 10000 + page_number
+            # Questo permette di decodificare chapter_id e page_number dall'ID
+            return chapter_id * 10000 + page_number
 
         except (sqlite3.Error, IOError, Exception) as e:
             logger.error(f"Error inserting page {page_number} for chapter {chapter_id}: {e}")
-            return False
+            return 0
 
     def delete_page(self, chapter_id: int, page_number: int) -> bool:
         """

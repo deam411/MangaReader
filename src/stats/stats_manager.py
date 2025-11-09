@@ -303,6 +303,143 @@ class StatsManager:
             logger.error(f"Errore cancellazione stats: {e}")
             return False
 
+    def get_total_stats(self) -> Dict:
+        """
+        Alias per get_reading_stats() per compatibilità con test.
+
+        Returns:
+            Dizionario con statistiche aggregate (con alias campi)
+        """
+        stats = self.get_reading_stats()
+        # Aggiungi alias per compatibilità test
+        stats['total_pages'] = stats.get('total_pages_read', 0)
+        stats['total_time'] = stats.get('total_time_minutes', 0)
+        stats['total_time_seconds'] = stats.get('total_time_minutes', 0) * 60
+        return stats
+
+    def get_reading_streak(self) -> int:
+        """
+        Ritorna solo lo streak di giorni consecutivi.
+
+        Returns:
+            Numero di giorni consecutivi di lettura
+        """
+        stats = self.get_reading_stats()
+        return stats.get("current_streak_days", 0)
+
+    def get_recent_sessions(self, limit: int = 10) -> List[Dict]:
+        """
+        Ritorna le ultime N sessioni di lettura.
+
+        Args:
+            limit: Numero massimo di sessioni da ritornare
+
+        Returns:
+            Lista di sessioni ordinate per timestamp discendente
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT * FROM reading_sessions
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                ''', (limit,))
+
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero sessioni recenti: {e}")
+            return []
+
+    def get_sessions_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+        """
+        Ritorna sessioni in un range di date.
+
+        Args:
+            start_date: Data inizio (formato 'YYYY-MM-DD')
+            end_date: Data fine (formato 'YYYY-MM-DD')
+
+        Returns:
+            Lista di sessioni nel range specificato
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT * FROM reading_sessions
+                    WHERE session_date BETWEEN ? AND ?
+                    ORDER BY timestamp DESC
+                ''', (start_date, end_date))
+
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero sessioni per range: {e}")
+            return []
+
+    def get_most_read_manga(self, limit: int = 10) -> List[Dict]:
+        """
+        Ritorna i manga più letti ordinati per numero di pagine lette.
+
+        Args:
+            limit: Numero massimo di manga da ritornare
+
+        Returns:
+            Lista di dict con manga_path e statistiche
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT
+                        manga_path,
+                        SUM(pages_read) as total_pages,
+                        SUM(duration_seconds) as total_time,
+                        COUNT(*) as session_count
+                    FROM reading_sessions
+                    GROUP BY manga_path
+                    ORDER BY total_pages DESC
+                    LIMIT ?
+                ''', (limit,))
+
+                return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Errore recupero manga più letti: {e}")
+            return []
+
+    def delete_old_sessions(self, days: int) -> bool:
+        """
+        Elimina sessioni più vecchie di N giorni.
+
+        Args:
+            days: Numero di giorni - sessioni più vecchie vengono eliminate
+
+        Returns:
+            True se eliminate, False altrimenti
+        """
+        try:
+            cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    DELETE FROM reading_sessions
+                    WHERE session_date < ?
+                ''', (cutoff_date,))
+                deleted = cursor.rowcount
+                conn.commit()
+
+                logger.info(f"Eliminate {deleted} sessioni più vecchie di {days} giorni")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore eliminazione sessioni vecchie: {e}")
+            return False
+
     def close(self) -> None:
         """
         Chiude le connessioni al database.
