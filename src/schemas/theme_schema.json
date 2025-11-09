@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MangaReader Theme Configuration",
+  "description": "Schema for validating MangaReader theme files",
+  "type": "object",
+  "patternProperties": {
+    "^[a-z_]+$": {
+      "type": "object",
+      "required": ["name", "colors"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name for the theme",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "colors": {
+          "type": "object",
+          "description": "Color definitions for UI components",
+          "required": [
+            "widget_bg", "widget_fg", "dialog_bg", "dialog_fg",
+            "listwidget_bg", "listwidget_border",
+            "button_bg", "button_border", "button_fg", "button_hover_bg", "button_pressed_bg",
+            "lineedit_bg", "lineedit_border", "lineedit_fg", "lineedit_focus_border",
+            "lineedit_focus_bg", "lineedit_placeholder", "lineedit_selection_bg", "lineedit_selection_fg",
+            "combobox_bg", "combobox_border", "combobox_fg", "combobox_focus_border",
+            "combobox_dropdown_bg", "combobox_dropdown_selection_bg", "combobox_dropdown_fg", "combobox_dropdown_border",
+            "label_bg", "label_fg",
+            "groupbox_bg", "groupbox_border", "groupbox_fg",
+            "tabwidget_pane_bg", "tabwidget_pane_border",
+            "tabbar_tab_bg", "tabbar_tab_fg", "tabbar_tab_border",
+            "tabbar_tab_hover_bg", "tabbar_tab_selected_bg", "tabbar_tab_selected_border",
+            "progressbar_bg", "progressbar_border", "progressbar_chunk_bg", "progressbar_text_fg",
+            "textedit_bg", "textedit_fg", "textedit_border",
+            "scrollbar_bg", "scrollbar_handle_bg", "scrollbar_handle_hover_bg"
+          ],
+          "properties": {
+            "widget_bg": {"$ref": "#/definitions/color"},
+            "widget_fg": {"$ref": "#/definitions/color"},
+            "dialog_bg": {"$ref": "#/definitions/color"},
+            "dialog_fg": {"$ref": "#/definitions/color"},
+            "listwidget_bg": {"$ref": "#/definitions/color"},
+            "listwidget_border": {"$ref": "#/definitions/color"},
+            "button_bg": {"$ref": "#/definitions/color"},
+            "button_border": {"$ref": "#/definitions/color"},
+            "button_fg": {"$ref": "#/definitions/color"},
+            "button_hover_bg": {"$ref": "#/definitions/color"},
+            "button_pressed_bg": {"$ref": "#/definitions/color"},
+            "lineedit_bg": {"$ref": "#/definitions/color"},
+            "lineedit_border": {"$ref": "#/definitions/color"},
+            "lineedit_fg": {"$ref": "#/definitions/color"},
+            "lineedit_focus_border": {"$ref": "#/definitions/color"},
+            "lineedit_focus_bg": {"$ref": "#/definitions/color"},
+            "lineedit_placeholder": {"$ref": "#/definitions/color"},
+            "lineedit_selection_bg": {"$ref": "#/definitions/color"},
+            "lineedit_selection_fg": {"$ref": "#/definitions/color"},
+            "combobox_bg": {"$ref": "#/definitions/color"},
+            "combobox_border": {"$ref": "#/definitions/color"},
+            "combobox_fg": {"$ref": "#/definitions/color"},
+            "combobox_focus_border": {"$ref": "#/definitions/color"},
+            "combobox_dropdown_bg": {"$ref": "#/definitions/color"},
+            "combobox_dropdown_selection_bg": {"$ref": "#/definitions/color"},
+            "combobox_dropdown_fg": {"$ref": "#/definitions/color"},
+            "combobox_dropdown_border": {"$ref": "#/definitions/color"},
+            "label_bg": {"$ref": "#/definitions/color"},
+            "label_fg": {"$ref": "#/definitions/color"},
+            "groupbox_bg": {"$ref": "#/definitions/color"},
+            "groupbox_border": {"$ref": "#/definitions/color"},
+            "groupbox_fg": {"$ref": "#/definitions/color"},
+            "tabwidget_pane_bg": {"$ref": "#/definitions/color"},
+            "tabwidget_pane_border": {"$ref": "#/definitions/color"},
+            "tabbar_tab_bg": {"$ref": "#/definitions/color"},
+            "tabbar_tab_fg": {"$ref": "#/definitions/color"},
+            "tabbar_tab_border": {"$ref": "#/definitions/color"},
+            "tabbar_tab_hover_bg": {"$ref": "#/definitions/color"},
+            "tabbar_tab_selected_bg": {"$ref": "#/definitions/color"},
+            "tabbar_tab_selected_border": {"$ref": "#/definitions/color"},
+            "progressbar_bg": {"$ref": "#/definitions/color"},
+            "progressbar_border": {"$ref": "#/definitions/color"},
+            "progressbar_chunk_bg": {"$ref": "#/definitions/color"},
+            "progressbar_text_fg": {"$ref": "#/definitions/color"},
+            "textedit_bg": {"$ref": "#/definitions/color"},
+            "textedit_fg": {"$ref": "#/definitions/color"},
+            "textedit_border": {"$ref": "#/definitions/color"},
+            "scrollbar_bg": {"$ref": "#/definitions/color"},
+            "scrollbar_handle_bg": {"$ref": "#/definitions/color"},
+            "scrollbar_handle_hover_bg": {"$ref": "#/definitions/color"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "minProperties": 1,
+  "additionalProperties": false,
+  "definitions": {
+    "color": {
+      "type": "string",
+      "description": "Color value in hex format (#RRGGBB) or 'transparent'",
+      "pattern": "^(#[0-9A-Fa-f]{6}|transparent)$"
+    }
+  }
+}
