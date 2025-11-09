@@ -259,6 +259,18 @@ class CollectionManager:
         """
         return self.collections.get(name, [])
 
+    def get_collection_items(self, name: str) -> List[str]:
+        """
+        Alias per get_collection() per compatibilità con test.
+
+        Args:
+            name: Nome della collection
+
+        Returns:
+            Lista di path ai file .manga
+        """
+        return self.get_collection(name)
+
     def get_all_collections(self) -> List[Dict]:
         """
         Ritorna tutte le collections con metadata completo.
@@ -293,6 +305,90 @@ class CollectionManager:
             Lista di nomi collection
         """
         return [name for name, items in self.collections.items() if manga_path in items]
+
+    def rename_collection(self, collection_id_or_name, new_name: str) -> bool:
+        """
+        Rinomina una collection.
+
+        Args:
+            collection_id_or_name: ID (int) o nome (str) della collection
+            new_name: Nuovo nome
+
+        Returns:
+            True se rinominata, False altrimenti
+        """
+        try:
+            # Determina se è un ID o un nome
+            if isinstance(collection_id_or_name, int):
+                # È un ID, cerca il nome corrispondente
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT name FROM collections WHERE id = ?', (collection_id_or_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        logger.warning(f"Collection ID non esistente: {collection_id_or_name}")
+                        return False
+                    old_name = row['name']
+            else:
+                # È un nome
+                old_name = collection_id_or_name
+                if old_name not in self.collections:
+                    logger.warning(f"Collection non esistente: {old_name}")
+                    return False
+
+            if new_name in self.collections:
+                logger.warning(f"Collection già esistente con nome: {new_name}")
+                return False
+
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('UPDATE collections SET name = ? WHERE name = ?', (new_name, old_name))
+                conn.commit()
+
+                # Aggiorna cache in memoria
+                self.collections[new_name] = self.collections.pop(old_name)
+                logger.info(f"Collection rinominata: {old_name} → {new_name}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore rinomina collection: {e}")
+            return False
+
+    def update_collection_description(self, name: str, description: str) -> bool:
+        """
+        Aggiorna la descrizione di una collection.
+
+        Args:
+            name: Nome della collection
+            description: Nuova descrizione
+
+        Returns:
+            True se aggiornata, False altrimenti
+        """
+        if name not in self.collections:
+            logger.warning(f"Collection non esistente: {name}")
+            return False
+
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('UPDATE collections SET description = ? WHERE name = ?', (description, name))
+                conn.commit()
+
+                logger.info(f"Descrizione aggiornata per collection: {name}")
+                return True
+        except sqlite3.Error as e:
+            logger.error(f"Errore aggiornamento descrizione: {e}")
+            return False
+
+    def get_collection_count(self) -> int:
+        """
+        Ritorna il numero totale di collections.
+
+        Returns:
+            Numero di collections
+        """
+        return len(self.collections)
 
     def close(self) -> None:
         """
