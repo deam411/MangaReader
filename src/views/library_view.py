@@ -27,6 +27,7 @@ from src.views.widgets import LibraryLoaderThread, MangaItemDelegate, Deselectab
 from src.creator.manga_creator_app import MangaCreatorApp
 from src.updater import check_for_updates, download_update, install_update, get_update_info_text
 from src.views.utils import sanitize_filename
+from src.stats.stats_widget import StatsWidget
 
 logger = get_logger(__name__)
 
@@ -94,6 +95,10 @@ class LibraryView(QWidget):
         palette.setColor(QPalette.Highlight, QColor(74, 158, 255))
         self.progress_bar.setPalette(palette)
         layout.addWidget(self.progress_bar)
+
+        # Stats Widget (v0.3.0)
+        self.stats_widget = StatsWidget(self)
+        layout.addWidget(self.stats_widget)
 
         # Sort Options and Add button
         controls_layout = QHBoxLayout()
@@ -300,6 +305,9 @@ class LibraryView(QWidget):
             self.loader_thread = None
 
         self.progress_bar.setVisible(False)
+
+        # Aggiorna stats widget (v0.3.0)
+        self._update_stats()
 
         # Ottimizzazione: Crea dizionario per lookup O(1) in filter_manga
         self.manga_data_map = {manga['file_name']: manga for manga in self.all_manga_data}
@@ -791,3 +799,13 @@ class LibraryView(QWidget):
             self.manga_grid_view.viewport().update()
             logger.debug("No library background image set")
 
+    def _update_stats(self):
+        """Aggiorna il widget statistiche con i dati correnti (v0.3.0)."""
+        total = len(self.all_manga_data)
+        completed = sum(1 for m in self.all_manga_data
+                       if m.get('progress') and m['progress']['percentage'] >= 100)
+        reading = sum(1 for m in self.all_manga_data
+                     if m.get('progress') and 0 < m['progress']['percentage'] < 100)
+        unread = total - completed - reading
+
+        self.stats_widget.update_stats(total, completed, reading, unread)
