@@ -26,6 +26,11 @@ class StatsManager:
         else:
             self.db_path = os.path.join(get_app_data_dir(), "reading_stats.db")
 
+        # Assicurati che la directory padre esista
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
         self._init_database()
         logger.info(f"StatsManager inizializzato con database: {self.db_path}")
 
@@ -244,6 +249,7 @@ class StatsManager:
                 return {
                     "total_sessions": total_sessions,
                     "total_pages_read": total_pages,
+                    "total_pages": total_pages,  # Alias per compatibilità
                     "total_time_seconds": total_seconds,
                     "last_read_date": last_read
                 }
@@ -252,6 +258,7 @@ class StatsManager:
             return {
                 "total_sessions": 0,
                 "total_pages_read": 0,
+                "total_pages": 0,  # Alias per compatibilità
                 "total_time_seconds": 0,
                 "last_read_date": None
             }
@@ -315,6 +322,17 @@ class StatsManager:
         stats['total_pages'] = stats.get('total_pages_read', 0)
         stats['total_time'] = stats.get('total_time_minutes', 0)
         stats['total_time_seconds'] = stats.get('total_time_minutes', 0) * 60
+
+        # Conta total_sessions
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM reading_sessions')
+                total_sessions = cursor.fetchone()[0] or 0
+                stats['total_sessions'] = total_sessions
+        except sqlite3.Error:
+            stats['total_sessions'] = 0
+
         return stats
 
     def get_reading_streak(self) -> int:
