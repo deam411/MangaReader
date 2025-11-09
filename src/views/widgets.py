@@ -184,11 +184,11 @@ class MangaItemDelegate(QStyledItemDelegate):
                         target_pixmap = scaled_pixmap
                     else:
                         # Senza sfondo custom, crea un pixmap con padding centrato
-                        # Usa colore di background del widget per il padding (scuro nel tema dark)
+                        # Usa colore di background del widget per il padding (grigio scuro nel tema dark)
                         app_palette = QApplication.instance().palette()
                         target_pixmap = QPixmap(fixed_size)
-                        # Usa base() invece di alternateBase() per evitare quadrati bianchi nel tema dark
-                        target_pixmap.fill(app_palette.base().color())
+                        # Usa window() per il padding: grigio (#2b2b2b) nel dark, chiaro nel light
+                        target_pixmap.fill(app_palette.window().color())
 
                         # Calcola la posizione per centrare la pixmap scalata
                         x = (fixed_size.width() - scaled_pixmap.width()) // 2
