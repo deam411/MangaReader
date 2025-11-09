@@ -40,6 +40,7 @@ class LibraryView(QWidget):
         self.is_grid_view = True
         self.delegate = MangaItemDelegate(self)
         self.first_load = True  # Per mostrare il messaggio solo al primo caricamento
+        self.is_loading = False  # Flag per prevenire caricamenti multipli simultanei
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.background_pixmap = None  # Pixmap per lo sfondo personalizzato
         self.collection_manager = CollectionManager()  # Gestore collections (v0.3.0)
@@ -274,12 +275,19 @@ class LibraryView(QWidget):
 
     def load_library(self):
         """Carica la libreria usando un thread in background."""
+        # Previeni caricamenti multipli simultanei (es. F5 premuto ripetutamente)
+        if self.is_loading:
+            logger.debug("Caricamento già in corso, ignorando richiesta")
+            return
+
+        self.is_loading = True
         self.manga_grid_view.clear()
         self.all_manga_data = []
 
         try:
             manga_dir = get_manga_dir()
         except Exception as e:
+            self.is_loading = False  # Reset flag in caso di errore
             QMessageBox.critical(
                 self,
                 'Errore Directory',
@@ -298,6 +306,7 @@ class LibraryView(QWidget):
             try:
                 os.makedirs(manga_dir, exist_ok=True)
             except Exception as e:
+                self.is_loading = False  # Reset flag in caso di errore
                 QMessageBox.critical(
                     self,
                     'Errore',
@@ -373,6 +382,9 @@ class LibraryView(QWidget):
         if hasattr(self, 'loader_thread') and self.loader_thread:
             self.loader_thread.deleteLater()
             self.loader_thread = None
+
+        # Reset flag per permettere un nuovo caricamento
+        self.is_loading = False
 
         self.progress_bar.setVisible(False)
 
