@@ -862,6 +862,11 @@ class LibraryView(QWidget):
         self.manga_grid_view.setPalette(QApplication.instance().palette())
         self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
 
+        # IMPORTANTE: Aspetta che il delegate sia completamente inizializzato con il nuovo palette
+        # prima di iniziare a renderizzare le cover. Questo previene il ritardo visibile.
+        QApplication.instance().processEvents()
+        QApplication.instance().processEvents()  # Due volte per essere sicuri
+
         # Riapplica lo sfondo personalizzato della libreria
         self.apply_background_settings()
 
@@ -1035,6 +1040,11 @@ class LibraryView(QWidget):
         # Forza il refresh del palette della grid view e del viewport
         self.manga_grid_view.setPalette(QApplication.instance().palette())
         self.manga_grid_view.viewport().setPalette(QApplication.instance().palette())
+
+        # IMPORTANTE: Aspetta che il delegate sia completamente inizializzato con il nuovo palette
+        # prima di iniziare a renderizzare le cover. Questo previene il ritardo visibile.
+        QApplication.instance().processEvents()
+        QApplication.instance().processEvents()  # Due volte per essere sicuri
 
         # Ri-popola la vista con i dati già caricati invece di ricaricare dal disco
         # Questo è molto più veloce e forza comunque la rigenerazione delle cover
