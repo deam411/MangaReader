@@ -2,6 +2,8 @@
 import sqlite3
 import os
 import time
+import csv
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from ..logger import get_logger
@@ -482,6 +484,113 @@ class StatsManager:
                 return True
         except sqlite3.Error as e:
             logger.error(f"Errore eliminazione sessioni prima della data: {e}")
+            return False
+
+    def export_to_csv(self, output_path: str, include_all: bool = True) -> bool:
+        """
+        Esporta le statistiche di lettura in formato CSV.
+
+        Args:
+            output_path: Path del file CSV da creare
+            include_all: Se True esporta tutte le sessioni, se False solo ultime 100
+
+        Returns:
+            True se esportato con successo, False altrimenti
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                # Query per recuperare le sessioni
+                if include_all:
+                    cursor.execute('''
+                        SELECT * FROM reading_sessions
+                        ORDER BY timestamp DESC
+                    ''')
+                else:
+                    cursor.execute('''
+                        SELECT * FROM reading_sessions
+                        ORDER BY timestamp DESC
+                        LIMIT 100
+                    ''')
+
+                sessions = cursor.fetchall()
+
+                if not sessions:
+                    logger.warning("Nessuna sessione da esportare")
+                    return False
+
+                # Scrivi CSV
+                with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
+                    # Usa le chiavi della prima riga come header
+                    fieldnames = sessions[0].keys()
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                    writer.writeheader()
+                    for session in sessions:
+                        writer.writerow(dict(session))
+
+                logger.info(f"Statistiche esportate in CSV: {output_path} ({len(sessions)} sessioni)")
+                return True
+
+        except (sqlite3.Error, IOError) as e:
+            logger.error(f"Errore export CSV: {e}")
+            return False
+
+    def export_to_json(self, output_path: str, include_summary: bool = True) -> bool:
+        """
+        Esporta le statistiche di lettura in formato JSON.
+
+        Args:
+            output_path: Path del file JSON da creare
+            include_summary: Se True include anche summary con statistiche aggregate
+
+        Returns:
+            True se esportato con successo, False altrimenti
+        """
+        try:
+            export_data = {}
+
+            # Recupera tutte le sessioni
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    SELECT * FROM reading_sessions
+                    ORDER BY timestamp DESC
+                ''')
+
+                sessions = cursor.fetchall()
+                export_data['sessions'] = [dict(row) for row in sessions]
+
+            # Aggiungi summary se richiesto
+            if include_summary:
+                stats = self.get_reading_stats()
+                export_data['summary'] = {
+                    'total_pages_read': stats.get('total_pages', 0),
+                    'total_reading_time_hours': round(stats.get('total_time_minutes', 0) / 60, 2),
+                    'total_sessions': stats.get('total_sessions', 0),
+                    'current_streak_days': stats.get('streak_days', 0),
+                    'average_pages_per_session': stats.get('avg_pages_per_session', 0),
+                    'last_read_date': stats.get('last_read_date', 'N/A'),
+                    'export_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+
+                # Aggiungi top manga
+                top_manga = self.get_most_read_manga(limit=10)
+                export_data['top_manga'] = top_manga
+
+            # Scrivi JSON
+            with open(output_path, 'w', encoding='utf-8') as jsonfile:
+                json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
+
+            logger.info(f"Statistiche esportate in JSON: {output_path}")
+            return True
+
+        except (sqlite3.Error, IOError) as e:
+            logger.error(f"Errore export JSON: {e}")
             return False
 
     def close(self) -> None:

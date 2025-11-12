@@ -12,7 +12,9 @@ from .constants import (
     INITIAL_PAGE_COUNT,
     WINDOW_SIZE,
     CHAPTER_SEPARATOR_WIDTH,
-    CHAPTER_SEPARATOR_HEIGHT
+    CHAPTER_SEPARATOR_HEIGHT,
+    BLUE_LIGHT_FILTER_COLOR,
+    BLUE_LIGHT_FILTER_OPACITY
 )
 
 class LRUCache:
@@ -131,6 +133,9 @@ class PageDisplayWidget(QWidget):
         self.reading_direction = settings.get("reader.reading_direction", "ltr")
         self.view_mode = settings.get("reader.view_mode", "single")  # "single" o "double"
 
+        # Blue light filter (night mode)
+        self.blue_light_filter_enabled = settings.get("reader.blue_light_filter", False)
+
         # Abilita il focus per ricevere eventi tastiera
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -174,6 +179,14 @@ class PageDisplayWidget(QWidget):
         new_mode = "double" if self.view_mode == "single" else "single"
         self.set_view_mode(new_mode)
         return new_mode
+
+    def toggle_blue_light_filter(self):
+        """Alterna il filtro luce blu (modalità lettura notturna)."""
+        self.blue_light_filter_enabled = not self.blue_light_filter_enabled
+        settings = Settings()
+        settings.set("reader.blue_light_filter", self.blue_light_filter_enabled)
+        self.update()  # Ridisegna con/senza filtro
+        return self.blue_light_filter_enabled
 
     def set_pages_metadata(self, metadata_list, db_conn):
         """Imposta i metadati delle pagine per caricamento on-demand."""
@@ -557,6 +570,13 @@ class PageDisplayWidget(QWidget):
                         self.loading_pages.add(page_idx)
                         runnable = ImageLoaderRunnable(page_idx, image_data, self.current_width, self.image_loader_signals)
                         self.thread_pool.start(runnable)
+
+        # Applica filtro luce blu se attivo (night mode)
+        if self.blue_light_filter_enabled:
+            from PyQt5.QtGui import QColor
+            filter_color = QColor(*BLUE_LIGHT_FILTER_COLOR)
+            filter_color.setAlpha(int(BLUE_LIGHT_FILTER_OPACITY * 255 / 100))
+            painter.fillRect(self.rect(), filter_color)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

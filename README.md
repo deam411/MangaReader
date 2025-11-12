@@ -1,6 +1,6 @@
 # 📚 Manga Reader
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -10,20 +10,28 @@
 
 Un lettore e gestore di manga moderno e performante con supporto multi-piattaforma.
 
-## 🎉 Novità v0.1.0 - Performance, Stability & New Features
+## 🎉 Novità v0.3.0 - Plugin System & Enhanced UX
 
-Versione maggiore con focus su **Performance**, **Sicurezza**, **Stabilità**, **Code Quality** e **nuove funzionalità**:
+Versione maggiore con focus su **Estensibilità**, **Scalabilità** e **Internazionalizzazione**:
 
+- 🔌 **Plugin System** - Sistema completo con 15+ hook eventi per estendere funzionalità
+- 🌍 **Internazionalizzazione** - Sistema i18n con file JSON (EN, IT, ES, FR, DE, JA)
+- 📊 **Statistiche Lettura** - Persistenza database, streak tracking, analytics completi
+- 📚 **Collections** - Sistema collezioni con persistenza SQLite
+- 💾 **Backup & Restore** - Sistema completo per backup/restore libreria
+- 🐛 **Bug Fixes** - Reading progress multi-volume, page spacing, log locking, timestamp precision
+- ⚡ **Virtual Scrolling** - VirtualListView pronto per performance ultra-scalabile
+- ✅ **JSON Schema Validation** - Validazione temi JSON per stabilità
+
+### Aggiornamenti da v0.1.0:
 - 🚀 **Database 3-5x più veloce** - Caricamento libreria da ~5s a ~1-2s per 100 manga
 - 🔄 **Auto-Update da GitHub** - Sistema completo per controllare e installare aggiornamenti automaticamente
-- 🎨 **UI Cleanup** - Interfaccia più professionale senza emoji, barra comandi semplificata
 - 🔒 **Security Hardening** - 6 vulnerabilità mitigate (path traversal, XSS, SQL injection, etc.)
 - ⚡ **Image Threading** - Conversione immagini non-blocking, UI sempre responsiva
 - 🧹 **Code Quality** - Type hints, 13+ custom exceptions, validazione input completa
 - ✅ **Testing** - 22 test passati, coverage ~80% workflows core
-- 📊 **5 Bug Critici Risolti** - Resource leaks, race conditions, cache instability
 
-Vedi [CHANGELOG.md](CHANGELOG.md) e [DEVELOPMENT_SUMMARY.md](DEVELOPMENT_SUMMARY.md) per dettagli completi.
+Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 
 ---
 
