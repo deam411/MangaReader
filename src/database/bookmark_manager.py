@@ -59,7 +59,8 @@ class BookmarkManager(BaseManager):
 
             with self.get_connection() as conn:
                 c = conn.cursor()
-                timestamp = int(time.time())
+                # Usa millisecondi per timestamp più precisi
+                timestamp = int(time.time() * 1000)
 
                 c.execute('''
                     INSERT INTO bookmarks (user, chapter_id, page_number, name, timestamp)

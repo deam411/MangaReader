@@ -55,7 +55,8 @@ class HistoryManager(BaseManager):
             )
         """
         try:
-            timestamp = int(time.time())
+            # Usa millisecondi per timestamp più precisi
+            timestamp = int(time.time() * 1000)
             logger.debug(f"Saving reading position: chapter {chapter_id}, page {page_number} for user {user}")
 
             with self.get_connection() as conn:
