@@ -6,6 +6,7 @@
 **Release "Enhanced User Experience"** con focus su scalabilità, internazionalizzazione e funzionalità avanzate.
 
 **Highlights**:
+- 🔌 **NEW**: Sistema Plugin completo per estendere funzionalità
 - 🐛 **FIXED**: Percentuale lettura ora calcola correttamente il progresso su tutti i volumi del manga
 - 🐛 **FIXED**: Page spacing aumentato per migliore leggibilità (10px → 130px)
 - 🐛 **FIXED**: Log file locking su Windows
@@ -53,6 +54,66 @@
   - `src/views/utils.py` - `calculate_reading_progress_fast()`
   - `src/database/history_manager.py` - `get_reading_progress()`
 - **Impact**: Tutte le percentuali di lettura nella libreria ora sono accurate
+
+---
+
+### 🔌 NEW FEATURE: Plugin System
+
+**Sistema Plugin Completo (2025-11-12)** ✨
+- **Architettura estensibile**: Permette agli utenti di aggiungere funzionalità personalizzate senza modificare il core
+- **15+ Event Hooks**: Plugin possono agganciarsi a eventi chiave dell'applicazione
+  - **Lifecycle**: `on_startup`, `on_shutdown`
+  - **Import/Export**: `pre_import`, `post_import`, `pre_export`, `post_export`
+  - **Reading**: `pre_page_load`, `post_page_load`, `on_chapter_change`
+  - **Library**: `on_library_refresh`, `on_manga_added`, `on_manga_deleted`
+  - **UI**: `custom_menu_items`, `custom_toolbar_buttons`
+- **PluginManager**: Auto-discovery, caricamento dinamico, hot-reload
+- **UI Settings Tab**: Abilita/disabilita plugin, visualizza metadata, reload
+- **Configurazione**: Ogni plugin può definire il proprio schema di configurazione
+- **Plugin di esempio incluso**: Dimostra tutte le funzionalità (page counter, event logging)
+- **Sicurezza**: Plugins isolati con gestione errori per evitare crash dell'app
+
+**Componenti Creati**:
+- `plugins/plugin_base.py` - Classe base `PluginBase` con 15+ hook methods (269 linee)
+- `plugins/plugin_manager.py` - `PluginManager` per discovery e lifecycle (466 linee)
+- `plugins/available/example_plugin/` - Plugin di esempio funzionante
+- `src/settings_tabs/plugins_tab.py` - UI per gestione plugin (320 linee)
+- `PLUGIN_INTEGRATION.md` - Guida integrazione completa
+
+**Come Creare un Plugin**:
+```python
+from plugins.plugin_base import PluginBase, PluginMetadata
+
+class MyPlugin(PluginBase):
+    @property
+    def metadata(self):
+        return PluginMetadata(
+            name="My Plugin",
+            version="1.0.0",
+            author="Author Name",
+            description="Plugin description"
+        )
+
+    def on_manga_added(self, context):
+        manga_path = context.get('manga_path')
+        print(f"New manga: {manga_path}")
+```
+
+**Directory Plugin**: `plugins/available/` - aggiungi qui i tuoi plugin!
+
+**Configurazione Salvata**:
+- Lista plugin abilitati: `AppData/MangaReader/plugins_config.json`
+- Config per-plugin: `AppData/MangaReader/plugin_configs/[plugin_name].json`
+
+**Use Cases**:
+- Sincronizzazione con MyAnimeList/AniList/MangaDex
+- Filtri/effetti personalizzati sulle immagini
+- Export in formati custom
+- Statistiche avanzate e analytics
+- Temi personalizzati dinamici
+- Integrazione con servizi esterni
+
+**Impatto**: Gli utenti possono ora estendere Manga Reader senza modificare il codice sorgente!
 
 ---
 
