@@ -14,6 +14,7 @@ from .settings import Settings
 from .settings_tabs import (GeneralTab, AppearanceTab, PerformanceTab,
                             ReaderTab, ShortcutsTab, BookmarksTab, BackupTab, PluginsTab)
 from .logger import get_logger
+from plugins.plugin_manager import PluginManager
 
 logger = get_logger(__name__)
 
@@ -34,6 +35,10 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Impostazioni")
         # Apri il dialog a schermo intero
         self.showFullScreen()
+
+        # Inizializza PluginManager
+        self.plugin_manager = PluginManager()
+        self.plugin_manager.load_all_plugins()
 
         # Referenze ai tab (per raccogliere valori in accept())
         self.general_tab = None
@@ -76,7 +81,7 @@ class SettingsDialog(QDialog):
         self.backup_tab = BackupTab(self)
         tabs.addTab(self.backup_tab, "Backup")
 
-        self.plugins_tab = PluginsTab(self)
+        self.plugins_tab = PluginsTab(self.plugin_manager, self)
         tabs.addTab(self.plugins_tab, "Plugins")
 
         layout.addWidget(tabs)
