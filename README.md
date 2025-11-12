@@ -10,20 +10,24 @@
 
 Un lettore e gestore di manga moderno e performante con supporto multi-piattaforma.
 
-## 🎉 Novità v0.3.0 - Plugin System & Enhanced UX
+## 🎉 Novità v0.4.0 - Professional Polish
 
-Versione maggiore con focus su **Estensibilità**, **Scalabilità** e **Internazionalizzazione**:
+Versione maggiore con focus su **User Experience**, **Configurabilità** e **Analytics**:
 
+- 🔧 **Plugin Configuration System** - Dialog completo per configurare plugin con schema dinamico
+- 🌙 **Blue Light Filter (Night Mode)** - Proteggi gli occhi durante la lettura notturna (Ctrl+N)
+- 📊 **Statistics Export** - Esporta statistiche di lettura in CSV o JSON con summary aggregati
+- 🎨 **Plugin System Enhancement** - Sistema plugin ora completamente configurabile con persistenza
+- 📈 **Advanced Analytics** - Export dettagliato con top manga, streak, totali
+
+### Feature v0.3.0:
 - 🔌 **Plugin System** - Sistema completo con 15+ hook eventi per estendere funzionalità
 - 🌍 **Internazionalizzazione** - Sistema i18n con file JSON (EN, IT, ES, FR, DE, JA)
 - 📊 **Statistiche Lettura** - Persistenza database, streak tracking, analytics completi
 - 📚 **Collections** - Sistema collezioni con persistenza SQLite
 - 💾 **Backup & Restore** - Sistema completo per backup/restore libreria
-- 🐛 **Bug Fixes** - Reading progress multi-volume, page spacing, log locking, timestamp precision
-- ⚡ **Virtual Scrolling** - VirtualListView pronto per performance ultra-scalabile
-- ✅ **JSON Schema Validation** - Validazione temi JSON per stabilità
 
-### Aggiornamenti da v0.1.0:
+### Feature v0.1.0:
 - 🚀 **Database 3-5x più veloce** - Caricamento libreria da ~5s a ~1-2s per 100 manga
 - 🔄 **Auto-Update da GitHub** - Sistema completo per controllare e installare aggiornamenti automaticamente
 - 🔒 **Security Hardening** - 6 vulnerabilità mitigate (path traversal, XSS, SQL injection, etc.)
@@ -95,7 +99,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - `Ctrl+F` - Ricerca
 - `Ctrl+I` - Importa manga
 - `Ctrl+E` - Esporta manga
-- `Ctrl+N` - Nuovo manga
+- `Ctrl+N` (Libreria) - Nuovo manga / (Reader) - **Toggle filtro luce blu (Night Mode)**
 - `Ctrl+D` - Toggle vista doppia pagina (nel reader)
 - `Ctrl+B` - Aggiungi segnalibro (nel reader)
 - `F5` - Aggiorna libreria
@@ -103,6 +107,81 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - `Backspace` - Indietro
 - `↑/↓` - Zoom in/out nel reader
 - `Esc` - Esci
+
+### 🔌 Sistema Plugin (v0.3.0)
+- **15+ Hook Eventi**: Lifecycle, Import/Export, Reading, Library, UI
+- **Auto-Discovery**: Plugin caricati automaticamente da `plugins/available/`
+- **Hot-Reload**: Ricarica plugin senza riavviare l'app
+- **Configurazione (v0.4.0)**: Dialog dinamico per configurare ogni plugin
+  - Schema-based: bool, int, str, text, list
+  - Persistenza automatica in JSON
+  - Validazione input
+- **UI Settings Tab**: Abilita/disabilita, configura, reload plugin
+- **Plugin di Esempio**: `example_plugin` dimostra tutte le funzionalità
+
+#### Come Configurare un Plugin
+1. Apri **Impostazioni ⚙️** → Tab **Plugins**
+2. Seleziona un plugin dalla lista
+3. Clicca **"Configura"**
+4. Modifica le opzioni nel dialog
+5. Clicca **OK** per salvare
+
+#### Come Creare un Plugin
+```python
+from plugins.plugin_base import PluginBase, PluginMetadata
+
+class MyPlugin(PluginBase):
+    @property
+    def metadata(self):
+        return PluginMetadata(
+            name="My Plugin",
+            version="1.0.0",
+            author="Your Name",
+            description="Plugin description"
+        )
+
+    def get_config_schema(self):
+        return {
+            'enable_feature': {
+                'type': 'bool',
+                'default': True,
+                'description': 'Enable special feature'
+            },
+            'interval': {
+                'type': 'int',
+                'default': 10,
+                'description': 'Update interval in seconds'
+            }
+        }
+
+    def on_manga_added(self, context):
+        manga_path = context.get('manga_path')
+        print(f"New manga: {manga_path}")
+```
+
+Salva in `plugins/available/my_plugin/plugin.py`
+
+### 📊 Statistiche & Analytics (v0.3.0+)
+- **Tracking Automatico**: Sessioni, pagine lette, tempo di lettura
+- **Streak Tracking**: Conta giorni consecutivi di lettura
+- **Top Manga**: Classifica manga più letti
+- **Export (v0.4.0)**:
+  - **CSV**: Tutte le sessioni in formato tabulare (Excel, Google Sheets)
+  - **JSON**: Dati completi + summary aggregati (analisi Python, pandas)
+- **Dashboard Visuale**: Widget con statistiche in tempo reale
+
+#### Come Esportare Statistiche
+1. Nella **Home**, guarda il widget statistiche
+2. Clicca **"Export CSV"** o **"Export JSON"**
+3. Scegli dove salvare il file
+4. Analizza i dati con Excel, Python, o altri tool
+
+### 🌙 Filtro Luce Blu / Night Mode (v0.4.0)
+- **Protezione Occhi**: Overlay arancione warm per ridurre affaticamento
+- **Shortcut Rapido**: Premi `Ctrl+N` nel reader per toggle on/off
+- **Personalizzabile**: Colore e opacità in `src/constants.py`
+- **Persistente**: Preferenza salvata tra sessioni
+- **Zero Overhead**: Nessun impatto su performance
 
 ### 🛠️ Gestione
 - **Auto-Update** (v0.1.0) - Sistema integrato per controllare e installare aggiornamenti da GitHub
