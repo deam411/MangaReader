@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import pyqtSignal
 from .settings import Settings
 from .settings_tabs import (GeneralTab, AppearanceTab, PerformanceTab,
-                            ReaderTab, ShortcutsTab, BookmarksTab, BackupTab)
+                            ReaderTab, ShortcutsTab, BookmarksTab, BackupTab, PluginsTab)
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,6 +43,7 @@ class SettingsDialog(QDialog):
         self.shortcuts_tab = None
         self.bookmarks_tab = None
         self.backup_tab = None
+        self.plugins_tab = None
 
         self.initUI()
 
@@ -75,10 +76,14 @@ class SettingsDialog(QDialog):
         self.backup_tab = BackupTab(self)
         tabs.addTab(self.backup_tab, "Backup")
 
+        self.plugins_tab = PluginsTab(self)
+        tabs.addTab(self.plugins_tab, "Plugins")
+
         layout.addWidget(tabs)
 
         # Connetti segnali dai tab
         self.appearance_tab.theme_changed.connect(self.settings_changed)
+        self.plugins_tab.plugins_changed.connect(self.settings_changed)
 
         # Pulsanti OK/Cancel/Reset + Export/Import
         buttons_layout = QHBoxLayout()
