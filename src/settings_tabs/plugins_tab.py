@@ -250,7 +250,7 @@ class PluginsTab(QWidget):
 
     def configure_selected_plugin(self):
         """Configura il plugin selezionato."""
-        selected_items = self.plugins_list.selectedItems()
+        selected_items = self.plugin_list.selectedItems()
         if not selected_items:
             return
 
