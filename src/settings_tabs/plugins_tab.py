@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from typing import Optional, TYPE_CHECKING
+from src.views.dialogs import PluginConfigDialog
 
 if TYPE_CHECKING:
     from plugins.plugin_manager import PluginManager
@@ -93,7 +94,6 @@ class PluginsTab(QWidget):
         self.configure_btn = QPushButton("Configura")
         self.configure_btn.setToolTip("Configura le impostazioni del plugin")
         self.configure_btn.clicked.connect(self.configure_selected_plugin)
-        self.configure_btn.setEnabled(False)  # TODO: implementare dialog config
         button_layout.addWidget(self.configure_btn)
 
         details_layout.addLayout(button_layout)
@@ -250,12 +250,46 @@ class PluginsTab(QWidget):
 
     def configure_selected_plugin(self):
         """Configura il plugin selezionato."""
-        # TODO: Implementare dialog configurazione basato su get_config_schema()
-        QMessageBox.information(
-            self,
-            "Configurazione Plugin",
-            "La configurazione dei plugin sarà disponibile in una versione futura."
+        selected_items = self.plugins_list.selectedItems()
+        if not selected_items:
+            return
+
+        plugin_name = selected_items[0].text()
+        plugin_instance = self.plugin_manager.get_plugin(plugin_name)
+
+        if not plugin_instance:
+            QMessageBox.warning(
+                self,
+                "Errore",
+                f"Impossibile trovare il plugin '{plugin_name}'."
+            )
+            return
+
+        # Ottieni schema configurazione
+        config_schema = plugin_instance.get_config_schema()
+        current_config = plugin_instance.config
+
+        # Apri dialog configurazione
+        dialog = PluginConfigDialog(
+            plugin_name=plugin_name,
+            config_schema=config_schema,
+            current_config=current_config,
+            parent=self
         )
+
+        if dialog.exec_():
+            # Salva la nuova configurazione
+            new_config = dialog.get_config()
+            plugin_instance.set_config(new_config)
+
+            # Persisti la configurazione (A2 task)
+            self.plugin_manager.save_plugin_config(plugin_name, new_config)
+
+            QMessageBox.information(
+                self,
+                "Configurazione Salvata",
+                f"La configurazione del plugin '{plugin_name}' è stata salvata con successo."
+            )
 
     def refresh_plugin_list(self):
         """Aggiorna la lista dei plugin."""

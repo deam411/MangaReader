@@ -7,7 +7,7 @@ fornendo un unico punto di riferimento per versioni, limiti, formati e configura
 
 # Informazioni applicazione
 APP_NAME = "Manga Reader"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 APP_AUTHOR = "Alessandro"
 APP_DESCRIPTION = "Lettore e gestore di manga desktop multi-piattaforma"
 
@@ -129,6 +129,10 @@ DEFAULT_SHORTCUTS = {
     "next_page": "Right",
     "prev_page": "Left"
 }
+
+# Blue light filter (night mode)
+BLUE_LIGHT_FILTER_COLOR = (255, 180, 100)  # RGB warm orange
+BLUE_LIGHT_FILTER_OPACITY = 25  # 0-100 (percentage)
 
 # Database
 DB_SCHEMA_VERSION = 2

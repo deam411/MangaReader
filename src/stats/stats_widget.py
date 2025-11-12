@@ -2,10 +2,12 @@
 Widget per visualizzare statistiche lettura nella LibraryView.
 """
 
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame
+from PyQt5.QtWidgets import (QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame,
+                              QPushButton, QFileDialog, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 from ..logger import get_logger
+from .stats_manager import StatsManager
 
 logger = get_logger(__name__)
 
@@ -25,6 +27,7 @@ class StatsWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.stats_manager = StatsManager()
         self._setup_ui()
 
     def _setup_ui(self):
@@ -64,6 +67,29 @@ class StatsWidget(QWidget):
         # Stat 4: Da leggere
         self.unread_label = self._create_stat_label("Da Leggere", "0")
         frame_layout.addWidget(self.unread_label)
+
+        # Separatore
+        frame_layout.addWidget(self._create_separator())
+
+        # Pulsanti export
+        export_container = QWidget()
+        export_layout = QVBoxLayout(export_container)
+        export_layout.setContentsMargins(0, 0, 0, 0)
+        export_layout.setSpacing(5)
+
+        export_csv_btn = QPushButton("Export CSV")
+        export_csv_btn.setToolTip("Esporta statistiche in formato CSV")
+        export_csv_btn.setMaximumWidth(100)
+        export_csv_btn.clicked.connect(self.export_stats_csv)
+        export_layout.addWidget(export_csv_btn)
+
+        export_json_btn = QPushButton("Export JSON")
+        export_json_btn.setToolTip("Esporta statistiche in formato JSON con summary")
+        export_json_btn.setMaximumWidth(100)
+        export_json_btn.clicked.connect(self.export_stats_json)
+        export_layout.addWidget(export_json_btn)
+
+        frame_layout.addWidget(export_container)
 
         frame_layout.addStretch()
         main_layout.addWidget(frame)
@@ -124,3 +150,51 @@ class StatsWidget(QWidget):
         self.unread_label.value_label.setText(str(unread))
 
         logger.debug(f"Stats aggiornate: {total} totali, {completed} completati, {reading} in lettura")
+
+    def export_stats_csv(self):
+        """Esporta le statistiche di lettura in formato CSV."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Esporta Statistiche CSV",
+            "reading_stats.csv",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+
+        if file_path:
+            if self.stats_manager.export_to_csv(file_path, include_all=True):
+                QMessageBox.information(
+                    self,
+                    "Export Completato",
+                    f"Statistiche esportate con successo in:\n{file_path}"
+                )
+                logger.info(f"Statistiche esportate in CSV: {file_path}")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Errore Export",
+                    "Impossibile esportare le statistiche. Controlla i log per dettagli."
+                )
+
+    def export_stats_json(self):
+        """Esporta le statistiche di lettura in formato JSON."""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Esporta Statistiche JSON",
+            "reading_stats.json",
+            "JSON Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            if self.stats_manager.export_to_json(file_path, include_summary=True):
+                QMessageBox.information(
+                    self,
+                    "Export Completato",
+                    f"Statistiche esportate con successo in:\n{file_path}"
+                )
+                logger.info(f"Statistiche esportate in JSON: {file_path}")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Errore Export",
+                    "Impossibile esportare le statistiche. Controlla i log per dettagli."
+                )

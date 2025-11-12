@@ -309,9 +309,14 @@ class ReaderView(QWidget):
                     )
 
     def keyPressEvent(self, event):
-        """Gestisce ESC e Backspace per tornare alla selezione capitoli."""
+        """Gestisce ESC, Backspace e shortcut speciali."""
         if event.key() == Qt.Key_Escape or event.key() == Qt.Key_Backspace:
             self.back_to_manga_details()
+        elif event.key() == Qt.Key_N and event.modifiers() == Qt.ControlModifier:
+            # Ctrl+N: Toggle filtro luce blu (night mode)
+            enabled = self.page_display_widget.toggle_blue_light_filter()
+            status = "attivato" if enabled else "disattivato"
+            logger.info(f"Filtro luce blu {status}")
         else:
             super().keyPressEvent(event)
 

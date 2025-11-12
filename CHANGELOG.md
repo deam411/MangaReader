@@ -1,5 +1,114 @@
 # Changelog - Manga Reader
 
+## [0.4.0] - 2025-11-12
+
+### 📊 Summary
+**Release "Professional Polish"** con focus su user experience, configurabilità e analytics.
+
+**Highlights**:
+- 🔧 **NEW**: Plugin Configuration System - Dialog completo per configurare plugin con schema dinamico
+- 🌙 **NEW**: Filtro Luce Blu (Night Mode) - Proteggi gli occhi durante la lettura notturna (Ctrl+N)
+- 📊 **NEW**: Export Statistiche - Esporta le tue statistiche di lettura in CSV o JSON
+- 🎨 **IMPROVED**: Plugin System ora completamente configurabile con UI settings
+- 📈 **IMPROVED**: Statistiche con export dettagliato e summary aggregate
+- 🧹 **IMPROVED**: README aggiornato con feature v0.3.0
+
+---
+
+### 🎯 NEW FEATURES
+
+**Plugin Configuration System (v0.4.0)** 🔧
+- **Dialog Dinamico**: Configurazione plugin con UI generata automaticamente dallo schema
+- **Schema-Based**: Supporto tipi: bool, int, str, text, list
+- **Persistenza Automatica**: Configurazioni salvate in `plugin_configs/*.json`
+- **Validazione**: Input validati secondo lo schema del plugin
+- **UI Integration**: Tab Plugins con pulsante "Configura" ora funzionante
+- **File modificati**:
+  - `src/views/dialogs.py` - Nuovo `PluginConfigDialog` (180+ righe)
+  - `src/settings_tabs/plugins_tab.py` - Integrazione dialog configurazione
+  - `plugins/plugin_manager.py` - Load/Save config automatico
+
+**Blue Light Filter / Night Mode (v0.4.0)** 🌙
+- **Filtro Protettivo**: Overlay arancione warm per ridurre affaticamento occhi
+- **Shortcut**: Ctrl+N nel reader per toggle on/off
+- **Personalizzabile**: Colore e opacità configurabili in `constants.py`
+- **Persistente**: Preferenza salvata in settings (`reader.blue_light_filter`)
+- **Zero Overhead**: Applicato solo a livello rendering, nessun impatto performance
+- **File modificati**:
+  - `src/constants.py` - Costanti `BLUE_LIGHT_FILTER_COLOR`, `BLUE_LIGHT_FILTER_OPACITY`
+  - `src/chapter_reader_window.py` - Metodo `toggle_blue_light_filter()` e rendering
+  - `src/views/reader_view.py` - Shortcut Ctrl+N
+
+**Statistics Export (v0.4.0)** 📊
+- **Export CSV**: Esporta tutte le sessioni di lettura in formato tabulare
+- **Export JSON**: Esporta con summary aggregate (totali, streak, top manga)
+- **UI Integration**: Pulsanti "Export CSV" e "Export JSON" in StatsWidget
+- **Flessibile**: Export completo o limitato alle ultime 100 sessioni
+- **File modificati**:
+  - `src/stats/stats_manager.py` - Metodi `export_to_csv()`, `export_to_json()`
+  - `src/stats/stats_widget.py` - UI buttons e handlers
+
+---
+
+### 🔧 IMPROVEMENTS
+
+**Plugin System Enhancements** 🔌
+- Pulsante "Configura" ora attivo (rimosso TODO)
+- Dialog configurazione con scroll per plugin con molte opzioni
+- Descrizioni tooltip per ogni campo configurabile
+- Feedback visivo con messaggi di successo/errore
+
+**Documentation Updates** 📚
+- README aggiornato da v0.1.0 → v0.4.0
+- Badge versione aggiornato
+- Highlight feature v0.3.0 (Plugin System, i18n, Collections, Backup)
+
+---
+
+### 📝 Technical Details
+
+**Constants Added**:
+```python
+BLUE_LIGHT_FILTER_COLOR = (255, 180, 100)  # RGB warm orange
+BLUE_LIGHT_FILTER_OPACITY = 25  # 0-100 (percentage)
+```
+
+**New Shortcuts**:
+- `Ctrl+N` - Toggle Blue Light Filter (Reader)
+
+**New Settings Keys**:
+- `reader.blue_light_filter` (bool) - Night mode enabled/disabled
+
+**Database/Files**:
+- Plugin configs salvati in: `{AppData}/plugin_configs/{plugin_name}.json`
+
+---
+
+### 🎨 User Experience
+
+- Lettura notturna più confortevole con filtro luce blu
+- Configurazione plugin intuitiva con dialog auto-generato
+- Export statistiche per analisi esterna e backup
+- Feedback chiaro per tutte le operazioni (success/error messages)
+
+---
+
+### 🚀 Performance
+
+- Zero overhead per filtro luce blu (solo rendering)
+- Export statistiche ottimizzato con query indicizzate
+- Plugin config load/save asincrono
+
+---
+
+### 🔒 Compatibility
+
+- Compatibile con tutti i plugin esistenti
+- Schema configurazione opzionale (backward compatible)
+- Export statistiche compatibile con Excel, Google Sheets, Python pandas
+
+---
+
 ## [0.3.0] - 2025-11-12
 
 ### 📊 Summary
