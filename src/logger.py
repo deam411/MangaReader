@@ -12,6 +12,25 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 
+class SafeRotatingFileHandler(RotatingFileHandler):
+    """
+    RotatingFileHandler che gestisce gli errori di file locking su Windows.
+
+    Su Windows, il rollover può fallire se il file è usato da un altro processo.
+    Questo handler cattura l'errore e continua senza interrompere l'applicazione.
+    """
+    def doRollover(self):
+        """Override doRollover per gestire PermissionError su Windows."""
+        try:
+            super().doRollover()
+        except PermissionError:
+            # File locked da altro processo - skip rollover questa volta
+            pass
+        except Exception as e:
+            # Altri errori - log su stderr ma non bloccare
+            print(f"Errore durante log rollover: {e}", file=sys.stderr)
+
+
 def setup_logger(
     name: str = "MangaReader",
     level: int = logging.INFO,
@@ -52,7 +71,7 @@ def setup_logger(
             os.makedirs(log_dir, exist_ok=True)
             log_file = os.path.join(log_dir, "manga_reader.log")
 
-            file_handler = RotatingFileHandler(
+            file_handler = SafeRotatingFileHandler(
                 log_file,
                 maxBytes=10 * 1024 * 1024,  # 10MB
                 backupCount=5,
