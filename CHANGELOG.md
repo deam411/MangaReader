@@ -1,12 +1,15 @@
 # Changelog - Manga Reader
 
-## [0.3.0] - 2025-11-09
+## [0.3.0] - 2025-11-12
 
 ### 📊 Summary
 **Release "Enhanced User Experience"** con focus su scalabilità, internazionalizzazione e funzionalità avanzate.
 
 **Highlights**:
 - 🐛 **FIXED**: Percentuale lettura ora calcola correttamente il progresso su tutti i volumi del manga
+- 🐛 **FIXED**: Page spacing aumentato per migliore leggibilità (10px → 130px)
+- 🐛 **FIXED**: Log file locking su Windows
+- 🐛 **FIXED**: Timestamp precision per bookmarks e history (secondi → millisecondi)
 - ✅ Virtual Scrolling implementato (VirtualListView pronto, integrazione UI da completare)
 - 🌍 Sistema internazionalizzazione (i18n) con file JSON (EN, IT)
 - 📊 Sistema statistiche lettura con persistenza database e streak tracking
@@ -19,7 +22,30 @@
 
 ### 🐛 Bug Fixes
 
-**Fix: Reading Progress Multi-Volume**
+**Fix: Page Spacing in Reader (2025-11-12)**
+- **Problema risolto**: Le pagine erano troppo vicine nel reader (solo 10px di spazio)
+- **Soluzione**: Aumentato `PAGE_SPACING` da 10px a 130px per migliore separazione visiva
+- Spacing si scala automaticamente con il zoom factor
+- **File modificati**: `src/constants.py:119`
+- **Impatto**: Lettura più confortevole con pagine ben separate
+
+**Fix: Log File Locking on Windows (2025-11-12)**
+- **Problema risolto**: PermissionError durante log rotation quando file è usato da altro processo
+- **Soluzione**: Nuovo `SafeRotatingFileHandler` che gestisce gli errori di file locking
+- Rollover fallito viene skippato silenziosamente senza bloccare l'app
+- **File modificati**: `src/logger.py`
+- **Impatto**: App si avvia correttamente anche con istanze multiple o file log locked
+
+**Fix: Timestamp Precision (2025-11-12)**
+- **Problema risolto**: Bookmarks creati nello stesso secondo avevano stesso timestamp
+- **Soluzione**: Usato millisecondi invece di secondi per timestamp più precisi
+- Garantisce ordinamento corretto anche per operazioni rapide
+- **File modificati**:
+  - `src/database/bookmark_manager.py:63`
+  - `src/database/history_manager.py:59`
+- **Impatto**: Ordinamento bookmarks sempre corretto per timestamp
+
+**Fix: Reading Progress Multi-Volume (2025-11-09)**
 - **Problema risolto**: La percentuale di lettura ora considera tutti i volumi del manga, non solo il volume corrente
 - Prima, l'ordine dei capitoli ripartiva da 1 per ogni volume, causando calcoli errati
 - Ora la query considera sia `volume.order` che `chapter.order` per il calcolo corretto
