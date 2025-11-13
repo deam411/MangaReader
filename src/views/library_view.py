@@ -887,7 +887,7 @@ class LibraryView(QWidget):
 
     def open_settings(self):
         """Apre il dialog delle impostazioni."""
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self, self.plugin_manager)
         dialog.settings_changed.connect(self.on_settings_changed)
         if dialog.exec_():
             # Ricarica la libreria se il percorso è cambiato

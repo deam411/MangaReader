@@ -29,16 +29,19 @@ class SettingsDialog(QDialog):
 
     settings_changed = pyqtSignal()  # Segnale emesso quando le settings cambiano
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, plugin_manager=None):
         super().__init__(parent)
         self.settings = Settings()
         self.setWindowTitle("Impostazioni")
         # Apri il dialog a schermo intero
         self.showFullScreen()
 
-        # Inizializza PluginManager
-        self.plugin_manager = PluginManager()
-        self.plugin_manager.load_all_plugins()
+        # Usa il PluginManager esistente o creane uno nuovo
+        if plugin_manager:
+            self.plugin_manager = plugin_manager
+        else:
+            self.plugin_manager = PluginManager()
+            self.plugin_manager.load_all_plugins()
 
         # Referenze ai tab (per raccogliere valori in accept())
         self.general_tab = None
