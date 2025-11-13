@@ -33,9 +33,10 @@ from src.collections import CollectionManager
 logger = get_logger(__name__)
 
 class LibraryView(QWidget):
-    def __init__(self, stacked_widget):
+    def __init__(self, stacked_widget, plugin_manager=None):
         super().__init__()
         self.stacked_widget = stacked_widget
+        self.plugin_manager = plugin_manager  # Plugin manager per gestire plugin
         self.all_manga_data = []
         self.is_grid_view = True
         self.delegate = MangaItemDelegate(self)
@@ -721,7 +722,7 @@ class LibraryView(QWidget):
 
     def launch_manga_creator(self):
         from src.creator.manga_creator_app import MangaCreatorApp
-        self.creator_app = MangaCreatorApp()
+        self.creator_app = MangaCreatorApp(self.plugin_manager)
         self.creator_app.showFullScreen()
         self.creator_app.destroyed.connect(self.load_library)
 

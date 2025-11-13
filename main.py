@@ -41,7 +41,11 @@ class MangaReader(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.setCentralWidget(self.stacked_widget)
 
-        self.library_view = LibraryView(self.stacked_widget)
+        # Inizializza plugin manager prima delle views
+        self.plugin_manager = PluginManager()
+        self.plugin_manager.load_all_plugins()
+
+        self.library_view = LibraryView(self.stacked_widget, self.plugin_manager)
         self.stacked_widget.addWidget(self.library_view)  # Index 0
 
         self.manga_view = MangaView(self.stacked_widget)
@@ -54,10 +58,6 @@ class MangaReader(QMainWindow):
         self.stacked_widget.addWidget(self.reader_view)  # Index 3
 
         self.setup_shortcuts()
-
-        # Inizializza plugin manager
-        self.plugin_manager = PluginManager()
-        self.plugin_manager.load_all_plugins()
 
         # Trigger on_startup hook
         self.plugin_manager.trigger_hook(

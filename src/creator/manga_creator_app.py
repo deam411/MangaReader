@@ -22,8 +22,9 @@ from ..logger import get_logger
 logger = get_logger(__name__)
 
 class MangaCreatorApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, plugin_manager=None):
         super().__init__()
+        self.plugin_manager = plugin_manager  # Plugin manager per gestire plugin
         self.current_manga_db = None # Percorso al file .manga attualmente aperto
         self.db_manager = None # Istanza del gestore del database
         self.current_volume_id = None # ID del volume attualmente selezionato
@@ -439,6 +440,26 @@ class MangaCreatorApp(QMainWindow):
         try:
             from PyQt5.QtWidgets import QInputDialog, QProgressDialog, QApplication
             from PyQt5.QtCore import QThread, pyqtSignal, QTimer
+
+            # Verifica se il plugin è abilitato
+            if not self.plugin_manager:
+                QMessageBox.warning(
+                    self,
+                    'Plugin Manager non disponibile',
+                    'Il sistema dei plugin non è disponibile.'
+                )
+                return
+
+            plugin_name = 'Mangaworld Downloader'
+            if plugin_name not in self.plugin_manager.enabled_plugins:
+                QMessageBox.warning(
+                    self,
+                    'Plugin non abilitato',
+                    f'Il plugin "{plugin_name}" non è abilitato.\n\n'
+                    f'Per utilizzare questa funzionalità, vai in Impostazioni > Plugin '
+                    f'e abilita il plugin "{plugin_name}".'
+                )
+                return
 
             # Chiedi URL e numero volume
             url, ok1 = QInputDialog.getText(
