@@ -204,6 +204,10 @@ class PageDisplayWidget(QWidget):
                 self.page_metadata = metadata_list
 
             self.db_conn = db_conn
+
+            # Carica dimensioni delle pagine dal database per spacing uniforme
+            self.page_dimensions = self._load_page_dimensions_from_metadata(metadata_list, db_conn)
+
             self.loaded_pages_cache.clear()
             self.image_cache.clear()
             self.loading_pages.clear()
@@ -217,6 +221,57 @@ class PageDisplayWidget(QWidget):
         finally:
             # Rilascia flag loading
             self._is_loading = False
+
+    def _load_page_dimensions_from_metadata(self, metadata_list, db_conn):
+        """
+        Carica le dimensioni delle pagine dal database basandosi sui metadata.
+
+        Args:
+            metadata_list: Lista di metadata pagine
+            db_conn: Connessione database
+
+        Returns:
+            Lista di tuple (width, height) nello stesso ordine dei metadata
+        """
+        if not db_conn:
+            return []
+
+        dimensions = []
+        cursor = db_conn.cursor()
+
+        for metadata in metadata_list:
+            if metadata.get('type') == 'separator':
+                # Separatori non hanno dimensioni
+                dimensions.append((None, None))
+            elif metadata.get('type') == 'page':
+                # Carica dimensioni dal database
+                chapter_id = metadata.get('chapter_id')
+                page_number = metadata.get('page_number')
+
+                if chapter_id and page_number:
+                    try:
+                        cursor.execute(
+                            "SELECT width, height FROM pages WHERE chapter_id = ? AND page_number = ?",
+                            (chapter_id, page_number)
+                        )
+                        result = cursor.fetchone()
+                        if result:
+                            width = result['width'] if 'width' in result.keys() else result[0]
+                            height = result['height'] if 'height' in result.keys() else result[1]
+                            dimensions.append((width, height))
+                        else:
+                            dimensions.append((None, None))
+                    except Exception as e:
+                        from src.logger import get_logger
+                        logger = get_logger(__name__)
+                        logger.warning(f"Error loading page dimensions: {e}")
+                        dimensions.append((None, None))
+                else:
+                    dimensions.append((None, None))
+            else:
+                dimensions.append((None, None))
+
+        return dimensions
 
     def set_pages_data(self, pages_data_list, dimensions_list=None):
         """
