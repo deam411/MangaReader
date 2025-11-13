@@ -48,7 +48,7 @@ class MangaReader(QMainWindow):
         self.library_view = LibraryView(self.stacked_widget, self.plugin_manager)
         self.stacked_widget.addWidget(self.library_view)  # Index 0
 
-        self.manga_view = MangaView(self.stacked_widget)
+        self.manga_view = MangaView(self.stacked_widget, self.plugin_manager)
         self.stacked_widget.addWidget(self.manga_view)  # Index 1
 
         self.volume_view = VolumeView(self.stacked_widget)

@@ -25,9 +25,10 @@ from src.views.utils import sanitize_filename
 logger = get_logger(__name__)
 
 class MangaView(QWidget):
-    def __init__(self, stacked_widget):
+    def __init__(self, stacked_widget, plugin_manager=None):
         super().__init__()
         self.stacked_widget = stacked_widget
+        self.plugin_manager = plugin_manager  # Plugin manager per gestire plugin
         self.db_conn = None
         self.manga_file = None
         self.cover_data = None  # Per salvare i dati della cover
@@ -312,7 +313,7 @@ class MangaView(QWidget):
             return
 
         from src.creator.manga_creator_app import MangaCreatorApp
-        self.editor_app = MangaCreatorApp()
+        self.editor_app = MangaCreatorApp(self.plugin_manager)
         self.editor_app.showFullScreen()
         self.editor_app.open_manga(self.manga_file) # Pass the current manga file to the editor
 
