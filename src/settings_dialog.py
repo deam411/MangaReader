@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import pyqtSignal
 from .settings import Settings
 from .settings_tabs import (GeneralTab, AppearanceTab, PerformanceTab,
-                            ReaderTab, ShortcutsTab, BookmarksTab, BackupTab, PluginsTab)
+                            ReaderTab, ShortcutsTab, BookmarksTab, BackupTab, PluginsTab, MaintenanceTab)
 from .logger import get_logger
 from plugins.plugin_manager import PluginManager
 
@@ -52,6 +52,7 @@ class SettingsDialog(QDialog):
         self.bookmarks_tab = None
         self.backup_tab = None
         self.plugins_tab = None
+        self.maintenance_tab = None
 
         self.initUI()
 
@@ -86,6 +87,9 @@ class SettingsDialog(QDialog):
 
         self.plugins_tab = PluginsTab(self.plugin_manager, self)
         tabs.addTab(self.plugins_tab, "Plugins")
+
+        self.maintenance_tab = MaintenanceTab(self)
+        tabs.addTab(self.maintenance_tab, "Manutenzione")
 
         layout.addWidget(tabs)
 

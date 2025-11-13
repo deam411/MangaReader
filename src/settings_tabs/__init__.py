@@ -10,6 +10,7 @@ Architettura v0.2.0:
 - ReaderTab: RTL + doppia pagina + sfondo LIBRARY
 - ShortcutsTab: Scorciatoie personalizzabili
 - BookmarksTab: Categorie segnalibri
+- MaintenanceTab: Manutenzione database
 """
 
 from .general_tab import GeneralTab, UpdateThread
@@ -20,6 +21,7 @@ from .shortcuts_tab import ShortcutsTab
 from .bookmarks_tab import BookmarksTab
 from .backup_tab import BackupTab
 from .plugins_tab import PluginsTab
+from .maintenance_tab import MaintenanceTab
 
 __all__ = [
     'GeneralTab',
@@ -30,5 +32,6 @@ __all__ = [
     'BookmarksTab',
     'BackupTab',
     'PluginsTab',
+    'MaintenanceTab',
     'UpdateThread'
 ]
