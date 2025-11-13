@@ -412,12 +412,16 @@ class MangaCreatorApp(QMainWindow):
             QMessageBox.warning(self, "Errore", "Nessun file .manga aperto.")
             return
 
-        # Controlla se Shift è premuto
+        # Controlla se Shift è premuto E il plugin è abilitato
         modifiers = QApplication.keyboardModifiers()
         if modifiers == Qt.ShiftModifier:
-            # Shift è premuto - usa il plugin Mangaworld Downloader
-            self.add_volume_from_mangaworld()
-            return
+            # Shift è premuto - controlla se il plugin Mangaworld Downloader è abilitato
+            if (self.plugin_manager and
+                'Mangaworld Downloader' in self.plugin_manager.enabled_plugins):
+                # Plugin abilitato - usalo
+                self.add_volume_from_mangaworld()
+                return
+            # Plugin non abilitato - continua con il normale flusso
 
         volume_name, ok = QInputDialog.getText(self, 'Nuovo Volume', 'Inserisci il nome del volume:')
         if ok and volume_name:
@@ -440,26 +444,6 @@ class MangaCreatorApp(QMainWindow):
         try:
             from PyQt5.QtWidgets import QInputDialog, QProgressDialog, QApplication
             from PyQt5.QtCore import QThread, pyqtSignal, QTimer
-
-            # Verifica se il plugin è abilitato
-            if not self.plugin_manager:
-                QMessageBox.warning(
-                    self,
-                    'Plugin Manager non disponibile',
-                    'Il sistema dei plugin non è disponibile.'
-                )
-                return
-
-            plugin_name = 'Mangaworld Downloader'
-            if plugin_name not in self.plugin_manager.enabled_plugins:
-                QMessageBox.warning(
-                    self,
-                    'Plugin non abilitato',
-                    f'Il plugin "{plugin_name}" non è abilitato.\n\n'
-                    f'Per utilizzare questa funzionalità, vai in Impostazioni > Plugin '
-                    f'e abilita il plugin "{plugin_name}".'
-                )
-                return
 
             # Chiedi URL e numero volume
             url, ok1 = QInputDialog.getText(
