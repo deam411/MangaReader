@@ -1,0 +1,217 @@
+"""A manga downloader and PDF generator for MangaWorld.
+
+This module allows you to download manga chapters from a given manga URL, process each
+chapter, and generate PDF files for the downloaded images.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import aiohttp
+from rich.live import Live
+
+from .src.config import DOWNLOAD_FOLDER, parse_arguments
+from .src.crawler_utils import (
+    extract_chapters_info,
+    extract_download_links,
+    extract_manga_type,
+    extract_volume_info,
+    fetch_chapter_data,
+)
+from .src.download_utils import download_chapter, run_in_parallel
+from .src.format_utils import extract_manga_info
+from .src.general_utils import clear_terminal, fetch_page, validate_index_range
+from .src.pdf_generator import generate_pdf_files
+from .src.progress_utils import (
+    create_progress_bar,
+    create_progress_table,
+    create_select_items_list,
+)
+
+if TYPE_CHECKING:
+    from bs4 import BeautifulSoup
+    from rich.progress import Progress
+
+
+def process_pdf_generation(
+    manga_name: str,
+    job_progress: Progress,
+    *,
+    single_pdf: bool = False,
+) -> None:
+    """Process the generation of PDF files for a specific manga."""
+    manga_parent_folder = Path(DOWNLOAD_FOLDER) / manga_name
+    generate_pdf_files(str(manga_parent_folder), job_progress, single_pdf=single_pdf)
+
+
+def download_chapter_with_progress(
+    manga_name: str,
+    download_links: list[str],
+    pages_per_chapter: list[str],
+    *,
+    generate_pdf: bool = False,
+    volume_name: str | None = None,
+    chapter_titles: list[str] | None = None,
+) -> None:
+    """Download the chapters of a manga and displays a progress bar.
+
+    Optionally generate a PDF of the manga chapters if requested.
+    """
+    task_description = (
+        manga_name if volume_name is None else f"{manga_name} - {volume_name}"
+    )
+    working_path = manga_name if volume_name is None else f"{manga_name}/{volume_name}"
+
+    job_progress = create_progress_bar()
+    progress_table = create_progress_table(task_description, job_progress)
+
+    with Live(progress_table, refresh_per_second=10):
+        run_in_parallel(
+            download_chapter,
+            download_links,
+            job_progress,
+            pages_per_chapter,
+            working_path,
+            chapter_titles=chapter_titles, # Pass as keyword argument
+        )
+        if generate_pdf:
+            single_pdf = volume_name is not None
+            process_pdf_generation(working_path, job_progress, single_pdf=single_pdf)
+
+
+async def process_volume(
+    volume: dict,
+    manga_info: tuple[str, str],
+    *,
+    generate_pdf: bool = False,
+) -> None:
+    """Process and downloads a single volume."""
+    manga_name, manga_type = manga_info
+    chapter_data_list = volume["chapters"]
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_chapter_data(chapter, session) for chapter in chapter_data_list]
+        results = await asyncio.gather(*tasks)
+
+    pages_per_chapter = [
+        result[1] if result and result[1] else None for result in results
+    ]
+    chapter_urls = [
+        result[0] if result and result[0] else None for result in results
+    ]
+    chapter_titles = [
+        result[2] if result and result[2] else None for result in results
+    ]
+
+    download_links = await extract_download_links(
+        chapter_urls, 0, len(chapter_urls), manga_type,
+    )
+
+    download_chapter_with_progress(
+        manga_name,
+        download_links,
+        pages_per_chapter,
+        generate_pdf=generate_pdf,
+        volume_name=volume["name"],
+        chapter_titles=chapter_titles,
+    )
+
+async def process_volumes_download(
+    soup: BeautifulSoup,
+    manga_info: tuple[str, str],
+    start_index: int | None = None,
+    end_index: int | None = None,
+    *,
+    generate_pdf: bool = False,
+) -> None:
+    """Process selected manga volumes and downloads their chapters."""
+    volumes = extract_volume_info(soup)
+    volume_names = [volume["name"] for volume in volumes]
+
+    # Specify an interval of volumes
+    if start_index is not None or end_index is not None:
+        start_volume, end_volume = validate_index_range(
+            start_index,
+            end_index,
+            length=len(volumes),
+        )
+        selected_volumes = volumes[start_volume:end_volume]
+
+    else:
+        # If no specific range is provided, select all volumes by default
+        selected_volumes = volumes
+
+    # Download selected volumes
+    for volume in selected_volumes:
+        await process_volume(
+            volume,
+            manga_info,
+            generate_pdf=generate_pdf,
+        )
+
+async def process_manga_download(
+    url: str,
+    start_index: int | None = None,
+    end_index: int | None = None,
+    *,
+    generate_pdf: bool = False,
+    volume_mode: bool = False,
+) -> None:
+    """Process the complete download and PDF generation workflow for a manga."""
+    _, manga_name, manga_slug = extract_manga_info(url)
+    soup = await fetch_page(url)
+    manga_type = extract_manga_type(soup, manga_slug)
+
+    if volume_mode:
+        await process_volumes_download(
+            soup,
+            (manga_name, manga_type),
+            start_index,
+            end_index,
+            generate_pdf=generate_pdf,
+        )
+
+    else:
+        chapters_data = await extract_chapters_info(soup)
+        chapter_urls = [chapter["url"] for chapter in chapters_data]
+        pages_per_chapter = [chapter["pages"] for chapter in chapters_data]
+        chapter_titles = [chapter["title"] for chapter in chapters_data]
+
+        start_chapter, end_chapter = validate_index_range(
+            start_index,
+            end_index,
+            length=len(chapter_urls),
+        )
+        download_links = await extract_download_links(
+            chapter_urls,
+            start_chapter,
+            end_chapter,
+            manga_type,
+        )
+        download_chapter_with_progress(
+            manga_name,
+            download_links,
+            pages_per_chapter[start_chapter:end_chapter],
+            generate_pdf=generate_pdf,
+            chapter_titles=chapter_titles[start_chapter:end_chapter],
+        )
+
+
+async def main() -> None:
+    """Initiate the manga download process from a given URL."""
+    clear_terminal()
+    args = parse_arguments()
+    await process_manga_download(
+        args.url,
+        start_index=args.start,
+        end_index=args.end,
+        generate_pdf=args.pdf,
+        volume_mode=args.volume,
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

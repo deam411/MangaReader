@@ -66,3 +66,5 @@ logs/
 # Icon temporary files
 *.iconset/
 assets/*.iconset/
+
+nul

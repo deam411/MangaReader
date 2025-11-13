@@ -411,6 +411,13 @@ class MangaCreatorApp(QMainWindow):
             QMessageBox.warning(self, "Errore", "Nessun file .manga aperto.")
             return
 
+        # Controlla se Shift è premuto
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers == Qt.ShiftModifier:
+            # Shift è premuto - usa il plugin Mangaworld Downloader
+            self.add_volume_from_mangaworld()
+            return
+
         volume_name, ok = QInputDialog.getText(self, 'Nuovo Volume', 'Inserisci il nome del volume:')
         if ok and volume_name:
             current_volumes = self.db_manager.get_volumes()
@@ -426,6 +433,176 @@ class MangaCreatorApp(QMainWindow):
                 self.set_dirty(True)
             else:
                 QMessageBox.critical(self, "Errore", "Impossibile aggiungere il volume.")
+
+    def add_volume_from_mangaworld(self):
+        """Aggiunge un volume scaricando da Mangaworld usando il plugin."""
+        try:
+            from PyQt5.QtWidgets import QInputDialog, QProgressDialog, QApplication
+            from PyQt5.QtCore import QThread, pyqtSignal, QTimer
+
+            # Chiedi URL e numero volume
+            url, ok1 = QInputDialog.getText(
+                self,
+                'Download da Mangaworld',
+                'Inserisci URL del manga su Mangaworld:'
+            )
+            if not ok1 or not url:
+                return
+
+            volume_num, ok2 = QInputDialog.getText(
+                self,
+                'Numero Volume',
+                'Inserisci numero volume da scaricare (es: 5 o 5-7):'
+            )
+            if not ok2 or not volume_num:
+                return
+
+            volume_name, ok3 = QInputDialog.getText(
+                self,
+                'Nome Volume',
+                'Nome del volume (opzionale):',
+                text=f"Volume {volume_num}"
+            )
+            if not ok3:
+                return
+
+            # Classe Worker per eseguire download in background
+            class DownloadWorker(QThread):
+                progress_updated = pyqtSignal(dict)
+                finished = pyqtSignal(bool)
+
+                def __init__(self, manga_file, url, vol_num, vol_name):
+                    super().__init__()
+                    self.manga_file = manga_file
+                    self.url = url
+                    self.vol_num = vol_num
+                    self.vol_name = vol_name
+                    self.progress_data = {
+                        'current_step': 'Inizializzazione...',
+                        'current_chapter': 0,
+                        'total_chapters': 0,
+                        'current_page': 0,
+                        'total_pages': 0
+                    }
+
+                def run(self):
+                    try:
+                        # Importa il plugin
+                        import sys
+                        plugin_dir = os.path.join(
+                            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                            'plugins', 'available', 'Mangaworld Downloader'
+                        )
+                        if plugin_dir not in sys.path:
+                            sys.path.insert(0, plugin_dir)
+
+                        from plugin import MangaworldDownloaderPlugin
+
+                        # Chiama la funzione con callback
+                        success = MangaworldDownloaderPlugin.add_volume_to_manga_file(
+                            manga_file_path=self.manga_file,
+                            mangaworld_url=self.url,
+                            volume_number=self.vol_num,
+                            volume_name=self.vol_name or f"Volume {self.vol_num}",
+                            progress_callback=self.progress_data
+                        )
+                        self.finished.emit(success)
+                    except Exception as e:
+                        print(f"Errore nel worker thread: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        self.finished.emit(False)
+
+                def get_progress(self):
+                    return self.progress_data
+
+            # Crea worker thread
+            worker = DownloadWorker(self.current_manga_db, url, volume_num, volume_name)
+
+            # Mostra un dialogo di progresso con barra
+            progress = QProgressDialog(
+                "Inizializzazione download...",
+                "Annulla",
+                0,
+                100,
+                self
+            )
+            progress.setWindowTitle("Download da Mangaworld")
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setCancelButton(None)
+            progress.show()
+
+            # Variabile per memorizzare il risultato
+            self.download_result = None
+
+            # Slot per aggiornare la progress bar
+            def update_progress():
+                if worker.isRunning():
+                    prog_data = worker.get_progress()
+                    step = prog_data['current_step']
+
+                    if prog_data['total_chapters'] > 0:
+                        # Usa il progresso diretto dal plugin
+                        total_progress = prog_data['current_chapter']
+                        progress.setValue(total_progress)
+
+                        # Mostra dettagli solo se abbiamo info sulle pagine
+                        if prog_data['total_pages'] > 0:
+                            progress.setLabelText(
+                                f"{step}\n"
+                                f"Progresso: {total_progress}%\n"
+                                f"Pagina {prog_data['current_page']}/{prog_data['total_pages']}"
+                            )
+                        else:
+                            progress.setLabelText(
+                                f"{step}\n"
+                                f"Progresso: {total_progress}%"
+                            )
+                    else:
+                        progress.setLabelText(step)
+                        # Mantieni il valore corrente
+                else:
+                    progress.setValue(100)
+
+            # Slot per completamento download
+            def on_download_finished(success):
+                self.download_result = success
+                timer.stop()
+                progress.close()
+
+                if success:
+                    self.load_volumes()
+                    QMessageBox.information(
+                        self,
+                        "Successo",
+                        f"Volume {volume_num} scaricato e aggiunto con successo!"
+                    )
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Errore",
+                        f"Errore durante il download del volume {volume_num}.\nVerifica l'URL e riprova."
+                    )
+
+            # Connetti segnali
+            worker.finished.connect(on_download_finished)
+
+            # Timer per aggiornare la progress bar
+            timer = QTimer()
+            timer.timeout.connect(update_progress)
+            timer.start(100)  # Aggiorna ogni 100ms
+
+            # Avvia il worker
+            worker.start()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore durante il download da Mangaworld:\n{str(e)}"
+            )
+            import traceback
+            traceback.print_exc()
 
     def remove_volume(self):
         if not self.db_manager:

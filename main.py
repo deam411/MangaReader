@@ -6,8 +6,12 @@ from PyQt5.QtGui import QKeySequence, QIcon
 from views import LibraryView, MangaView, VolumeView, ReaderView
 from src.theme_manager import apply_theme
 from src.logger import get_logger
+from plugins import PluginManager
+from plugins.plugin_base import PluginHook
+from src.settings import Settings
 
 logger = get_logger(__name__)
+settings = Settings()
 
 # Add the project root directory to sys.path
 project_root = os.path.abspath(os.path.dirname(__file__))
@@ -50,6 +54,16 @@ class MangaReader(QMainWindow):
         self.stacked_widget.addWidget(self.reader_view)  # Index 3
 
         self.setup_shortcuts()
+
+        # Inizializza plugin manager
+        self.plugin_manager = PluginManager()
+        self.plugin_manager.load_all_plugins()
+
+        # Trigger on_startup hook
+        self.plugin_manager.trigger_hook(
+            PluginHook.ON_STARTUP,
+            {'app_instance': self, 'settings': settings, 'logger': logger}
+        )
 
     def set_window_icon(self):
         """Imposta l'icona della finestra e della taskbar."""
@@ -182,6 +196,16 @@ class MangaReader(QMainWindow):
             self.close()
         else:
             super().keyPressEvent(event)
+
+    def closeEvent(self, event):
+        """Gestisce la chiusura dell'applicazione."""
+        # Trigger on_shutdown hook
+        if hasattr(self, 'plugin_manager'):
+            self.plugin_manager.trigger_hook(
+                PluginHook.ON_SHUTDOWN,
+                {'app_instance': self}
+            )
+        event.accept()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
