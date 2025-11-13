@@ -83,6 +83,9 @@ class RepairWorker(QThread):
         pages_updated = 0
 
         try:
+            # Assicura che le colonne width/height esistano
+            self._ensure_dimensions_columns(cursor)
+
             # Trova tutte le pagine senza dimensioni
             cursor.execute('''
                 SELECT chapter_id, page_number, image_data
@@ -121,6 +124,29 @@ class RepairWorker(QThread):
             conn.close()
 
         return pages_updated
+
+    def _ensure_dimensions_columns(self, cursor) -> None:
+        """
+        Assicura che le colonne width e height esistano nella tabella pages.
+        Se non esistono, le aggiunge (migrazione v3).
+
+        Args:
+            cursor: Cursore del database
+        """
+        # Controlla se le colonne esistono
+        cursor.execute("PRAGMA table_info(pages)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        needs_width = 'width' not in columns
+        needs_height = 'height' not in columns
+
+        if needs_width:
+            cursor.execute("ALTER TABLE pages ADD COLUMN width INTEGER")
+            logger.info("Added 'width' column to pages table")
+
+        if needs_height:
+            cursor.execute("ALTER TABLE pages ADD COLUMN height INTEGER")
+            logger.info("Added 'height' column to pages table")
 
     def stop(self):
         """Ferma il worker."""
@@ -272,11 +298,23 @@ class MaintenanceTab(QWidget):
             manga_file: Percorso al file .manga
 
         Returns:
-            True se il manga ha pagine senza dimensioni
+            True se il manga ha pagine senza dimensioni o le colonne non esistono
         """
         try:
             conn = sqlite3.connect(manga_file)
             cursor = conn.cursor()
+
+            # Controlla se le colonne width/height esistono
+            cursor.execute("PRAGMA table_info(pages)")
+            columns = [row[1] for row in cursor.fetchall()]
+
+            has_width = 'width' in columns
+            has_height = 'height' in columns
+
+            # Se le colonne non esistono, il manga necessita riparazione
+            if not has_width or not has_height:
+                conn.close()
+                return True
 
             # Controlla se esistono pagine senza width/height
             cursor.execute('''
