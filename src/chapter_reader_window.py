@@ -218,8 +218,14 @@ class PageDisplayWidget(QWidget):
             # Rilascia flag loading
             self._is_loading = False
 
-    def set_pages_data(self, pages_data_list):
-        """Legacy method - carica tutte le pagine in memoria."""
+    def set_pages_data(self, pages_data_list, dimensions_list=None):
+        """
+        Legacy method - carica tutte le pagine in memoria.
+
+        Args:
+            pages_data_list: Lista di bytes immagini
+            dimensions_list: Lista di tuple (width, height), opzionale
+        """
         # Fix: Imposta flag loading per prevenire race condition
         self._is_loading = True
 
@@ -228,6 +234,7 @@ class PageDisplayWidget(QWidget):
             self.thread_pool.waitForDone()
 
             self.pages_data = pages_data_list
+            self.page_dimensions = dimensions_list if dimensions_list else []
             self.page_metadata = []  # Disabilita caricamento on-demand
             self.image_cache.clear()
             self.loading_pages.clear()
@@ -336,8 +343,39 @@ class PageDisplayWidget(QWidget):
         else:
             self._update_layout_double(parent_width, scroll_area_width)
 
+    def _calculate_standard_height(self, num_pages):
+        """
+        Calcola l'altezza standard per tutte le pagine basata sulle dimensioni salvate.
+
+        Usa la mediana delle altezze per evitare outlier, creando spacing visivamente uniforme.
+
+        Args:
+            num_pages: Numero di pagine
+
+        Returns:
+            Altezza standard in pixel
+        """
+        # Se abbiamo dimensioni salvate, usale
+        if hasattr(self, 'page_dimensions') and self.page_dimensions:
+            heights = []
+            for i in range(min(num_pages, len(self.page_dimensions))):
+                width, height = self.page_dimensions[i]
+                if width and height and width > 0:
+                    # Calcola altezza scalata mantenendo aspect ratio
+                    scaled_height = int(height * (self.current_width / width))
+                    heights.append(scaled_height)
+
+            if heights:
+                # Usa mediana per evitare outlier (pagine extra alte/basse)
+                heights.sort()
+                median_height = heights[len(heights) // 2]
+                return median_height
+
+        # Fallback: usa ratio tipico manga (1:1.4)
+        return int(self.current_width * 1.4)
+
     def _update_layout_single(self, parent_width, scroll_area_width):
-        """Layout per vista singola pagina (verticale)."""
+        """Layout per vista singola pagina (verticale) con spacing uniforme."""
         self.current_width = int(parent_width * self.zoom_factor)
 
         if self.current_width <= 0:
@@ -349,25 +387,12 @@ class PageDisplayWidget(QWidget):
         # Determina il numero di pagine
         num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
 
+        # Calcola altezza standard per spacing uniforme
+        standard_height = self._calculate_standard_height(num_pages)
+
         y_offset = 0
         for i in range(num_pages):
-            # Carica solo la prima pagina per determinare le dimensioni
-            # Le altre pagine assumono dimensioni standard
-            if i == 0 or self.loaded_pages_cache.get(i) is not None:
-                image_data = self.get_page_data(i)
-                if image_data:
-                    temp_image = QImage()
-                    temp_image.loadFromData(image_data)
-                    if not temp_image.isNull():
-                        original_size = temp_image.size()
-                        scaled_height = int(original_size.height() * (self.current_width / original_size.width()))
-
-                        self.page_positions.append(QRect(x_offset, y_offset, self.current_width, scaled_height))
-                        y_offset += scaled_height + int(self.page_spacing * self.zoom_factor)
-                        continue
-
-            # Placeholder per pagine non caricate (usa dimensioni standard manga)
-            standard_height = int(self.current_width * 1.4)  # Ratio tipico manga
+            # Usa sempre standard_height per layout uniforme
             self.page_positions.append(QRect(x_offset, y_offset, self.current_width, standard_height))
             y_offset += standard_height + int(self.page_spacing * self.zoom_factor)
 
@@ -543,7 +568,10 @@ class PageDisplayWidget(QWidget):
                 else:
                     if cached_pixmap.width() != self.current_width:
                         scaled_pixmap = cached_pixmap.scaledToWidth(self.current_width, Qt.SmoothTransformation)
-                        painter.drawPixmap(page_rect.topLeft(), scaled_pixmap)
+                        # Centra verticalmente se l'immagine è più piccola dello spazio allocato
+                        y_offset = (page_rect.height() - scaled_pixmap.height()) // 2
+                        draw_pos = page_rect.topLeft() + QPoint(0, max(0, y_offset))
+                        painter.drawPixmap(draw_pos, scaled_pixmap)
 
                         if i not in self.loading_pages:
                             image_data = self.get_page_data(i)
@@ -552,7 +580,10 @@ class PageDisplayWidget(QWidget):
                                 runnable = ImageLoaderRunnable(i, image_data, self.current_width, self.image_loader_signals)
                                 self.thread_pool.start(runnable)
                     else:
-                        painter.drawPixmap(page_rect.topLeft(), cached_pixmap)
+                        # Centra verticalmente se l'immagine è più piccola dello spazio allocato
+                        y_offset = (page_rect.height() - cached_pixmap.height()) // 2
+                        draw_pos = page_rect.topLeft() + QPoint(0, max(0, y_offset))
+                        painter.drawPixmap(draw_pos, cached_pixmap)
 
                 # Aggiungi pagine successive da precaricare
                 for j in range(1, self.preload_pages + 1):
@@ -724,11 +755,13 @@ class ChapterReaderWindow(QMainWindow):
 
     def load_chapter_pages(self):
         cursor = self.db_conn.cursor()
-        cursor.execute("SELECT image_data FROM pages WHERE chapter_id = ? ORDER BY page_number", (self.chapter_id,))
+        cursor.execute("SELECT image_data, width, height FROM pages WHERE chapter_id = ? ORDER BY page_number", (self.chapter_id,))
         pages = cursor.fetchall()
 
         image_data_list = [page_data['image_data'] for page_data in pages]
-        self.page_display_widget.set_pages_data(image_data_list)
+        # Estrai dimensioni (width, height potrebbero essere NULL per vecchi manga)
+        dimensions_list = [(page_data.get('width'), page_data.get('height')) for page_data in pages]
+        self.page_display_widget.set_pages_data(image_data_list, dimensions_list)
 
     def eventFilter(self, obj, event):
         """Filtra gli eventi per impedire che le frecce scrollino la pagina"""

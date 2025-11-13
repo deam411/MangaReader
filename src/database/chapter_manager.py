@@ -501,14 +501,27 @@ class ChapterManager(BaseManager):
             else:
                 raise TypeError(f"image_data_or_path deve essere str o bytes, ricevuto {type(image_data_or_path)}")
 
+            # Estrai dimensioni immagine per calcolare spacing uniforme nel reader
+            width, height = None, None
+            try:
+                from PyQt5.QtGui import QImage
+                temp_image = QImage()
+                if temp_image.loadFromData(image_data):
+                    width = temp_image.width()
+                    height = temp_image.height()
+                    logger.debug(f"Page dimensions: {width}x{height}")
+            except Exception as e:
+                logger.warning(f"Could not extract image dimensions: {e}")
+                # Continua senza dimensioni - saranno NULL nel DB
+
             with self.get_connection() as conn:
                 c = conn.cursor()
                 c.execute('''
-                    INSERT INTO pages (chapter_id, page_number, image_data)
-                    VALUES (?, ?, ?)
-                ''', (chapter_id, page_number, image_data))
+                    INSERT INTO pages (chapter_id, page_number, image_data, width, height)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (chapter_id, page_number, image_data, width, height))
 
-            logger.info(f"Page {page_number} inserted successfully for chapter {chapter_id}")
+            logger.info(f"Page {page_number} ({width}x{height}) inserted successfully for chapter {chapter_id}")
 
             # Ritorna ID simulato: chapter_id * 10000 + page_number
             # Questo permette di decodificare chapter_id e page_number dall'ID
