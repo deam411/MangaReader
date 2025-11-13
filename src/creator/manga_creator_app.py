@@ -416,12 +416,21 @@ class MangaCreatorApp(QMainWindow):
         modifiers = QApplication.keyboardModifiers()
         if modifiers == Qt.ShiftModifier:
             # Shift è premuto - controlla se il plugin Mangaworld Downloader è abilitato
-            if (self.plugin_manager and
-                'Mangaworld Downloader' in self.plugin_manager.enabled_plugins):
-                # Plugin abilitato - usalo
-                self.add_volume_from_mangaworld()
-                return
+            print(f"[DEBUG] Shift premuto, plugin_manager: {self.plugin_manager}")
+            if self.plugin_manager:
+                print(f"[DEBUG] enabled_plugins: {self.plugin_manager.enabled_plugins}")
+                print(f"[DEBUG] Checking for 'Mangaworld Downloader'")
+                if 'Mangaworld Downloader' in self.plugin_manager.enabled_plugins:
+                    print(f"[DEBUG] Plugin trovato e abilitato, chiamando add_volume_from_mangaworld")
+                    # Plugin abilitato - usalo
+                    self.add_volume_from_mangaworld()
+                    return
+                else:
+                    print(f"[DEBUG] Plugin non trovato in enabled_plugins")
+            else:
+                print(f"[DEBUG] plugin_manager è None")
             # Plugin non abilitato - continua con il normale flusso
+            print(f"[DEBUG] Continuando con flusso normale")
 
         volume_name, ok = QInputDialog.getText(self, 'Nuovo Volume', 'Inserisci il nome del volume:')
         if ok and volume_name:
