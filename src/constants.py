@@ -116,7 +116,7 @@ GRID_ITEM_HEIGHT = 420  # Altezza item griglia (px)
 PAGE_CACHE_CAPACITY = 100  # Capacità cache pagine caricate
 THREAD_POOL_MAX_THREADS = 4  # Thread massimi per caricamento immagini
 THREAD_POOL_MIN_THREADS = 2  # Thread minimi per caricamento immagini
-PAGE_SPACING = 60  # Spaziatura tra pagine nel reader (px)
+PAGE_SPACING = 40  # Spaziatura tra pagine nel reader (px)
 INITIAL_PAGE_COUNT = 5  # Numero di pagine iniziali da caricare velocemente
 WINDOW_SIZE = 10  # Numero di pagine da tenere in memoria prima/dopo quella corrente
 
