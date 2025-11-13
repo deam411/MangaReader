@@ -226,6 +226,9 @@ class PageDisplayWidget(QWidget):
         """
         Carica le dimensioni delle pagine dal database basandosi sui metadata.
 
+        Per pagine senza dimensioni salvate (manga vecchi pre-v3), calcola
+        le dimensioni direttamente dall'immagine.
+
         Args:
             metadata_list: Lista di metadata pagine
             db_conn: Connessione database
@@ -251,13 +254,23 @@ class PageDisplayWidget(QWidget):
                 if chapter_id and page_number:
                     try:
                         cursor.execute(
-                            "SELECT width, height FROM pages WHERE chapter_id = ? AND page_number = ?",
+                            "SELECT width, height, image_data FROM pages WHERE chapter_id = ? AND page_number = ?",
                             (chapter_id, page_number)
                         )
                         result = cursor.fetchone()
                         if result:
                             width = result['width'] if 'width' in result.keys() else result[0]
                             height = result['height'] if 'height' in result.keys() else result[1]
+
+                            # Se dimensioni non salvate (NULL), calcola dall'immagine
+                            if width is None or height is None:
+                                image_data = result['image_data'] if 'image_data' in result.keys() else result[2]
+                                if image_data:
+                                    temp_image = QImage()
+                                    if temp_image.loadFromData(image_data):
+                                        width = temp_image.width()
+                                        height = temp_image.height()
+
                             dimensions.append((width, height))
                         else:
                             dimensions.append((None, None))
