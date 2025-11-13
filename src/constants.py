@@ -7,7 +7,7 @@ fornendo un unico punto di riferimento per versioni, limiti, formati e configura
 
 # Informazioni applicazione
 APP_NAME = "Manga Reader"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 APP_AUTHOR = "Alessandro"
 APP_DESCRIPTION = "Lettore e gestore di manga desktop multi-piattaforma"
 
@@ -135,7 +135,7 @@ BLUE_LIGHT_FILTER_COLOR = (255, 180, 100)  # RGB warm orange
 BLUE_LIGHT_FILTER_OPACITY = 25  # 0-100 (percentage)
 
 # Database
-DB_SCHEMA_VERSION = 3
+DB_SCHEMA_VERSION = 4
 
 # Network (per future feature)
 DEFAULT_TIMEOUT = 30  # secondi

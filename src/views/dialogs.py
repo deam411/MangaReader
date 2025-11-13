@@ -388,3 +388,186 @@ class PluginConfigDialog(QDialog):
                     config[field_name] = widget.toPlainText()
 
         return config
+
+
+class StatisticsDialog(QDialog):
+    """
+    Dialog per visualizzare statistiche di lettura.
+
+    Mostra:
+    - Tempo totale lettura
+    - Pagine lette totali
+    - Streak corrente
+    - Velocità media lettura
+    - Statistiche oggi
+    - Statistiche settimana corrente
+    """
+
+    def __init__(self, manga_file: str, parent=None):
+        super().__init__(parent)
+        self.manga_file = manga_file
+        self.setWindowTitle('Statistiche Lettura')
+        self.setMinimumSize(600, 500)
+        self.initUI()
+
+    def initUI(self):
+        """Inizializza l'interfaccia utente."""
+        from src.database import StatisticsManager
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(20)
+
+        # Titolo
+        title_label = QLabel("📊 Le Tue Statistiche di Lettura")
+        title_label.setStyleSheet("""
+            font-size: 20px;
+            font-weight: bold;
+            color: #4a9eff;
+            padding: 10px;
+        """)
+        title_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(title_label)
+
+        # Carica statistiche
+        try:
+            stats_manager = StatisticsManager(self.manga_file)
+            stats = stats_manager.get_statistics_summary()
+        except Exception as e:
+            from src.logger import get_logger
+            logger = get_logger(__name__)
+            logger.error(f"Error loading statistics: {e}")
+            stats = {
+                'total_time_minutes': 0,
+                'total_time_hours': 0,
+                'total_pages': 0,
+                'current_streak': 0,
+                'average_speed': 0.0,
+                'today': {'time_minutes': 0, 'pages': 0, 'sessions': 0},
+                'this_week': {'time_minutes': 0, 'pages': 0, 'days_read': 0}
+            }
+
+        # Scroll area per le card
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(15)
+
+        # Card statistiche principali
+        main_stats_card = self._create_stats_card(
+            "Statistiche Generali",
+            [
+                ("⏱️ Tempo Totale", f"{stats['total_time_hours']:.1f} ore ({stats['total_time_minutes']} min)"),
+                ("📖 Pagine Lette", f"{stats['total_pages']} pagine"),
+                ("🔥 Streak Corrente", f"{stats['current_streak']} giorni consecutivi"),
+                ("⚡ Velocità Media", f"{stats['average_speed']:.2f} pagine/minuto"),
+            ]
+        )
+        content_layout.addWidget(main_stats_card)
+
+        # Card statistiche oggi
+        today_stats_card = self._create_stats_card(
+            "📅 Oggi",
+            [
+                ("Tempo di Lettura", f"{stats['today']['time_minutes']} minuti"),
+                ("Pagine Lette", f"{stats['today']['pages']} pagine"),
+                ("Sessioni", f"{stats['today']['sessions']} sessioni"),
+            ]
+        )
+        content_layout.addWidget(today_stats_card)
+
+        # Card statistiche settimana
+        week_stats_card = self._create_stats_card(
+            "📊 Questa Settimana",
+            [
+                ("Tempo Totale", f"{stats['this_week']['time_minutes']} minuti"),
+                ("Pagine Lette", f"{stats['this_week']['pages']} pagine"),
+                ("Giorni di Lettura", f"{stats['this_week']['days_read']} giorni"),
+            ]
+        )
+        content_layout.addWidget(week_stats_card)
+
+        content_layout.addStretch()
+        scroll.setWidget(content_widget)
+        main_layout.addWidget(scroll)
+
+        # Pulsante chiudi
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        button_box.accepted.connect(self.accept)
+        button_box.setStyleSheet("""
+            QPushButton {
+                background-color: #4a9eff;
+                color: white;
+                border: none;
+                padding: 8px 20px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #3a7ecf;
+            }
+        """)
+        main_layout.addWidget(button_box)
+
+    def _create_stats_card(self, title: str, stats_list: list) -> QWidget:
+        """
+        Crea una card con statistiche.
+
+        Args:
+            title: Titolo della card
+            stats_list: Lista di tuple (label, value)
+
+        Returns:
+            Widget della card
+        """
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: #2b2b2b;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+
+        layout = QVBoxLayout(card)
+        layout.setSpacing(10)
+
+        # Titolo card
+        title_label = QLabel(title)
+        title_label.setStyleSheet("""
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            padding-bottom: 5px;
+        """)
+        layout.addWidget(title_label)
+
+        # Linea separatore
+        separator = QLabel()
+        separator.setFixedHeight(2)
+        separator.setStyleSheet("background-color: #4a9eff;")
+        layout.addWidget(separator)
+
+        # Statistiche
+        for label, value in stats_list:
+            stat_layout = QHBoxLayout()
+
+            label_widget = QLabel(label)
+            label_widget.setStyleSheet("color: #cccccc; font-size: 14px;")
+
+            value_widget = QLabel(str(value))
+            value_widget.setStyleSheet("""
+                color: #4a9eff;
+                font-size: 14px;
+                font-weight: bold;
+            """)
+            value_widget.setAlignment(Qt.AlignRight)
+
+            stat_layout.addWidget(label_widget)
+            stat_layout.addWidget(value_widget)
+
+            layout.addLayout(stat_layout)
+
+        return card

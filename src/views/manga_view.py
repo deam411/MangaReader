@@ -19,7 +19,7 @@ from src.paths import get_manga_dir
 from src.database import MangaDatabaseManager
 from src.logger import get_logger
 from src.creator.manga_creator_app import MangaCreatorApp
-from src.views.dialogs import BookmarkDialog
+from src.views.dialogs import BookmarkDialog, StatisticsDialog
 from src.views.utils import sanitize_filename
 
 logger = get_logger(__name__)
@@ -59,6 +59,11 @@ class MangaView(QWidget):
         self.edit_manga_button.setToolTip('Apri l\'editor per modificare questo manga')
         self.edit_manga_button.clicked.connect(self.launch_manga_editor)
         layout.addWidget(self.edit_manga_button)
+
+        self.statistics_button = QPushButton('📊 View Statistics', self)
+        self.statistics_button.setToolTip('Visualizza le tue statistiche di lettura per questo manga')
+        self.statistics_button.clicked.connect(self.show_statistics)
+        layout.addWidget(self.statistics_button)
 
         self.cover_label = QLabel(self)
         layout.addWidget(self.cover_label)
@@ -319,4 +324,17 @@ class MangaView(QWidget):
 
         # When the editor app closes, reload the current manga details
         self.editor_app.destroyed.connect(lambda: QTimer.singleShot(0, lambda: self.load_manga(self.manga_file)))
+
+    def show_statistics(self):
+        """Mostra il dialog con le statistiche di lettura per questo manga."""
+        if not self.manga_file:
+            QMessageBox.warning(self, "Nessun Manga Selezionato", "Seleziona un manga per vedere le statistiche.")
+            return
+
+        try:
+            dialog = StatisticsDialog(self.manga_file, self)
+            dialog.exec_()
+        except Exception as e:
+            logger.error(f"Error showing statistics: {e}")
+            QMessageBox.critical(self, "Errore", f"Impossibile caricare le statistiche:\n{str(e)}")
 

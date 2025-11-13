@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLay
 from PyQt5.QtGui import QPixmap, QPalette, QColor
 from PyQt5.QtCore import Qt, QTimer, QRect
 
-from src.database import MangaDatabaseManager
+from src.database import MangaDatabaseManager, StatisticsManager
 from src.logger import get_logger
 from src.settings import Settings
 from src.chapter_reader_window import PageDisplayWidget
@@ -32,6 +32,9 @@ class ReaderView(QWidget):
         self.manga_file = None
         self.current_chapter_id = None
         self.db_manager = None
+        self.statistics_manager = None
+        self.current_session_id = None
+        self.session_start_page = None
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.opened_from_resume = False  # Flag per sapere se aperto da "Riprendi Lettura"
 
@@ -82,8 +85,26 @@ class ReaderView(QWidget):
         self.scroll_area.setWidget(self.page_display_widget)
 
     def _cleanup_connections(self):
-        """Chiude in modo sicuro le connessioni database."""
+        """Chiude in modo sicuro le connessioni database e termina sessione statistiche."""
         self.autosave_timer.stop()
+
+        # Termina sessione statistiche se attiva
+        if self.statistics_manager and self.current_session_id:
+            try:
+                current_page = self.get_current_page_number()
+                pages_read = max(0, current_page - self.session_start_page + 1) if self.session_start_page else 0
+                self.statistics_manager.end_reading_session(
+                    session_id=self.current_session_id,
+                    end_chapter_id=self.current_chapter_id,
+                    total_pages_read=pages_read
+                )
+                logger.debug(f"Cleanup: Ended reading session {self.current_session_id}")
+            except Exception as e:
+                logger.warning(f"Error ending statistics session: {e}")
+            finally:
+                self.current_session_id = None
+                self.statistics_manager = None
+
         if self.db_conn:
             try:
                 self.db_conn.close()
@@ -122,6 +143,15 @@ class ReaderView(QWidget):
 
             # Inizializza database manager per storia lettura
             self.db_manager = MangaDatabaseManager(manga_file)
+
+            # Inizializza statistics manager e avvia sessione di lettura
+            self.statistics_manager = StatisticsManager(manga_file)
+            self.session_start_page = 1  # Inizia sempre dalla pagina 1
+            self.current_session_id = self.statistics_manager.start_reading_session(
+                chapter_id=chapter_id,
+                page_number=self.session_start_page
+            )
+            logger.debug(f"Started reading session {self.current_session_id} for chapter {chapter_id}")
 
             # Avvia timer auto-save
             self.autosave_timer.start()
@@ -209,7 +239,7 @@ class ReaderView(QWidget):
         self.scroll_area.verticalScrollBar().setValue(page_rect.y())
 
     def autosave_reading_position(self):
-        """Salva automaticamente la posizione di lettura corrente."""
+        """Salva automaticamente la posizione di lettura corrente e aggiorna statistiche."""
         if not self.db_manager or not self.current_chapter_id:
             return
 
@@ -218,6 +248,16 @@ class ReaderView(QWidget):
 
         if current_page > 0:
             self.db_manager.save_reading_position(self.current_chapter_id, current_page)
+
+            # Aggiorna sessione statistiche se attiva
+            if self.statistics_manager and self.current_session_id and self.session_start_page:
+                # Calcola pagine lette in questa sessione
+                pages_read = max(0, current_page - self.session_start_page + 1)
+                self.statistics_manager.update_reading_session(
+                    session_id=self.current_session_id,
+                    current_chapter_id=self.current_chapter_id,
+                    pages_read=pages_read
+                )
 
     def get_current_page_number(self):
         """Determina il numero della pagina attualmente visibile."""
@@ -241,6 +281,18 @@ class ReaderView(QWidget):
     def back_to_manga_details(self):
         # Salva posizione prima di uscire
         self.autosave_reading_position()
+
+        # Termina sessione statistiche se attiva
+        if self.statistics_manager and self.current_session_id:
+            current_page = self.get_current_page_number()
+            pages_read = max(0, current_page - self.session_start_page + 1) if self.session_start_page else 0
+            self.statistics_manager.end_reading_session(
+                session_id=self.current_session_id,
+                end_chapter_id=self.current_chapter_id,
+                total_pages_read=pages_read
+            )
+            logger.debug(f"Ended reading session {self.current_session_id}, pages read: {pages_read}")
+            self.current_session_id = None
 
         # Ferma timer auto-save
         self.autosave_timer.stop()

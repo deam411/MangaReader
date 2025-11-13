@@ -43,6 +43,7 @@ class DatabaseConnection(BaseManager):
         self.create_manga_db_schema()
         self.migrate_schema_to_v2()
         self.migrate_schema_to_v3()
+        self.migrate_schema_to_v4()
         self.create_performance_indexes()
         self.optimize_database_settings()
 
@@ -362,4 +363,86 @@ class DatabaseConnection(BaseManager):
 
         except sqlite3.Error as e:
             logger.error(f"Migration v3 error for {self.db_path}: {e}")
+            # Non sollevo eccezione - la migrazione può fallire su DB vecchi
+
+    def migrate_schema_to_v4(self) -> None:
+        """
+        Migra lo schema database alla versione 4.
+
+        Changes in v4:
+        - Aggiunta tabella 'reading_sessions' per tracciare sessioni di lettura
+        - Aggiunta tabella 'daily_statistics' per statistiche aggregate giornaliere
+        - Aggiunta indici per performance delle query statistiche
+
+        Queste tabelle permettono di:
+        - Tracciare tempo di lettura totale
+        - Calcolare velocità di lettura (pagine/minuto)
+        - Mostrare grafici di progresso lettura
+        - Calcolare streak di lettura
+        - Identificare abitudini di lettura (orari preferiti, etc.)
+
+        Note:
+        - Safe to call multiple times (IF NOT EXISTS)
+        - Backward compatible
+        """
+        logger.debug(f"Migrating schema to v4 for {self.db_path}")
+
+        try:
+            # Verifica se le tabelle esistono già
+            needs_sessions = not self.table_exists('reading_sessions')
+            needs_daily_stats = not self.table_exists('daily_statistics')
+
+            if needs_sessions or needs_daily_stats:
+                with self.get_connection() as conn:
+                    c = conn.cursor()
+
+                    if needs_sessions:
+                        # Tabella reading_sessions: traccia sessioni di lettura continue
+                        c.execute('''
+                            CREATE TABLE IF NOT EXISTS reading_sessions (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                user TEXT DEFAULT 'default',
+                                start_time INTEGER NOT NULL,
+                                end_time INTEGER,
+                                start_chapter_id INTEGER,
+                                end_chapter_id INTEGER,
+                                pages_read INTEGER DEFAULT 0,
+                                FOREIGN KEY (start_chapter_id) REFERENCES chapters (id),
+                                FOREIGN KEY (end_chapter_id) REFERENCES chapters (id)
+                            )
+                        ''')
+                        logger.info(f"Created 'reading_sessions' table for {self.db_path}")
+
+                    if needs_daily_stats:
+                        # Tabella daily_statistics: statistiche aggregate per giorno
+                        c.execute('''
+                            CREATE TABLE IF NOT EXISTS daily_statistics (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                user TEXT DEFAULT 'default',
+                                date TEXT NOT NULL,
+                                total_time_minutes INTEGER DEFAULT 0,
+                                total_pages INTEGER DEFAULT 0,
+                                total_sessions INTEGER DEFAULT 0,
+                                UNIQUE(user, date)
+                            )
+                        ''')
+                        logger.info(f"Created 'daily_statistics' table for {self.db_path}")
+
+                    # Crea indici per performance
+                    c.execute('''
+                        CREATE INDEX IF NOT EXISTS idx_reading_sessions_user_time
+                        ON reading_sessions(user, start_time DESC)
+                    ''')
+
+                    c.execute('''
+                        CREATE INDEX IF NOT EXISTS idx_daily_statistics_user_date
+                        ON daily_statistics(user, date DESC)
+                    ''')
+
+                    logger.info(f"Schema migrated to v4 for {self.db_path}")
+            else:
+                logger.debug(f"Schema already at v4 for {self.db_path}")
+
+        except sqlite3.Error as e:
+            logger.error(f"Migration v4 error for {self.db_path}: {e}")
             # Non sollevo eccezione - la migrazione può fallire su DB vecchi
