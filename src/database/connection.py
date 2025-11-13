@@ -42,6 +42,7 @@ class DatabaseConnection(BaseManager):
         # Setup database completo
         self.create_manga_db_schema()
         self.migrate_schema_to_v2()
+        self.migrate_schema_to_v3()
         self.create_performance_indexes()
         self.optimize_database_settings()
 
@@ -319,4 +320,46 @@ class DatabaseConnection(BaseManager):
 
         except sqlite3.Error as e:
             logger.error(f"Migration error for {self.db_path}: {e}")
+            # Non sollevo eccezione - la migrazione può fallire su DB vecchi
+
+    def migrate_schema_to_v3(self) -> None:
+        """
+        Migra lo schema database alla versione 3.
+
+        Changes in v3:
+        - Aggiunta colonna 'width' alla tabella pages (INTEGER)
+        - Aggiunta colonna 'height' alla tabella pages (INTEGER)
+
+        Queste colonne permettono di calcolare spacing uniforme tra pagine
+        senza caricare le immagini in memoria.
+
+        Note:
+        - Safe to call multiple times (IF NOT EXISTS check)
+        - Backward compatible (pagine esistenti avranno NULL, useranno fallback)
+        """
+        logger.debug(f"Migrating schema to v3 for {self.db_path}")
+
+        try:
+            # Verifica se le colonne esistono già
+            needs_width = not self.column_exists('pages', 'width')
+            needs_height = not self.column_exists('pages', 'height')
+
+            if needs_width or needs_height:
+                with self.get_connection() as conn:
+                    c = conn.cursor()
+
+                    if needs_width:
+                        c.execute("ALTER TABLE pages ADD COLUMN width INTEGER")
+                        logger.info(f"Added 'width' column to pages table for {self.db_path}")
+
+                    if needs_height:
+                        c.execute("ALTER TABLE pages ADD COLUMN height INTEGER")
+                        logger.info(f"Added 'height' column to pages table for {self.db_path}")
+
+                    logger.info(f"Schema migrated to v3 for {self.db_path}")
+            else:
+                logger.debug(f"Schema already at v3 for {self.db_path}")
+
+        except sqlite3.Error as e:
+            logger.error(f"Migration v3 error for {self.db_path}: {e}")
             # Non sollevo eccezione - la migrazione può fallire su DB vecchi
