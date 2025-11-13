@@ -7,6 +7,7 @@ Architettura modulare con manager specializzati:
 - ChapterManager: Volumes, chapters, pages CRUD
 - BookmarkManager: Bookmarks CRUD
 - HistoryManager: Reading history e progress
+- StatisticsManager: Reading statistics e analytics
 - BaseManager: Funzionalità comuni
 
 Backward Compatibility:
@@ -19,6 +20,7 @@ from .metadata_manager import MetadataManager
 from .chapter_manager import ChapterManager
 from .bookmark_manager import BookmarkManager
 from .history_manager import HistoryManager
+from .statistics_manager import StatisticsManager
 from .manager import MangaDatabaseManager
 
 __all__ = [
@@ -28,5 +30,6 @@ __all__ = [
     'ChapterManager',
     'BookmarkManager',
     'HistoryManager',
+    'StatisticsManager',
     'MangaDatabaseManager'
 ]

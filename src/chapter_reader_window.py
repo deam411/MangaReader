@@ -355,6 +355,22 @@ class PageDisplayWidget(QWidget):
         Returns:
             Altezza standard in pixel
         """
+        return self._calculate_standard_height_for_width(num_pages, self.current_width)
+
+    def _calculate_standard_height_for_width(self, num_pages, target_width):
+        """
+        Calcola l'altezza standard per tutte le pagine con una larghezza target specifica.
+
+        Usa la mediana delle altezze per evitare outlier, creando spacing visivamente uniforme.
+        Utile per modalità doppia pagina dove la larghezza è diversa.
+
+        Args:
+            num_pages: Numero di pagine
+            target_width: Larghezza target per il calcolo
+
+        Returns:
+            Altezza standard in pixel
+        """
         # Se abbiamo dimensioni salvate, usale
         if hasattr(self, 'page_dimensions') and self.page_dimensions:
             heights = []
@@ -362,7 +378,7 @@ class PageDisplayWidget(QWidget):
                 width, height = self.page_dimensions[i]
                 if width and height and width > 0:
                     # Calcola altezza scalata mantenendo aspect ratio
-                    scaled_height = int(height * (self.current_width / width))
+                    scaled_height = int(height * (target_width / width))
                     heights.append(scaled_height)
 
             if heights:
@@ -372,7 +388,7 @@ class PageDisplayWidget(QWidget):
                 return median_height
 
         # Fallback: usa ratio tipico manga (1:1.4)
-        return int(self.current_width * 1.4)
+        return int(target_width * 1.4)
 
     def _update_layout_single(self, parent_width, scroll_area_width):
         """Layout per vista singola pagina (verticale) con spacing uniforme."""
@@ -403,7 +419,7 @@ class PageDisplayWidget(QWidget):
         self.update() # Request a repaint
 
     def _update_layout_double(self, parent_width, scroll_area_width):
-        """Layout per vista doppia pagina (side-by-side)."""
+        """Layout per vista doppia pagina (side-by-side) con spacing uniforme."""
         # In modalità doppia, ogni pagina occupa metà larghezza (meno spacing)
         page_width = int((parent_width * self.zoom_factor) / 2) - int(self.page_spacing * self.zoom_factor)
         self.current_width = page_width
@@ -419,6 +435,9 @@ class PageDisplayWidget(QWidget):
 
         # Determina il numero di pagine
         num_pages = len(self.page_metadata) if self.page_metadata else len(self.pages_data)
+
+        # Calcola altezza standard per spacing uniforme (stessa logica di single page)
+        standard_height = self._calculate_standard_height_for_width(num_pages, page_width)
 
         y_offset = 0
         i = 0
@@ -440,48 +459,27 @@ class PageDisplayWidget(QWidget):
                 i += 1
                 continue
 
-            # Pagine normali - side by side
-            # Determina posizioni per pagina sinistra e destra (o destra e sinistra se RTL)
-            if self.reading_direction == "rtl":
-                # RTL: prima pagina a destra, seconda a sinistra
-                left_page_idx = i + 1 if i + 1 < num_pages else None
-                right_page_idx = i
-            else:
-                # LTR: prima pagina a sinistra, seconda a destra
-                left_page_idx = i
-                right_page_idx = i + 1 if i + 1 < num_pages else None
-
-            # Ottieni altezze delle pagine
-            left_height = self._get_page_height(left_page_idx, page_width) if left_page_idx is not None else 0
-            right_height = self._get_page_height(right_page_idx, page_width) if right_page_idx is not None else 0
-
-            # Usa l'altezza massima tra le due pagine
-            max_height = max(left_height, right_height)
-
-            if max_height == 0:
-                max_height = int(page_width * 1.4)  # Fallback
-
+            # Pagine normali - side by side con altezza uniforme
             # Crea posizioni per entrambe le pagine
-            # Importante: aggiungiamo nell'ordine originale delle pagine
             if self.reading_direction == "rtl":
                 # RTL: aggiungi prima right (indice i), poi left (indice i+1)
                 x_right = x_offset_base + page_width + int(self.page_spacing * self.zoom_factor)
-                self.page_positions.append(QRect(x_right, y_offset, page_width, max_height))
-                if left_page_idx is not None:
+                self.page_positions.append(QRect(x_right, y_offset, page_width, standard_height))
+                if i + 1 < num_pages:
                     x_left = x_offset_base
-                    self.page_positions.append(QRect(x_left, y_offset, page_width, max_height))
+                    self.page_positions.append(QRect(x_left, y_offset, page_width, standard_height))
             else:
                 # LTR: aggiungi prima left (indice i), poi right (indice i+1)
                 x_left = x_offset_base
-                self.page_positions.append(QRect(x_left, y_offset, page_width, max_height))
-                if right_page_idx is not None:
+                self.page_positions.append(QRect(x_left, y_offset, page_width, standard_height))
+                if i + 1 < num_pages:
                     x_right = x_offset_base + page_width + int(self.page_spacing * self.zoom_factor)
-                    self.page_positions.append(QRect(x_right, y_offset, page_width, max_height))
+                    self.page_positions.append(QRect(x_right, y_offset, page_width, standard_height))
 
-            y_offset += max_height + int(self.page_spacing * self.zoom_factor)
+            y_offset += standard_height + int(self.page_spacing * self.zoom_factor)
 
             # Avanza di 2 pagine (o 1 se è l'ultima)
-            if right_page_idx is not None:
+            if i + 1 < num_pages:
                 i += 2
             else:
                 i += 1

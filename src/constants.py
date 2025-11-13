@@ -135,7 +135,7 @@ BLUE_LIGHT_FILTER_COLOR = (255, 180, 100)  # RGB warm orange
 BLUE_LIGHT_FILTER_OPACITY = 25  # 0-100 (percentage)
 
 # Database
-DB_SCHEMA_VERSION = 3
+DB_SCHEMA_VERSION = 4
 
 # Network (per future feature)
 DEFAULT_TIMEOUT = 30  # secondi
