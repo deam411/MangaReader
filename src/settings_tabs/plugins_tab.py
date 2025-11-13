@@ -128,8 +128,13 @@ class PluginsTab(QWidget):
         footer_label.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(footer_label)
 
-    def load_plugins(self):
-        """Carica la lista dei plugin."""
+    def load_plugins(self, select_plugin: Optional[str] = None):
+        """
+        Carica la lista dei plugin.
+
+        Args:
+            select_plugin: Nome del plugin da selezionare dopo il caricamento (opzionale)
+        """
         self.plugin_list.clear()
 
         plugins = self.plugin_manager.get_plugin_list()
@@ -139,6 +144,8 @@ class PluginsTab(QWidget):
             item.setFlags(Qt.NoItemFlags)
             self.plugin_list.addItem(item)
             return
+
+        item_to_select = None
 
         for plugin_info in plugins:
             display_name = plugin_info['display_name']
@@ -156,6 +163,14 @@ class PluginsTab(QWidget):
                 item.setForeground(Qt.darkGreen)
 
             self.plugin_list.addItem(item)
+
+            # Memorizza l'item se corrisponde al plugin da selezionare
+            if select_plugin and plugin_info['name'] == select_plugin:
+                item_to_select = item
+
+        # Seleziona il plugin specificato dopo il caricamento
+        if item_to_select:
+            self.plugin_list.setCurrentItem(item_to_select)
 
     def on_plugin_selected(self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]):
         """Chiamato quando viene selezionato un plugin."""
@@ -217,8 +232,8 @@ class PluginsTab(QWidget):
         else:
             self.plugin_manager.disable_plugin(plugin_name)
 
-        # Ricarica lista per aggiornare il ✓
-        self.load_plugins()
+        # Ricarica lista per aggiornare il ✓, mantenendo la selezione corrente
+        self.load_plugins(select_plugin=plugin_name)
         self.plugins_changed.emit()
 
     def reload_selected_plugin(self):
@@ -239,7 +254,8 @@ class PluginsTab(QWidget):
                 "Plugin Ricaricato",
                 f"Il plugin '{plugin_name}' è stato ricaricato con successo."
             )
-            self.load_plugins()
+            # Mantieni la selezione dopo il ricaricamento
+            self.load_plugins(select_plugin=plugin_name)
             self.plugins_changed.emit()
         else:
             QMessageBox.warning(
@@ -254,7 +270,10 @@ class PluginsTab(QWidget):
         if not selected_items:
             return
 
-        plugin_name = selected_items[0].text()
+        plugin_name = selected_items[0].data(Qt.UserRole)
+        if plugin_name is None:
+            return
+
         plugin_instance = self.plugin_manager.get_plugin(plugin_name)
 
         if not plugin_instance:
@@ -293,8 +312,12 @@ class PluginsTab(QWidget):
 
     def refresh_plugin_list(self):
         """Aggiorna la lista dei plugin."""
+        # Salva la selezione corrente se esiste
+        current = self.plugin_list.currentItem()
+        selected_plugin = current.data(Qt.UserRole) if current else None
+
         count = self.plugin_manager.load_all_plugins()
-        self.load_plugins()
+        self.load_plugins(select_plugin=selected_plugin)
         self.plugins_changed.emit()
 
         QMessageBox.information(
