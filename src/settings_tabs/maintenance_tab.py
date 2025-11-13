@@ -47,7 +47,7 @@ class RepairWorker(QThread):
 
             try:
                 manga_name = os.path.basename(manga_file)
-                self.progress.emit(idx + 1, total, f"Riparando {manga_name}...")
+                self.progress.emit(idx, total, f"Riparando {manga_name}...")
 
                 # Ripara il manga
                 pages_updated = self._repair_manga(manga_file)
@@ -56,9 +56,13 @@ class RepairWorker(QThread):
                     repaired += 1
                     logger.info(f"Repaired {manga_name}: {pages_updated} pages updated")
 
+                # Emetti progresso dopo il completamento
+                self.progress.emit(idx + 1, total, f"✓ {manga_name} completato")
+
             except Exception as e:
                 logger.error(f"Error repairing {manga_file}: {e}")
                 errors += 1
+                self.progress.emit(idx + 1, total, f"❌ Errore: {manga_name}")
 
         self.finished.emit(repaired, errors)
 
@@ -185,21 +189,7 @@ class MaintenanceTab(QWidget):
         action_layout.addStretch()
 
         self.repair_button = QPushButton("🔧 Ripara Selezionati")
-        self.repair_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4a9eff;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3a7ecf;
-            }
-            QPushButton:disabled {
-                background-color: #666;
-            }
-        """)
+        self.repair_button.setToolTip("Ripara i manga selezionati aggiungendo le dimensioni delle pagine")
         self.repair_button.clicked.connect(self.repair_selected)
         self.repair_button.setEnabled(False)
         action_layout.addWidget(self.repair_button)
