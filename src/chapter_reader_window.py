@@ -809,6 +809,7 @@ class ChapterReaderWindow(QMainWindow):
         self.scroll_area.setCursor(Qt.BlankCursor)
         self.scroll_area.verticalScrollBar().setCursor(Qt.BlankCursor)
         self.scroll_area.horizontalScrollBar().setCursor(Qt.BlankCursor)
+        self.scroll_area.viewport().setCursor(Qt.BlankCursor)
 
         self.page_display_widget = PageDisplayWidget()
         self.scroll_area.setWidget(self.page_display_widget)
