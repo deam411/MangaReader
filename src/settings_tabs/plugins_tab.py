@@ -14,9 +14,12 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from typing import Optional, TYPE_CHECKING
 from src.views.dialogs import PluginConfigDialog
 from plugins.plugin_marketplace import PluginMarketplace
+from src.logger import get_logger
 
 if TYPE_CHECKING:
     from plugins.plugin_manager import PluginManager
+
+logger = get_logger(__name__)
 
 
 class PluginInstallWorker(QThread):
@@ -64,13 +67,24 @@ class PluginsTab(QWidget):
     def __init__(self, plugin_manager: 'PluginManager', parent=None):
         super().__init__(parent)
         self.plugin_manager = plugin_manager
-        self.marketplace = PluginMarketplace(
-            plugin_dir=plugin_manager.plugin_dir,
-            app_version="0.5.0"  # TODO: Get from app
-        )
+
+        try:
+            logger.info("Initializing PluginMarketplace...")
+            self.marketplace = PluginMarketplace(
+                plugin_dir=plugin_manager.plugin_dir,
+                app_version="0.5.0"  # TODO: Get from app
+            )
+            logger.info("PluginMarketplace initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PluginMarketplace: {e}", exc_info=True)
+            self.marketplace = None
+
         self.install_worker = None
+
+        logger.info("Initializing PluginsTab UI...")
         self.init_ui()
         self.load_plugins()
+        logger.info("PluginsTab initialized")
 
     def init_ui(self):
         """Inizializza l'interfaccia."""
@@ -81,12 +95,19 @@ class PluginsTab(QWidget):
         layout.addWidget(self.tab_widget)
 
         # Tab Plugin Installati
+        logger.debug("Creating Installed tab...")
         self.installed_tab = self.create_installed_tab()
         self.tab_widget.addTab(self.installed_tab, "Installati")
+        logger.debug("Installed tab created")
 
-        # Tab Marketplace
-        self.marketplace_tab = self.create_marketplace_tab()
-        self.tab_widget.addTab(self.marketplace_tab, "Disponibili")
+        # Tab Marketplace (solo se marketplace è disponibile)
+        if self.marketplace is not None:
+            logger.debug("Creating Marketplace tab...")
+            self.marketplace_tab = self.create_marketplace_tab()
+            self.tab_widget.addTab(self.marketplace_tab, "Disponibili")
+            logger.info("Marketplace tab created successfully")
+        else:
+            logger.warning("Marketplace not available, skipping Disponibili tab")
 
     def create_installed_tab(self):
         """Crea il tab per i plugin installati."""
@@ -509,6 +530,14 @@ class PluginsTab(QWidget):
 
     def fetch_marketplace(self):
         """Scarica la lista dei plugin dal marketplace."""
+        if self.marketplace is None:
+            QMessageBox.warning(
+                self,
+                "Errore",
+                "Marketplace non disponibile. Verifica i log per dettagli."
+            )
+            return
+
         self.fetch_marketplace_btn.setEnabled(False)
         self.fetch_marketplace_btn.setText("⏳ Scaricando...")
 
