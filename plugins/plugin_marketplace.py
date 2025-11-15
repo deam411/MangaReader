@@ -37,82 +37,104 @@ class PluginMarketplace:
         """
         self.plugin_dir = plugin_dir
         self.app_version = app_version
-        self.marketplace_url = "https://raw.githubusercontent.com/deam411/MangaReader-Plugins/main/plugins.json"
 
-        # Path al file locale del marketplace
-        marketplace_dir = os.path.join(os.path.dirname(plugin_dir), 'marketplace')
-        self.local_marketplace_file = os.path.join(marketplace_dir, 'plugins.json')
+        # GitHub repository info
+        self.github_repo_owner = "deam411"
+        self.github_repo_name = "MangaReader-Plugins"
+        self.github_branch = "main"
+        self.github_plugins_dir = "plugins"  # Directory nel repo che contiene i plugin
 
         self.available_plugins: List[Dict[str, Any]] = []
 
         logger.info(f"PluginMarketplace inizializzato. App version: {app_version}")
-        logger.debug(f"Local marketplace file: {self.local_marketplace_file}")
+        logger.debug(f"GitHub repo: {self.github_repo_owner}/{self.github_repo_name}")
+
+    @property
+    def marketplace_url(self) -> str:
+        """Restituisce l'URL del repository GitHub."""
+        return f"https://github.com/{self.github_repo_owner}/{self.github_repo_name}"
 
     def fetch_available_plugins(self) -> bool:
         """
-        Scansiona la directory marketplace locale per trovare plugin disponibili.
-        Ogni sottodirectory in plugins/marketplace/ è considerata un plugin.
+        Scarica la lista dei plugin disponibili dal repository GitHub.
+        Usa l'API di GitHub per listare le directory e scaricare i manifest.
 
         Returns:
-            True se scansionata con successo, False altrimenti
+            True se scaricata con successo, False altrimenti
         """
         try:
-            marketplace_dir = os.path.dirname(self.local_marketplace_file)
+            # URL per listare contenuti della directory plugins
+            api_url = (
+                f"https://api.github.com/repos/{self.github_repo_owner}/"
+                f"{self.github_repo_name}/contents/{self.github_plugins_dir}"
+                f"?ref={self.github_branch}"
+            )
 
-            if not os.path.exists(marketplace_dir):
-                logger.warning(f"Marketplace directory not found: {marketplace_dir}")
-                return False
+            logger.info(f"Fetching plugins from GitHub: {api_url}")
 
-            logger.info(f"Scanning marketplace directory: {marketplace_dir}")
+            # Scarica lista directory
+            request = urllib.request.Request(
+                api_url,
+                headers={'Accept': 'application/vnd.github.v3+json'}
+            )
+
+            with urllib.request.urlopen(request, timeout=10) as response:
+                contents = json.loads(response.read().decode('utf-8'))
 
             self.available_plugins = []
 
-            # Scansiona tutte le sottodirectory
-            for item in os.listdir(marketplace_dir):
-                item_path = os.path.join(marketplace_dir, item)
-
-                # Salta file (come plugins.json)
-                if not os.path.isdir(item_path):
+            # Processa ogni item
+            for item in contents:
+                # Salta se non è una directory
+                if item.get('type') != 'dir':
+                    logger.debug(f"Skipping {item.get('name')}: not a directory")
                     continue
 
-                # Verifica se è un plugin valido (ha plugin.py o __init__.py)
-                plugin_file = os.path.join(item_path, 'plugin.py')
-                init_file = os.path.join(item_path, '__init__.py')
-                manifest_file = os.path.join(item_path, 'manifest.json')
+                plugin_id = item.get('name')
+                logger.debug(f"Found plugin directory: {plugin_id}")
 
-                if not (os.path.exists(plugin_file) or os.path.exists(init_file)):
-                    logger.debug(f"Skipping {item}: not a valid plugin (no plugin.py or __init__.py)")
-                    continue
+                # Scarica manifest.json
+                manifest_url = (
+                    f"https://raw.githubusercontent.com/{self.github_repo_owner}/"
+                    f"{self.github_repo_name}/{self.github_branch}/"
+                    f"{self.github_plugins_dir}/{plugin_id}/manifest.json"
+                )
 
-                # Carica manifest se esiste, altrimenti usa info di base
                 plugin_info = {
-                    'id': item,
-                    'name': item.replace('_', ' ').replace('-', ' ').title(),
+                    'id': plugin_id,
+                    'name': plugin_id.replace('_', ' ').replace('-', ' ').title(),
                     'version': '1.0.0',
                     'author': 'Unknown',
                     'description': 'No description available',
                     'requires_version': '0.0.0',
-                    'local_path': item_path
+                    'github_dir': f"{self.github_plugins_dir}/{plugin_id}"
                 }
 
-                if os.path.exists(manifest_file):
-                    try:
-                        with open(manifest_file, 'r', encoding='utf-8') as f:
-                            manifest = json.load(f)
-                            plugin_info.update(manifest)
-                            plugin_info['local_path'] = item_path
-                            logger.debug(f"Loaded manifest for {item}")
-                    except Exception as e:
-                        logger.warning(f"Could not read manifest for {item}: {e}")
+                # Prova a scaricare il manifest
+                try:
+                    with urllib.request.urlopen(manifest_url, timeout=5) as manifest_response:
+                        manifest = json.loads(manifest_response.read().decode('utf-8'))
+                        plugin_info.update(manifest)
+                        logger.debug(f"Loaded manifest for {plugin_id}")
+                except urllib.error.HTTPError as e:
+                    if e.code == 404:
+                        logger.warning(f"No manifest.json found for {plugin_id}, using defaults")
+                    else:
+                        logger.warning(f"Error loading manifest for {plugin_id}: {e}")
+                except Exception as e:
+                    logger.warning(f"Error loading manifest for {plugin_id}: {e}")
 
                 self.available_plugins.append(plugin_info)
-                logger.debug(f"Found plugin: {plugin_info['name']} v{plugin_info['version']}")
+                logger.debug(f"Added plugin: {plugin_info['name']} v{plugin_info['version']}")
 
-            logger.info(f"Found {len(self.available_plugins)} plugins in marketplace directory")
+            logger.info(f"Found {len(self.available_plugins)} plugins from GitHub")
             return True
 
+        except urllib.error.URLError as e:
+            logger.error(f"Network error fetching plugins from GitHub: {e}")
+            return False
         except Exception as e:
-            logger.error(f"Error scanning marketplace directory: {e}", exc_info=True)
+            logger.error(f"Error fetching plugins from GitHub: {e}", exc_info=True)
             return False
 
     def get_available_plugins(self) -> List[Dict[str, Any]]:
@@ -305,6 +327,81 @@ class PluginMarketplace:
             logger.error(f"Error saving manifest: {e}")
             return False
 
+    def download_plugin_from_github(self, plugin_id: str, github_dir: str, progress_callback=None) -> bool:
+        """
+        Scarica un plugin direttamente dal repository GitHub.
+
+        Args:
+            plugin_id: ID del plugin
+            github_dir: Path della directory nel repository
+            progress_callback: Callback per progress
+
+        Returns:
+            True se scaricato con successo
+        """
+        try:
+            target_path = os.path.join(self.plugin_dir, plugin_id)
+
+            # Rimuovi plugin esistente se presente
+            if os.path.exists(target_path):
+                logger.info(f"Removing existing plugin at: {target_path}")
+                shutil.rmtree(target_path)
+
+            # Crea directory plugin
+            os.makedirs(target_path, exist_ok=True)
+
+            # URL API per listare i file nella directory del plugin
+            api_url = (
+                f"https://api.github.com/repos/{self.github_repo_owner}/"
+                f"{self.github_repo_name}/contents/{github_dir}"
+                f"?ref={self.github_branch}"
+            )
+
+            logger.info(f"Fetching plugin files from: {api_url}")
+
+            # Scarica lista dei file
+            request = urllib.request.Request(
+                api_url,
+                headers={'Accept': 'application/vnd.github.v3+json'}
+            )
+
+            with urllib.request.urlopen(request, timeout=10) as response:
+                files = json.loads(response.read().decode('utf-8'))
+
+            total_files = len(files)
+            logger.info(f"Found {total_files} files to download")
+
+            # Scarica ogni file
+            for idx, file_info in enumerate(files):
+                file_name = file_info.get('name')
+                file_type = file_info.get('type')
+
+                if file_type == 'file':
+                    # URL per scaricare il file raw
+                    download_url = file_info.get('download_url')
+                    file_path = os.path.join(target_path, file_name)
+
+                    logger.debug(f"Downloading {file_name}...")
+
+                    with urllib.request.urlopen(download_url, timeout=10) as file_response:
+                        file_data = file_response.read()
+
+                    with open(file_path, 'wb') as f:
+                        f.write(file_data)
+
+                    logger.debug(f"Saved {file_name}")
+
+                    # Progress callback
+                    if progress_callback:
+                        progress_callback(idx + 1, total_files)
+
+            logger.info(f"Plugin {plugin_id} downloaded successfully to {target_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error downloading plugin from GitHub: {e}", exc_info=True)
+            return False
+
     def install_plugin(self, plugin_info: Dict[str, Any], progress_callback=None) -> bool:
         """
         Installa un plugin dal marketplace.
@@ -317,7 +414,7 @@ class PluginMarketplace:
             True se installato con successo
         """
         plugin_id = plugin_info.get('id')
-        local_path = plugin_info.get('local_path')
+        github_dir = plugin_info.get('github_dir')
         download_url = plugin_info.get('download_url')
         required_version = plugin_info.get('requires_version', '0.0.0')
 
@@ -334,30 +431,22 @@ class PluginMarketplace:
             return False
 
         try:
-            # Se è un plugin locale, copialo direttamente
-            if local_path and os.path.exists(local_path):
-                logger.info(f"Installing local plugin from: {local_path}")
-
-                target_path = os.path.join(self.plugin_dir, plugin_id)
-
-                # Rimuovi plugin esistente se presente
-                if os.path.exists(target_path):
-                    logger.info(f"Removing existing plugin at: {target_path}")
-                    shutil.rmtree(target_path)
-
-                # Copia la directory del plugin
-                shutil.copytree(local_path, target_path)
-                logger.info(f"Plugin copied to: {target_path}")
+            # Se è un plugin da GitHub, scaricalo dalla directory del repository
+            if github_dir:
+                logger.info(f"Installing plugin from GitHub: {github_dir}")
+                success = self.download_plugin_from_github(plugin_id, github_dir, progress_callback)
+                if not success:
+                    return False
 
                 # Salva manifest
                 self.save_manifest(plugin_id, plugin_info)
 
-                logger.info(f"Local plugin {plugin_id} installed successfully")
+                logger.info(f"GitHub plugin {plugin_id} installed successfully")
                 return True
 
-            # Altrimenti, scarica da URL
+            # Altrimenti, scarica da URL (compatibilità con vecchio sistema)
             if not download_url:
-                logger.error("Missing download_url for remote plugin")
+                logger.error("Missing github_dir or download_url")
                 return False
 
             # Download
