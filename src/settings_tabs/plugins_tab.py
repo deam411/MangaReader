@@ -267,7 +267,7 @@ class PluginsTab(QWidget):
         # Pulsanti azione
         button_layout = QHBoxLayout()
 
-        self.install_btn = QPushButton("⬇️ Installa")
+        self.install_btn = QPushButton("Installa")
         self.install_btn.setToolTip("Installa questo plugin")
         self.install_btn.clicked.connect(self.install_marketplace_plugin)
         self.install_btn.setEnabled(False)
@@ -290,7 +290,7 @@ class PluginsTab(QWidget):
         # Pulsanti generali
         general_buttons = QHBoxLayout()
 
-        self.fetch_marketplace_btn = QPushButton("🔄 Aggiorna Marketplace")
+        self.fetch_marketplace_btn = QPushButton("Aggiorna Marketplace")
         self.fetch_marketplace_btn.setToolTip("Scarica la lista aggiornata dei plugin disponibili")
         self.fetch_marketplace_btn.clicked.connect(self.fetch_marketplace)
         general_buttons.addWidget(self.fetch_marketplace_btn)
@@ -539,7 +539,7 @@ class PluginsTab(QWidget):
             return
 
         self.fetch_marketplace_btn.setEnabled(False)
-        self.fetch_marketplace_btn.setText("⏳ Scaricando...")
+        self.fetch_marketplace_btn.setText("Scaricando...")
 
         success = self.marketplace.fetch_available_plugins()
 
