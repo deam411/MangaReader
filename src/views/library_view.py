@@ -76,7 +76,7 @@ class LibraryView(QWidget):
         search_layout.addWidget(self.tag_filter_combo, 1)  # 1/4 width
 
         # Advanced Search Toggle (v0.3.0)
-        self.advanced_search_button = QPushButton('🔍', self)
+        self.advanced_search_button = QPushButton('▼', self)
         self.advanced_search_button.setFixedSize(30, 30)
         self.advanced_search_button.setToolTip('Mostra/Nascondi filtri avanzati')
         self.advanced_search_button.setCheckable(True)
@@ -1170,8 +1170,8 @@ class LibraryView(QWidget):
 
         # Aggiorna il pulsante
         if is_visible:
-            self.advanced_search_button.setText('')
+            self.advanced_search_button.setText('▲')
         else:
-            self.advanced_search_button.setText('')
+            self.advanced_search_button.setText('▼')
 
         logger.debug(f"Advanced search panel {'shown' if is_visible else 'hidden'}")
