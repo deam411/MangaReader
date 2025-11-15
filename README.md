@@ -1,4 +1,4 @@
-# 📚 Manga Reader
+#  Manga Reader
 
 ![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
@@ -10,38 +10,38 @@
 
 Un lettore e gestore di manga moderno e performante con supporto multi-piattaforma.
 
-## 🎉 Novità v0.4.0 - Professional Polish
+##  Novità v0.4.0 - Professional Polish
 
 Versione maggiore con focus su **User Experience**, **Configurabilità** e **Analytics**:
 
-- 🔧 **Plugin Configuration System** - Dialog completo per configurare plugin con schema dinamico
-- 🌙 **Blue Light Filter (Night Mode)** - Proteggi gli occhi durante la lettura notturna (Ctrl+N)
-- 📊 **Statistics Export** - Esporta statistiche di lettura in CSV o JSON con summary aggregati
-- 🎨 **Plugin System Enhancement** - Sistema plugin ora completamente configurabile con persistenza
-- 📈 **Advanced Analytics** - Export dettagliato con top manga, streak, totali
+-  **Plugin Configuration System** - Dialog completo per configurare plugin con schema dinamico
+-  **Blue Light Filter (Night Mode)** - Proteggi gli occhi durante la lettura notturna (Ctrl+N)
+-  **Statistics Export** - Esporta statistiche di lettura in CSV o JSON con summary aggregati
+-  **Plugin System Enhancement** - Sistema plugin ora completamente configurabile con persistenza
+-  **Advanced Analytics** - Export dettagliato con top manga, streak, totali
 
 ### Feature v0.3.0:
-- 🔌 **Plugin System** - Sistema completo con 15+ hook eventi per estendere funzionalità
-- 🌍 **Internazionalizzazione** - Sistema i18n con file JSON (EN, IT, ES, FR, DE, JA)
-- 📊 **Statistiche Lettura** - Persistenza database, streak tracking, analytics completi
-- 📚 **Collections** - Sistema collezioni con persistenza SQLite
-- 💾 **Backup & Restore** - Sistema completo per backup/restore libreria
+-  **Plugin System** - Sistema completo con 15+ hook eventi per estendere funzionalità
+-  **Internazionalizzazione** - Sistema i18n con file JSON (EN, IT, ES, FR, DE, JA)
+-  **Statistiche Lettura** - Persistenza database, streak tracking, analytics completi
+-  **Collections** - Sistema collezioni con persistenza SQLite
+-  **Backup & Restore** - Sistema completo per backup/restore libreria
 
 ### Feature v0.1.0:
-- 🚀 **Database 3-5x più veloce** - Caricamento libreria da ~5s a ~1-2s per 100 manga
-- 🔄 **Auto-Update da GitHub** - Sistema completo per controllare e installare aggiornamenti automaticamente
-- 🔒 **Security Hardening** - 6 vulnerabilità mitigate (path traversal, XSS, SQL injection, etc.)
-- ⚡ **Image Threading** - Conversione immagini non-blocking, UI sempre responsiva
-- 🧹 **Code Quality** - Type hints, 13+ custom exceptions, validazione input completa
-- ✅ **Testing** - 22 test passati, coverage ~80% workflows core
+-  **Database 3-5x più veloce** - Caricamento libreria da ~5s a ~1-2s per 100 manga
+-  **Auto-Update da GitHub** - Sistema completo per controllare e installare aggiornamenti automaticamente
+-  **Security Hardening** - 6 vulnerabilità mitigate (path traversal, XSS, SQL injection, etc.)
+-  **Image Threading** - Conversione immagini non-blocking, UI sempre responsiva
+-  **Code Quality** - Type hints, 13+ custom exceptions, validazione input completa
+-  **Testing** - 22 test passati, coverage ~80% workflows core
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 
 ---
 
-## ✨ Funzionalità
+##  Funzionalità
 
-### 📖 Lettura
+###  Lettura
 - **Lettore full-screen** con scrolling verticale fluido
 - **Vista Doppia Pagina** - Layout side-by-side per lettura manga tradizionale (Ctrl+D)
 - **Sistema Segnalibri** - Salva e gestisci le tue posizioni preferite (Ctrl+B)
@@ -52,8 +52,8 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - **Cache LRU** configurabile per caricamento rapido
 - **Preloading** delle pagine successive
 
-### 🎨 Interfaccia
-- **Navigazione a 4 livelli** - Libreria → Manga → Volume → Reader
+###  Interfaccia
+- **Navigazione a 4 livelli** - Libreria  Manga  Volume  Reader
 - **VolumeView dedicata** - Schermata per selezione capitoli con cover grande
 - **Pannello Scorciatoie** - Premi F1 per vedere tutte le combinazioni
 - **Tooltips informativi** - Passaci sopra per scoprire come usare ogni pulsante
@@ -63,8 +63,8 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - **Ordinamento** per titolo e autore
 - **Download cover** - Salva le copertine di manga e volumi
 
-### ⚡ Performance
-- **🚀 Database Optimization**: Query **3-5x più veloci** (v0.1.0) - caricamento libreria ridotto da ~5s a ~1-2s per 100 manga
+###  Performance
+- ** Database Optimization**: Query **3-5x più veloci** (v0.1.0) - caricamento libreria ridotto da ~5s a ~1-2s per 100 manga
 - **Sistema cache a 2 livelli**: In-memory + Persistent disk cache per cover
 - **Cache persistent intelligente**: Cover salvate in AppData con invalidazione automatica
 - **9 indici database strategici**: Query 3-5x più veloci su JOIN e ordinamenti
@@ -77,13 +77,13 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - **UI sempre responsiva** anche con librerie grandi
 - **Risultato**: Avvio 2-3x più veloce, scroll ultra-fluido, query < 10ms, zero regressions
 
-### 🖼️ Formati Supportati
+###  Formati Supportati
 - **Immagini**: PNG, JPG, JPEG, GIF, BMP, **WebP**, **JFIF**
 - **Conversione automatica** di WebP e JFIF in formato compatibile
 - **Ottimizzazione qualità** - PNG per trasparenza, JPEG 95% per il resto
 
-### 🔒 Security & Stability (v0.1.0)
-- **✅ 6 Vulnerabilità Mitigate**: Path traversal, filename injection, XSS, SQL injection, arbitrary file write, data corruption
+###  Security & Stability (v0.1.0)
+- ** 6 Vulnerabilità Mitigate**: Path traversal, filename injection, XSS, SQL injection, arbitrary file write, data corruption
 - **Filename Sanitization**: Protezione contro path traversal (`../`, `..\\`), caratteri forbidden, reserved names Windows
 - **Path Traversal Protection**: Validazione che i file estratti rimangano nella directory base
 - **Input Validation**: Sanitizzazione completa di tutti gli input utente (titoli, descrizioni, tags)
@@ -94,7 +94,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - **Type Hints**: Type safety migliorata con annotations su moduli core
 - **Zero Performance Penalty**: Tutte le feature di sicurezza hanno overhead trascurabile (<1ms)
 
-### ⌨️ Shortcuts
+###  Shortcuts
 - `F1` - **Mostra pannello scorciatoie**
 - `Ctrl+F` - Ricerca
 - `Ctrl+I` - Importa manga
@@ -105,10 +105,10 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - `F5` - Aggiorna libreria
 - `F11` - Toggle fullscreen
 - `Backspace` - Indietro
-- `↑/↓` - Zoom in/out nel reader
+- `/` - Zoom in/out nel reader
 - `Esc` - Esci
 
-### 🔌 Sistema Plugin (v0.3.0)
+###  Sistema Plugin (v0.3.0)
 - **15+ Hook Eventi**: Lifecycle, Import/Export, Reading, Library, UI
 - **Auto-Discovery**: Plugin caricati automaticamente da `plugins/available/`
 - **Hot-Reload**: Ricarica plugin senza riavviare l'app
@@ -120,7 +120,7 @@ Vedi [CHANGELOG.md](CHANGELOG.md) per dettagli completi.
 - **Plugin di Esempio**: `example_plugin` dimostra tutte le funzionalità
 
 #### Come Configurare un Plugin
-1. Apri **Impostazioni ⚙️** → Tab **Plugins**
+1. Apri **Impostazioni **  Tab **Plugins**
 2. Seleziona un plugin dalla lista
 3. Clicca **"Configura"**
 4. Modifica le opzioni nel dialog
@@ -161,7 +161,7 @@ class MyPlugin(PluginBase):
 
 Salva in `plugins/available/my_plugin/plugin.py`
 
-### 📊 Statistiche & Analytics (v0.3.0+)
+###  Statistiche & Analytics (v0.3.0+)
 - **Tracking Automatico**: Sessioni, pagine lette, tempo di lettura
 - **Streak Tracking**: Conta giorni consecutivi di lettura
 - **Top Manga**: Classifica manga più letti
@@ -176,14 +176,14 @@ Salva in `plugins/available/my_plugin/plugin.py`
 3. Scegli dove salvare il file
 4. Analizza i dati con Excel, Python, o altri tool
 
-### 🌙 Filtro Luce Blu / Night Mode (v0.4.0)
+###  Filtro Luce Blu / Night Mode (v0.4.0)
 - **Protezione Occhi**: Overlay arancione warm per ridurre affaticamento
 - **Shortcut Rapido**: Premi `Ctrl+N` nel reader per toggle on/off
 - **Personalizzabile**: Colore e opacità in `src/constants.py`
 - **Persistente**: Preferenza salvata tra sessioni
 - **Zero Overhead**: Nessun impatto su performance
 
-### 🛠️ Gestione
+###  Gestione
 - **Auto-Update** (v0.1.0) - Sistema integrato per controllare e installare aggiornamenti da GitHub
 - **Import/Export** file .manga
 - **Editor integrato** per creare e modificare manga
@@ -192,32 +192,32 @@ Salva in `plugins/available/my_plugin/plugin.py`
 - **Download cover** - Salva copertine manga e volumi
 - **Formato .manga** proprietario basato su SQLite
 
-## 📦 Download
+##  Download
 
 ### Rilasci Ufficiali
 
 | Piattaforma | Download | Dimensione |
 |------------|----------|-----------|
-| 🪟 Windows | [MangaReader.exe](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader.exe) | ~58 MB |
-| 🍎 macOS | [MangaReader.dmg](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader.dmg) | ~65 MB |
-| 🐧 Linux | [MangaReader](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader) | ~70 MB |
+|  Windows | [MangaReader.exe](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader.exe) | ~58 MB |
+|  macOS | [MangaReader.dmg](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader.dmg) | ~65 MB |
+|  Linux | [MangaReader](https://github.com/deam411/MangaReader/releases/latest/download/MangaReader) | ~70 MB |
 
 ### Build Automatici
 
 Ogni commit su `main` genera build automatici per tutte le piattaforme tramite GitHub Actions.
 Scarica gli artifact dall'ultima [Action run](https://github.com/deam411/MangaReader/actions).
 
-## 🚀 Installazione
+##  Installazione
 
 ### Windows
 1. Scarica `MangaReader.exe`
-2. Esegui il file (potrebbe apparire Windows Defender - clicca "Ulteriori informazioni" → "Esegui comunque")
+2. Esegui il file (potrebbe apparire Windows Defender - clicca "Ulteriori informazioni"  "Esegui comunque")
 3. Pronto!
 
 ### macOS
 1. Scarica `MangaReader.dmg`
 2. Apri il DMG e trascina l'app nella cartella Applicazioni
-3. Al primo avvio: tasto destro → Apri (per bypassare Gatekeeper)
+3. Al primo avvio: tasto destro  Apri (per bypassare Gatekeeper)
 4. Pronto!
 
 ### Linux
@@ -226,7 +226,7 @@ Scarica gli artifact dall'ultima [Action run](https://github.com/deam411/MangaRe
 3. Esegui: `./MangaReader`
 4. Pronto!
 
-## 🔧 Build da Sorgente
+##  Build da Sorgente
 
 ### Requisiti
 - Python 3.8+
@@ -272,7 +272,7 @@ chmod +x build_linux.sh
 ./build_linux.sh
 ```
 
-## 🧪 Testing
+##  Testing
 
 ### Setup Testing Environment
 
@@ -304,14 +304,14 @@ pytest -m "not slow"
 ### Test Suite
 
 Il progetto include test completi per:
-- ✅ **Database** - CRUD operations, conversioni immagini, schema migration (20 test)
-- ✅ **Settings** - Singleton pattern, persistence, defaults (15 test)
-- ✅ **Paths** - Cross-platform path resolution, frozen/unfrozen mode (18 test)
-- ✅ **Security** (v0.1.0) - Validation, filename sanitization, path traversal, XSS prevention (5+5 test)
-- ✅ **Integration** (v0.1.0) - Workflows completi: settings, cache, validation, exceptions (6 test)
-- ✅ **Performance** (v0.1.0) - Benchmarks cache, validation, settings, exceptions (6 test)
+-  **Database** - CRUD operations, conversioni immagini, schema migration (20 test)
+-  **Settings** - Singleton pattern, persistence, defaults (15 test)
+-  **Paths** - Cross-platform path resolution, frozen/unfrozen mode (18 test)
+-  **Security** (v0.1.0) - Validation, filename sanitization, path traversal, XSS prevention (5+5 test)
+-  **Integration** (v0.1.0) - Workflows completi: settings, cache, validation, exceptions (6 test)
+-  **Performance** (v0.1.0) - Benchmarks cache, validation, settings, exceptions (6 test)
 
-**Test Results**: 17/17 test CLI-compatible passati ✓
+**Test Results**: 17/17 test CLI-compatible passati 
 **Coverage Target**: ~80% workflows core (v0.1.0)
 **Security Coverage**: Path traversal, filename injection, XSS, SQL injection, input validation
 
@@ -327,20 +327,20 @@ def test_example(temp_dir):
     assert True
 ```
 
-## 🔍 Code Quality
+##  Code Quality
 
 ### v0.1.0 Improvements
 
 Il progetto ha subito un refactoring significativo per migliorare la qualità del codice:
 
-- ✅ **Type Hints**: Annotations su tutti i moduli core (`cache_manager.py`, `settings.py`, `validation.py`)
-- ✅ **Custom Exceptions**: Gerarchia di 13+ eccezioni custom per error handling consistente
-- ✅ **Validation Layer**: 9 validator functions per sanitizzazione input utente
-- ✅ **Constants Extraction**: Magic numbers sostituiti con costanti centralizzate
-- ✅ **Context Managers**: Pattern per gestione automatica risorse (DB connections, thread pools)
-- ✅ **Docstrings**: Documentazione completa con type hints per tutti i metodi pubblici
-- ✅ **Security Validation**: Input sanitization contro XSS, SQL injection, path traversal
-- ✅ **Performance Benchmarks**: Test di performance per validare ottimizzazioni
+-  **Type Hints**: Annotations su tutti i moduli core (`cache_manager.py`, `settings.py`, `validation.py`)
+-  **Custom Exceptions**: Gerarchia di 13+ eccezioni custom per error handling consistente
+-  **Validation Layer**: 9 validator functions per sanitizzazione input utente
+-  **Constants Extraction**: Magic numbers sostituiti con costanti centralizzate
+-  **Context Managers**: Pattern per gestione automatica risorse (DB connections, thread pools)
+-  **Docstrings**: Documentazione completa con type hints per tutti i metodi pubblici
+-  **Security Validation**: Input sanitization contro XSS, SQL injection, path traversal
+-  **Performance Benchmarks**: Test di performance per validare ottimizzazioni
 
 ### Linting & Formatting
 
@@ -371,47 +371,47 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## 🏗️ Architettura
+##  Architettura
 
 ### Struttura Progetto
 
 ```
 MangaReader/
-├── main.py                 # Entry point, theme management, shortcuts
-├── views.py                # Main UI views (Library, Manga, Volume, Reader)
-├── src/
-│   ├── database.py         # SQLite ORM per file .manga
-│   ├── settings.py         # Settings singleton con persistence
-│   ├── paths.py            # Path management cross-platform
-│   ├── theme_manager.py    # Theme generation e applicazione
-│   ├── logger.py           # Logging centralizzato
-│   ├── constants.py        # Costanti centralizzate
-│   ├── exceptions.py       # [v0.1.0] Gerarchia eccezioni custom (13+ exceptions)
-│   ├── cache_manager.py    # Cache manager per cover persistent
-│   ├── themes.json         # Definizioni colori temi
-│   ├── chapter_reader_window.py  # Widget lettore con zoom/pan
-│   ├── settings_dialog.py  # Dialog impostazioni
-│   ├── tag_widget.py       # Smart tag selection widget
-│   ├── utils/
-│   │   ├── validation.py   # [v0.1.0] Validazione e sanitizzazione input (9 validators)
-│   │   ├── image_converter.py  # [v0.1.0] Conversione immagini threading
-│   │   └── cache_stats.py  # [v0.1.0] Analisi performance cache
-│   ├── importers/
-│   │   └── archive_importer.py  # Importazione CBZ/CBR con security
-│   └── creator/
-│       └── manga_creator_app.py  # Editor manga completo
-├── tests/
-│   ├── conftest.py         # Pytest fixtures
-│   ├── test_database.py    # Test database operations
-│   ├── test_settings.py    # Test settings management
-│   ├── test_paths.py       # Test path resolution
-│   ├── test_security_isolated.py      # [v0.1.0] Security tests (isolated)
-│   ├── test_security_validation.py    # [v0.1.0] Security tests (comprehensive)
-│   ├── test_integration_workflows.py  # [v0.1.0] Integration tests
-│   └── test_performance_benchmarks.py # [v0.1.0] Performance benchmarks
-├── BuildTools/             # Build scripts per PyInstaller
-├── assets/                 # Icone e risorse
-└── DEVELOPMENT_SUMMARY.md  # [v0.1.0] Documentazione completa delle 5 fasi
+ main.py                 # Entry point, theme management, shortcuts
+ views.py                # Main UI views (Library, Manga, Volume, Reader)
+ src/
+    database.py         # SQLite ORM per file .manga
+    settings.py         # Settings singleton con persistence
+    paths.py            # Path management cross-platform
+    theme_manager.py    # Theme generation e applicazione
+    logger.py           # Logging centralizzato
+    constants.py        # Costanti centralizzate
+    exceptions.py       # [v0.1.0] Gerarchia eccezioni custom (13+ exceptions)
+    cache_manager.py    # Cache manager per cover persistent
+    themes.json         # Definizioni colori temi
+    chapter_reader_window.py  # Widget lettore con zoom/pan
+    settings_dialog.py  # Dialog impostazioni
+    tag_widget.py       # Smart tag selection widget
+    utils/
+       validation.py   # [v0.1.0] Validazione e sanitizzazione input (9 validators)
+       image_converter.py  # [v0.1.0] Conversione immagini threading
+       cache_stats.py  # [v0.1.0] Analisi performance cache
+    importers/
+       archive_importer.py  # Importazione CBZ/CBR con security
+    creator/
+        manga_creator_app.py  # Editor manga completo
+ tests/
+    conftest.py         # Pytest fixtures
+    test_database.py    # Test database operations
+    test_settings.py    # Test settings management
+    test_paths.py       # Test path resolution
+    test_security_isolated.py      # [v0.1.0] Security tests (isolated)
+    test_security_validation.py    # [v0.1.0] Security tests (comprehensive)
+    test_integration_workflows.py  # [v0.1.0] Integration tests
+    test_performance_benchmarks.py # [v0.1.0] Performance benchmarks
+ BuildTools/             # Build scripts per PyInstaller
+ assets/                 # Icone e risorse
+ DEVELOPMENT_SUMMARY.md  # [v0.1.0] Documentazione completa delle 5 fasi
 
 ```
 
@@ -465,7 +465,7 @@ logger.debug("Debug info")
 
 **Configurazione**: Rotazione automatica (10MB max, 5 backup)
 
-## 📂 Struttura Dati
+##  Struttura Dati
 
 ### Impostazioni
 ```
@@ -476,7 +476,7 @@ Linux:   ~/.mangareader/settings.json
 
 ### Libreria Manga
 - **Default**: `[EXE Directory]/manga/`
-- **Custom**: Configurabile nelle Impostazioni ⚙️
+- **Custom**: Configurabile nelle Impostazioni 
 
 ### Formato .manga
 Ogni file `.manga` è un database SQLite contenente:
@@ -486,7 +486,7 @@ Ogni file `.manga` è un database SQLite contenente:
 - Cover immagini
 - Cronologia di lettura (futuro)
 
-## 🤝 Contribuire
+##  Contribuire
 
 Contributi benvenuti! Sentiti libero di aprire issue o pull request.
 
@@ -505,11 +505,11 @@ Contributi benvenuti! Sentiti libero di aprire issue o pull request.
 - Testa su almeno una piattaforma prima del PR
 - Aggiorna CHANGELOG.md
 
-## 📝 Changelog
+##  Changelog
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per la lista completa delle modifiche.
 
-## 🐛 Bug Report
+##  Bug Report
 
 Hai trovato un bug? [Apri una issue](https://github.com/deam411/MangaReader/issues/new) con:
 - Descrizione del problema
@@ -518,26 +518,26 @@ Hai trovato un bug? [Apri una issue](https://github.com/deam411/MangaReader/issu
 - Screenshot (se applicabile)
 - Sistema operativo e versione
 
-## 💡 Feature Request
+##  Feature Request
 
 Hai un'idea? [Apri una issue](https://github.com/deam411/MangaReader/issues/new) con label `enhancement`.
 
-## 📜 Licenza
+##  Licenza
 
 Questo progetto è rilasciato sotto licenza MIT. Vedi [LICENSE](LICENSE) per dettagli.
 
-## 🙏 Ringraziamenti
+##  Ringraziamenti
 
 - PyQt5 per il framework GUI
 - Pillow per elaborazione immagini
 - PyInstaller per il packaging
 - GitHub Actions per il CI/CD
 
-## 📧 Contatti
+##  Contatti
 
 - GitHub: [@deam411](https://github.com/deam411)
 - Issues: [Manga Reader Issues](https://github.com/deam411/MangaReader/issues)
 
 ---
 
-**Manga Reader** - Leggi i tuoi manga preferiti con stile! 📚✨
+**Manga Reader** - Leggi i tuoi manga preferiti con stile! 

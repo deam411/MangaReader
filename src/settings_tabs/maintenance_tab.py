@@ -57,12 +57,12 @@ class RepairWorker(QThread):
                     logger.info(f"Repaired {manga_name}: {pages_updated} pages updated")
 
                 # Emetti progresso dopo il completamento
-                self.progress.emit(idx + 1, total, f"✓ {manga_name} completato")
+                self.progress.emit(idx + 1, total, f" {manga_name} completato")
 
             except Exception as e:
                 logger.error(f"Error repairing {manga_file}: {e}")
                 errors += 1
-                self.progress.emit(idx + 1, total, f"❌ Errore: {manga_name}")
+                self.progress.emit(idx + 1, total, f" Errore: {manga_name}")
 
         self.finished.emit(repaired, errors)
 
@@ -186,7 +186,7 @@ class MaintenanceTab(QWidget):
 
         # Pulsante scansione
         scan_layout = QHBoxLayout()
-        self.scan_button = QPushButton("🔍 Scansiona Manga")
+        self.scan_button = QPushButton(" Scansiona Manga")
         self.scan_button.setToolTip("Cerca manga che necessitano riparazione")
         self.scan_button.clicked.connect(self.scan_manga)
         scan_layout.addWidget(self.scan_button)
@@ -214,7 +214,7 @@ class MaintenanceTab(QWidget):
 
         action_layout.addStretch()
 
-        self.repair_button = QPushButton("🔧 Ripara Selezionati")
+        self.repair_button = QPushButton(" Ripara Selezionati")
         self.repair_button.setToolTip("Ripara i manga selezionati aggiungendo le dimensioni delle pagine")
         self.repair_button.clicked.connect(self.repair_selected)
         self.repair_button.setEnabled(False)
@@ -272,19 +272,19 @@ class MaintenanceTab(QWidget):
                     self.manga_to_repair.append(manga_file)
 
                 self.status_label.setText(
-                    f"✓ Trovati {len(needs_repair)} manga da riparare"
+                    f" Trovati {len(needs_repair)} manga da riparare"
                 )
                 self.status_label.setStyleSheet("color: #4a9eff;")
                 self.select_all_button.setEnabled(True)
                 self.deselect_all_button.setEnabled(True)
                 self.repair_button.setEnabled(True)
             else:
-                self.status_label.setText("✓ Nessun manga necessita riparazione")
+                self.status_label.setText(" Nessun manga necessita riparazione")
                 self.status_label.setStyleSheet("color: green;")
 
         except Exception as e:
             logger.error(f"Error scanning manga: {e}")
-            self.status_label.setText(f"❌ Errore durante scansione: {str(e)}")
+            self.status_label.setText(f" Errore durante scansione: {str(e)}")
             self.status_label.setStyleSheet("color: red;")
 
         finally:
@@ -405,7 +405,7 @@ class MaintenanceTab(QWidget):
 
         if errors > 0:
             self.status_label.setText(
-                f"✓ Riparati {repaired} manga, {errors} errori"
+                f" Riparati {repaired} manga, {errors} errori"
             )
             self.status_label.setStyleSheet("color: orange;")
             QMessageBox.warning(
@@ -415,7 +415,7 @@ class MaintenanceTab(QWidget):
                 "Controlla i log per dettagli."
             )
         else:
-            self.status_label.setText(f"✓ Riparati {repaired} manga con successo!")
+            self.status_label.setText(f" Riparati {repaired} manga con successo!")
             self.status_label.setStyleSheet("color: green;")
             QMessageBox.information(
                 self,

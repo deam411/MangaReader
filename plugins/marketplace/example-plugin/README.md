@@ -6,9 +6,9 @@ Questo è un plugin di esempio che dimostra la struttura base di un plugin per M
 
 ```
 example-plugin/
-├── plugin.py         # File principale del plugin
-├── manifest.json     # Metadata del plugin
-└── README.md         # Documentazione
+ plugin.py         # File principale del plugin
+ manifest.json     # Metadata del plugin
+ README.md         # Documentazione
 ```
 
 ## Come Creare un Plugin
@@ -34,8 +34,8 @@ example-plugin/
    - Implementa `create_plugin()` come factory function
 
 4. **Testa il plugin**:
-   - Vai in Impostazioni → Plugin → Disponibili
-   - Clicca "🔄 Aggiorna Marketplace"
+   - Vai in Impostazioni  Plugin  Disponibili
+   - Clicca " Aggiorna Marketplace"
    - Installa il tuo plugin
    - Attivalo dal tab "Installati"
 
@@ -80,8 +80,8 @@ Il plugin ha accesso a:
 
 ## Best Practices
 
-1. ✅ Sempre gestire eccezioni nei tuoi metodi
-2. ✅ Usare logging invece di print()
-3. ✅ Testare compatibilità con `requires_version`
-4. ✅ Documentare il codice con docstring
-5. ✅ Non modificare file di sistema o database senza conferma utente
+1.  Sempre gestire eccezioni nei tuoi metodi
+2.  Usare logging invece di print()
+3.  Testare compatibilità con `requires_version`
+4.  Documentare il codice con docstring
+5.  Non modificare file di sistema o database senza conferma utente
