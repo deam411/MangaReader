@@ -80,7 +80,6 @@ class PluginsTab(QWidget):
             self.marketplace = None
 
         self.install_worker = None
-        self.marketplace_loaded = False  # Flag per tracciare se il marketplace è stato caricato
 
         logger.info("Initializing PluginsTab UI...")
         self.init_ui()
@@ -93,7 +92,6 @@ class PluginsTab(QWidget):
 
         # Tab widget per Installati/Disponibili
         self.tab_widget = QTabWidget()
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
         layout.addWidget(self.tab_widget)
 
         # Tab Plugin Installati
@@ -110,38 +108,6 @@ class PluginsTab(QWidget):
             logger.info("Marketplace tab created successfully")
         else:
             logger.warning("Marketplace not available, skipping Disponibili tab")
-
-    def on_tab_changed(self, index: int):
-        """
-        Chiamato quando si cambia tab.
-
-        Args:
-            index: Indice del tab selezionato (0=Installati, 1=Disponibili)
-        """
-        # Se si passa al tab "Disponibili" e non è ancora stato caricato
-        if index == 1 and self.marketplace is not None and not self.marketplace_loaded:
-            logger.info("Auto-fetching marketplace plugins on first access")
-            self.fetch_marketplace_auto()
-
-    def fetch_marketplace_auto(self):
-        """Scarica automaticamente la lista dei plugin dal marketplace (senza messaggi)."""
-        if self.marketplace is None:
-            return
-
-        self.fetch_marketplace_btn.setEnabled(False)
-        self.fetch_marketplace_btn.setText("Scaricando...")
-
-        success = self.marketplace.fetch_available_plugins()
-
-        if success:
-            self.load_marketplace_plugins()
-            self.marketplace_loaded = True
-            logger.info(f"Marketplace loaded: {len(self.marketplace.available_plugins)} plugins found")
-        else:
-            logger.warning("Failed to fetch marketplace plugins automatically")
-
-        self.fetch_marketplace_btn.setEnabled(True)
-        self.fetch_marketplace_btn.setText("Aggiorna Marketplace")
 
     def create_installed_tab(self):
         """Crea il tab per i plugin installati."""
@@ -228,13 +194,6 @@ class PluginsTab(QWidget):
         self.open_folder_btn.setToolTip("Apri la cartella dei plugin nel file manager")
         self.open_folder_btn.clicked.connect(self.open_plugin_folder)
         general_buttons.addWidget(self.open_folder_btn)
-
-        self.check_updates_btn = QPushButton("Controlla Aggiornamenti")
-        self.check_updates_btn.setToolTip("Verifica se ci sono aggiornamenti disponibili per i plugin installati")
-        self.check_updates_btn.clicked.connect(self.check_plugin_updates)
-        if self.marketplace is None:
-            self.check_updates_btn.setEnabled(False)
-        general_buttons.addWidget(self.check_updates_btn)
 
         general_buttons.addStretch()
 
@@ -569,118 +528,6 @@ class PluginsTab(QWidget):
                 f"Impossibile aprire la cartella: {e}"
             )
 
-    def check_plugin_updates(self):
-        """Controlla se ci sono aggiornamenti disponibili per i plugin installati."""
-        if self.marketplace is None:
-            QMessageBox.warning(
-                self,
-                "Errore",
-                "Marketplace non disponibile. Verifica i log per dettagli."
-            )
-            return
-
-        # Disabilita il pulsante durante il controllo
-        self.check_updates_btn.setEnabled(False)
-        self.check_updates_btn.setText("Controllo...")
-
-        # Scarica la lista aggiornata dal marketplace
-        success = self.marketplace.fetch_available_plugins()
-
-        if not success:
-            QMessageBox.warning(
-                self,
-                "Errore",
-                "Impossibile scaricare la lista dei plugin dal marketplace.\n"
-                "Verifica la connessione internet."
-            )
-            self.check_updates_btn.setEnabled(True)
-            self.check_updates_btn.setText("Controlla Aggiornamenti")
-            return
-
-        # Confronta versioni
-        installed_plugins = self.plugin_manager.get_plugin_list()
-        available_plugins = self.marketplace.get_available_plugins()
-
-        updates_available = []
-
-        for installed in installed_plugins:
-            installed_id = installed.get('id')
-            installed_version = installed.get('version', '0.0.0')
-
-            # Cerca plugin corrispondente nel marketplace
-            for available in available_plugins:
-                if available.get('id') == installed_id:
-                    available_version = available.get('version', '0.0.0')
-
-                    # Confronta versioni (semplice confronto lessicografico)
-                    if self._compare_versions(available_version, installed_version) > 0:
-                        updates_available.append({
-                            'name': installed.get('name', installed_id),
-                            'current': installed_version,
-                            'available': available_version
-                        })
-                    break
-
-        # Mostra risultati
-        self.check_updates_btn.setEnabled(True)
-        self.check_updates_btn.setText("Controlla Aggiornamenti")
-
-        if updates_available:
-            message = "Aggiornamenti disponibili:\n\n"
-            for update in updates_available:
-                message += f"• {update['name']}: {update['current']} → {update['available']}\n"
-            message += "\nVai al tab 'Disponibili' per aggiornare i plugin."
-
-            QMessageBox.information(
-                self,
-                "Aggiornamenti Disponibili",
-                message
-            )
-        else:
-            QMessageBox.information(
-                self,
-                "Nessun Aggiornamento",
-                "Tutti i plugin sono aggiornati all'ultima versione disponibile."
-            )
-
-    def _compare_versions(self, version1: str, version2: str) -> int:
-        """
-        Confronta due versioni in formato semver.
-
-        Args:
-            version1: Prima versione (es: "1.2.3")
-            version2: Seconda versione (es: "1.1.0")
-
-        Returns:
-            1 se version1 > version2, -1 se version1 < version2, 0 se uguali
-        """
-        try:
-            v1_parts = [int(x) for x in version1.split('.')]
-            v2_parts = [int(x) for x in version2.split('.')]
-
-            # Normalizza lunghezza
-            while len(v1_parts) < len(v2_parts):
-                v1_parts.append(0)
-            while len(v2_parts) < len(v1_parts):
-                v2_parts.append(0)
-
-            # Confronta parte per parte
-            for p1, p2 in zip(v1_parts, v2_parts):
-                if p1 > p2:
-                    return 1
-                elif p1 < p2:
-                    return -1
-
-            return 0
-
-        except (ValueError, AttributeError):
-            # Fallback a confronto lessicografico
-            if version1 > version2:
-                return 1
-            elif version1 < version2:
-                return -1
-            return 0
-
     def fetch_marketplace(self):
         """Scarica la lista dei plugin dal marketplace."""
         if self.marketplace is None:
@@ -698,7 +545,6 @@ class PluginsTab(QWidget):
 
         if success:
             self.load_marketplace_plugins()
-            self.marketplace_loaded = True  # Segna come caricato
             QMessageBox.information(
                 self,
                 "Marketplace Aggiornato",
@@ -713,7 +559,7 @@ class PluginsTab(QWidget):
             )
 
         self.fetch_marketplace_btn.setEnabled(True)
-        self.fetch_marketplace_btn.setText("Aggiorna Marketplace")
+        self.fetch_marketplace_btn.setText(" Aggiorna Marketplace")
 
     def load_marketplace_plugins(self):
         """Carica la lista dei plugin dal marketplace."""
