@@ -30,7 +30,7 @@ class PluginManager:
         Inizializza il PluginManager.
 
         Args:
-            plugin_dir: Directory dei plugin (default: plugins/available/)
+            plugin_dir: Directory dei plugin built-in (default: plugins/available/)
         """
         if plugin_dir is None:
             # Default: plugins/available/ nella root del progetto
@@ -44,39 +44,52 @@ class PluginManager:
             plugin_dir = os.path.join(base_dir, 'plugins', 'available')
 
         self.plugin_dir = plugin_dir
+
+        # Directory per plugin scaricati dall'utente (nella cartella dati)
+        self.user_plugin_dir = os.path.join(get_data_dir(), 'plugins')
+
         self.plugins: Dict[str, PluginBase] = {}
         self.enabled_plugins: set = set()
         self.config_file = os.path.join(get_data_dir(), 'plugins_config.json')
 
-        # Crea directory se non esiste
+        # Crea entrambe le directory se non esistono
         os.makedirs(self.plugin_dir, exist_ok=True)
+        os.makedirs(self.user_plugin_dir, exist_ok=True)
 
-        logger.info(f"PluginManager inizializzato. Plugin directory: {self.plugin_dir}")
+        logger.info(f"PluginManager inizializzato.")
+        logger.info(f"  Plugin built-in: {self.plugin_dir}")
+        logger.info(f"  Plugin utente: {self.user_plugin_dir}")
 
     def discover_plugins(self) -> List[str]:
         """
-        Scopre tutti i plugin disponibili nella directory.
+        Scopre tutti i plugin disponibili in entrambe le directory (built-in e utente).
 
         Returns:
             Lista di nomi plugin trovati
         """
         discovered = []
 
-        if not os.path.exists(self.plugin_dir):
-            logger.warning(f"Plugin directory non trovata: {self.plugin_dir}")
-            return discovered
+        # Cerca in entrambe le directory
+        for directory, dir_label in [(self.plugin_dir, "built-in"), (self.user_plugin_dir, "utente")]:
+            if not os.path.exists(directory):
+                logger.warning(f"Plugin directory {dir_label} non trovata: {directory}")
+                continue
 
-        for item in os.listdir(self.plugin_dir):
-            plugin_path = os.path.join(self.plugin_dir, item)
+            for item in os.listdir(directory):
+                plugin_path = os.path.join(directory, item)
 
-            # Verifica se è una directory con __init__.py o plugin.py
-            if os.path.isdir(plugin_path):
-                init_file = os.path.join(plugin_path, '__init__.py')
-                plugin_file = os.path.join(plugin_path, 'plugin.py')
+                # Verifica se è una directory con __init__.py o plugin.py
+                if os.path.isdir(plugin_path):
+                    init_file = os.path.join(plugin_path, '__init__.py')
+                    plugin_file = os.path.join(plugin_path, 'plugin.py')
 
-                if os.path.exists(init_file) or os.path.exists(plugin_file):
-                    discovered.append(item)
-                    logger.debug(f"Plugin scoperto: {item}")
+                    if os.path.exists(init_file) or os.path.exists(plugin_file):
+                        # Evita duplicati (priorità a plugin utente)
+                        if item not in discovered:
+                            discovered.append(item)
+                            logger.debug(f"Plugin scoperto ({dir_label}): {item}")
+                        else:
+                            logger.debug(f"Plugin {item} già scoperto, saltato ({dir_label})")
 
         logger.info(f"Trovati {len(discovered)} plugin: {discovered}")
         return discovered
@@ -92,14 +105,24 @@ class PluginManager:
             True se caricato con successo, False altrimenti
         """
         try:
-            plugin_path = os.path.join(self.plugin_dir, plugin_name)
+            # Cerca prima nella directory utente, poi in quella built-in
+            plugin_path = None
+            plugin_file = None
 
-            # Prova prima plugin.py, poi __init__.py
-            plugin_file = os.path.join(plugin_path, 'plugin.py')
-            if not os.path.exists(plugin_file):
-                plugin_file = os.path.join(plugin_path, '__init__.py')
+            for directory in [self.user_plugin_dir, self.plugin_dir]:
+                test_path = os.path.join(directory, plugin_name)
+                if os.path.exists(test_path):
+                    # Prova prima plugin.py, poi __init__.py
+                    test_file = os.path.join(test_path, 'plugin.py')
+                    if not os.path.exists(test_file):
+                        test_file = os.path.join(test_path, '__init__.py')
 
-            if not os.path.exists(plugin_file):
+                    if os.path.exists(test_file):
+                        plugin_path = test_path
+                        plugin_file = test_file
+                        break
+
+            if not plugin_file:
                 logger.error(f"File plugin non trovato per: {plugin_name}")
                 return False
 
