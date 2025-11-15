@@ -1,0 +1,9 @@
+{
+  "id": "mangaworld-downloader",
+  "name": "Mangaworld Downloader",
+  "version": "1.0.0",
+  "author": "deam411",
+  "description": "Download manga from Mangaworld.ac via Shift+Add Volume in Manga Creator",
+  "requires_version": "0.3.0",
+  "url": "https://github.com/deam411/Mangareader-Plugin"
+}
