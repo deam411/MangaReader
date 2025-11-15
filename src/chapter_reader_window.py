@@ -805,8 +805,10 @@ class ChapterReaderWindow(QMainWindow):
         self.scroll_area.verticalScrollBar().setFocusPolicy(Qt.NoFocus)
         self.scroll_area.horizontalScrollBar().setFocusPolicy(Qt.NoFocus)
 
-        # Nascondi il cursore anche sulla scroll area
+        # Nascondi il cursore anche sulla scroll area e sulle scrollbar
         self.scroll_area.setCursor(Qt.BlankCursor)
+        self.scroll_area.verticalScrollBar().setCursor(Qt.BlankCursor)
+        self.scroll_area.horizontalScrollBar().setCursor(Qt.BlankCursor)
 
         self.page_display_widget = PageDisplayWidget()
         self.scroll_area.setWidget(self.page_display_widget)
