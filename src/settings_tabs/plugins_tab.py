@@ -71,7 +71,7 @@ class PluginsTab(QWidget):
         try:
             logger.info("Initializing PluginMarketplace...")
             self.marketplace = PluginMarketplace(
-                plugin_dir=plugin_manager.plugin_dir,
+                plugin_dir=plugin_manager.user_plugin_dir,  # Installa nella directory utente
                 app_version="0.5.0"  # TODO: Get from app
             )
             logger.info("PluginMarketplace initialized successfully")
