@@ -799,9 +799,13 @@ class ChapterReaderWindow(QMainWindow):
         # Nascondi il cursore sulla finestra principale
         self.setCursor(Qt.BlankCursor)
 
+        # Rimuovi margini per eliminare spazi ai bordi
+        self.setContentsMargins(0, 0, 0, 0)
+
         self.scroll_area = QScrollArea(self)
         self.setCentralWidget(self.scroll_area)
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QScrollArea.NoFrame)  # Rimuovi frame
         self.scroll_area.verticalScrollBar().setFocusPolicy(Qt.NoFocus)
         self.scroll_area.horizontalScrollBar().setFocusPolicy(Qt.NoFocus)
 
@@ -816,7 +820,11 @@ class ChapterReaderWindow(QMainWindow):
         self.scroll_area.verticalScrollBar().setSingleStep(100)
         self.scroll_area.verticalScrollBar().valueChanged.connect(self.page_display_widget.update)
 
+        # Installa event filter su tutti i widget per forzare cursore nascosto
+        self.installEventFilter(self)
         self.scroll_area.installEventFilter(self)
+        self.scroll_area.viewport().installEventFilter(self)
+        self.page_display_widget.installEventFilter(self)
 
         QTimer.singleShot(0, self.load_chapter_pages)
 
@@ -831,8 +839,14 @@ class ChapterReaderWindow(QMainWindow):
         self.page_display_widget.set_pages_data(image_data_list, dimensions_list)
 
     def eventFilter(self, obj, event):
-        """Filtra gli eventi per impedire che le frecce scrollino la pagina"""
+        """Filtra gli eventi per impedire che le frecce scrollino la pagina e forzare cursore nascosto"""
         from PyQt5.QtCore import QEvent
+
+        # Forza cursore nascosto quando il mouse entra in qualsiasi widget della finestra
+        if event.type() == QEvent.Enter or event.type() == QEvent.HoverEnter:
+            if obj.cursor().shape() != Qt.BlankCursor:
+                obj.setCursor(Qt.BlankCursor)
+
         if obj == self.scroll_area and event.type() == QEvent.KeyPress:
             if event.key() in (Qt.Key_Up, Qt.Key_Down):
                 # Blocca l'evento e gestiscilo direttamente per lo zoom
