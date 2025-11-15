@@ -76,7 +76,7 @@ class LibraryView(QWidget):
         search_layout.addWidget(self.tag_filter_combo, 1)  # 1/4 width
 
         # Advanced Search Toggle (v0.3.0)
-        self.advanced_search_button = QPushButton('▼', self)
+        self.advanced_search_button = QPushButton('', self)
         self.advanced_search_button.setFixedSize(30, 30)
         self.advanced_search_button.setToolTip('Mostra/Nascondi filtri avanzati')
         self.advanced_search_button.setCheckable(True)
@@ -157,14 +157,14 @@ class LibraryView(QWidget):
         controls_layout.addWidget(self.sort_combo)
         controls_layout.addStretch()
 
-        self.view_mode_button = QPushButton('☰', self)
+        self.view_mode_button = QPushButton('', self)
         self.view_mode_button.setFixedSize(30, 30)
         self.view_mode_button.setToolTip('Cambia visualizzazione (Griglia/Lista)')
         self.view_mode_button.clicked.connect(self.toggle_view_mode)
         controls_layout.addWidget(self.view_mode_button)
 
         # Pulsante Riprendi Lettura
-        self.resume_button = QPushButton('▶', self)
+        self.resume_button = QPushButton('', self)
         self.resume_button.setFixedSize(40, 30)
         self.resume_button.setToolTip('Riprendi Lettura')
         self.resume_button.setStyleSheet("font-weight: bold; font-size: 16px;")
@@ -172,7 +172,7 @@ class LibraryView(QWidget):
         self.resume_button.setVisible(False)  # Nascosto finché non c'è un manga da riprendere
         controls_layout.addWidget(self.resume_button)
 
-        self.import_button = QPushButton('↓', self)
+        self.import_button = QPushButton('', self)
         self.import_button.setFixedSize(30, 30)
         self.import_button.setToolTip('Importa file .manga (Ctrl+I)')
         self.import_button.clicked.connect(self.import_manga)
@@ -185,7 +185,7 @@ class LibraryView(QWidget):
         self.import_archive_button.clicked.connect(self.import_archive)
         controls_layout.addWidget(self.import_archive_button)
 
-        self.export_button = QPushButton('↑', self)
+        self.export_button = QPushButton('', self)
         self.export_button.setFixedSize(30, 30)
         self.export_button.setToolTip('Esporta manga selezionato (Ctrl+E)')
         self.export_button.clicked.connect(self.export_manga)
@@ -205,7 +205,7 @@ class LibraryView(QWidget):
         self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
         controls_layout.addWidget(self.theme_combo)
 
-        self.settings_button = QPushButton('⚙', self)
+        self.settings_button = QPushButton('', self)
         self.settings_button.setFixedSize(40, 40)
         self.settings_button.setStyleSheet("font-size: 20px;")
         self.settings_button.setToolTip('Impostazioni (Temi, Libreria, Performance)')
@@ -262,7 +262,7 @@ class LibraryView(QWidget):
             # Fix: Assicura che drag drop sia disabilitato anche in IconMode
             self.manga_grid_view.setDragEnabled(False)
             self.manga_grid_view.setAcceptDrops(False)
-            self.view_mode_button.setText('☰')
+            self.view_mode_button.setText('')
         else:
             self.manga_grid_view.setViewMode(QListWidget.ListMode)
             self.manga_grid_view.setFlow(QListWidget.TopToBottom)
@@ -271,7 +271,7 @@ class LibraryView(QWidget):
             # Fix: Assicura che drag drop sia disabilitato anche in ListMode
             self.manga_grid_view.setDragEnabled(False)
             self.manga_grid_view.setAcceptDrops(False)
-            self.view_mode_button.setText('▦')
+            self.view_mode_button.setText('')
         self.manga_grid_view.update()
 
     def load_library(self):
@@ -424,7 +424,7 @@ class LibraryView(QWidget):
                 'Libreria vuota',
                 'La libreria è vuota!\n\n'
                 'Puoi:\n'
-                '• Importare file .manga esistenti (pulsante ↓ o Ctrl+I)\n'
+                '• Importare file .manga esistenti (pulsante  o Ctrl+I)\n'
                 '• Creare un nuovo manga (pulsante + o Ctrl+N)\n'
                 '• Cambiare la directory della libreria nelle Impostazioni\n\n'
                 f'Directory corrente: {get_manga_dir()}'
@@ -1170,8 +1170,8 @@ class LibraryView(QWidget):
 
         # Aggiorna il pulsante
         if is_visible:
-            self.advanced_search_button.setText('▲')
+            self.advanced_search_button.setText('')
         else:
-            self.advanced_search_button.setText('▼')
+            self.advanced_search_button.setText('')
 
         logger.debug(f"Advanced search panel {'shown' if is_visible else 'hidden'}")

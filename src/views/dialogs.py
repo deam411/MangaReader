@@ -154,8 +154,8 @@ class ShortcutsDialog(QDialog):
                 ("Z", "Importa archivio CBZ/CBR"),
             ],
             "Lettore": [
-                ("↑", "Zoom in (10%)"),
-                ("↓", "Zoom out (10%)"),
+                ("", "Zoom in (10%)"),
+                ("", "Zoom out (10%)"),
                 ("Mouse Drag", "Pan/sposta immagine (tenere click sinistro)"),
                 ("Scroll", "Scorri pagine verticalmente"),
                 ("Ctrl+D", "Toggle vista doppia pagina"),
@@ -418,7 +418,7 @@ class StatisticsDialog(QDialog):
         main_layout.setSpacing(20)
 
         # Titolo
-        title_label = QLabel("📊 Le Tue Statistiche di Lettura")
+        title_label = QLabel(" Le Tue Statistiche di Lettura")
         title_label.setStyleSheet("""
             font-size: 20px;
             font-weight: bold;
@@ -459,17 +459,17 @@ class StatisticsDialog(QDialog):
         main_stats_card = self._create_stats_card(
             "Statistiche Generali",
             [
-                ("⏱️ Tempo Totale", f"{stats['total_time_hours']:.1f} ore ({stats['total_time_minutes']} min)"),
-                ("📖 Pagine Lette", f"{stats['total_pages']} pagine"),
-                ("🔥 Streak Corrente", f"{stats['current_streak']} giorni consecutivi"),
-                ("⚡ Velocità Media", f"{stats['average_speed']:.2f} pagine/minuto"),
+                (" Tempo Totale", f"{stats['total_time_hours']:.1f} ore ({stats['total_time_minutes']} min)"),
+                (" Pagine Lette", f"{stats['total_pages']} pagine"),
+                (" Streak Corrente", f"{stats['current_streak']} giorni consecutivi"),
+                (" Velocità Media", f"{stats['average_speed']:.2f} pagine/minuto"),
             ]
         )
         content_layout.addWidget(main_stats_card)
 
         # Card statistiche oggi
         today_stats_card = self._create_stats_card(
-            "📅 Oggi",
+            " Oggi",
             [
                 ("Tempo di Lettura", f"{stats['today']['time_minutes']} minuti"),
                 ("Pagine Lette", f"{stats['today']['pages']} pagine"),
@@ -480,7 +480,7 @@ class StatisticsDialog(QDialog):
 
         # Card statistiche settimana
         week_stats_card = self._create_stats_card(
-            "📊 Questa Settimana",
+            " Questa Settimana",
             [
                 ("Tempo Totale", f"{stats['this_week']['time_minutes']} minuti"),
                 ("Pagine Lette", f"{stats['this_week']['pages']} pagine"),

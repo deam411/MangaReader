@@ -60,7 +60,7 @@ class MangaView(QWidget):
         self.edit_manga_button.clicked.connect(self.launch_manga_editor)
         layout.addWidget(self.edit_manga_button)
 
-        self.statistics_button = QPushButton('📊 View Statistics', self)
+        self.statistics_button = QPushButton(' View Statistics', self)
         self.statistics_button.setToolTip('Visualizza le tue statistiche di lettura per questo manga')
         self.statistics_button.clicked.connect(self.show_statistics)
         layout.addWidget(self.statistics_button)
@@ -191,7 +191,7 @@ class MangaView(QWidget):
 
         for bookmark in bookmarks:
             # Formato: "Nome - Volume X, Capitolo Y, Pagina Z"
-            display_text = f"📑 {bookmark['name']} - {bookmark['volume_name']}, {bookmark['chapter_name']}, Pag. {bookmark['page_number']}"
+            display_text = f" {bookmark['name']} - {bookmark['volume_name']}, {bookmark['chapter_name']}, Pag. {bookmark['page_number']}"
             item = QListWidgetItem(display_text)
             # Salva dati bookmark nell'item
             item.setData(Qt.UserRole, bookmark)

@@ -35,9 +35,9 @@ Ogni plugin deve essere un archivio ZIP con questa struttura:
 
 ```
 plugin-id.zip
-├── plugin.py          # File principale del plugin
-├── __init__.py        # (opzionale)
-└── ... altri file
+ plugin.py          # File principale del plugin
+ __init__.py        # (opzionale)
+ ... altri file
 ```
 
 **Importante**: Il nome della cartella estratta dallo ZIP deve corrispondere al `id` del plugin nel file `plugins.json`.
@@ -72,15 +72,15 @@ self.marketplace_url = "https://raw.githubusercontent.com/TUO_USERNAME/TUO_REPO/
 
 | Campo | Obbligatorio | Descrizione |
 |-------|-------------|-------------|
-| `id` | ✅ | ID univoco del plugin (deve corrispondere al nome della cartella) |
-| `name` | ✅ | Nome visualizzato del plugin |
-| `version` | ✅ | Versione del plugin (formato: X.Y.Z) |
-| `author` | ✅ | Nome dell'autore |
-| `description` | ✅ | Descrizione breve del plugin |
-| `download_url` | ✅ | URL diretto al file ZIP del plugin |
-| `requires_version` | ❌ | Versione minima dell'app richiesta (default: "0.0.0") |
-| `homepage` | ❌ | URL della pagina del plugin |
-| `icon_url` | ❌ | URL dell'icona del plugin |
+| `id` |  | ID univoco del plugin (deve corrispondere al nome della cartella) |
+| `name` |  | Nome visualizzato del plugin |
+| `version` |  | Versione del plugin (formato: X.Y.Z) |
+| `author` |  | Nome dell'autore |
+| `description` |  | Descrizione breve del plugin |
+| `download_url` |  | URL diretto al file ZIP del plugin |
+| `requires_version` |  | Versione minima dell'app richiesta (default: "0.0.0") |
+| `homepage` |  | URL della pagina del plugin |
+| `icon_url` |  | URL dell'icona del plugin |
 
 ## Esempio Completo
 
@@ -101,9 +101,9 @@ Gli utenti che hanno già installato il plugin vedranno "Aggiornamento disponibi
 Per testare il marketplace localmente:
 
 1. Avvia MangaReader
-2. Vai in Impostazioni → Plugin
+2. Vai in Impostazioni  Plugin
 3. Clicca sul tab "Disponibili"
-4. Clicca "🔄 Aggiorna Marketplace"
+4. Clicca " Aggiorna Marketplace"
 5. Dovresti vedere la lista dei plugin dal tuo repository
 
 ## Note

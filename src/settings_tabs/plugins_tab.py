@@ -290,7 +290,7 @@ class PluginsTab(QWidget):
         # Pulsanti generali
         general_buttons = QHBoxLayout()
 
-        self.fetch_marketplace_btn = QPushButton("🔄 Aggiorna Marketplace")
+        self.fetch_marketplace_btn = QPushButton(" Aggiorna Marketplace")
         self.fetch_marketplace_btn.setToolTip("Scarica la lista aggiornata dei plugin disponibili")
         self.fetch_marketplace_btn.clicked.connect(self.fetch_marketplace)
         general_buttons.addWidget(self.fetch_marketplace_btn)
@@ -334,7 +334,7 @@ class PluginsTab(QWidget):
 
             item_text = f"{display_name} v{version}"
             if enabled:
-                item_text += " ✓"
+                item_text += " "
 
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, plugin_info['name'])  # Store internal name
@@ -412,7 +412,7 @@ class PluginsTab(QWidget):
         else:
             self.plugin_manager.disable_plugin(plugin_name)
 
-        # Ricarica lista per aggiornare il ✓, mantenendo la selezione corrente
+        # Ricarica lista per aggiornare il , mantenendo la selezione corrente
         self.load_plugins(select_plugin=plugin_name)
         self.plugins_changed.emit()
 
@@ -539,7 +539,7 @@ class PluginsTab(QWidget):
             return
 
         self.fetch_marketplace_btn.setEnabled(False)
-        self.fetch_marketplace_btn.setText("⏳ Scaricando...")
+        self.fetch_marketplace_btn.setText(" Scaricando...")
 
         success = self.marketplace.fetch_available_plugins()
 
@@ -559,7 +559,7 @@ class PluginsTab(QWidget):
             )
 
         self.fetch_marketplace_btn.setEnabled(True)
-        self.fetch_marketplace_btn.setText("🔄 Aggiorna Marketplace")
+        self.fetch_marketplace_btn.setText(" Aggiorna Marketplace")
 
     def load_marketplace_plugins(self):
         """Carica la lista dei plugin dal marketplace."""
@@ -582,7 +582,7 @@ class PluginsTab(QWidget):
 
             # Controlla se installato
             if self.marketplace.is_plugin_installed(plugin_id):
-                item_text += " ✓"
+                item_text += " "
 
                 # Controlla se aggiornamento disponibile
                 if self.marketplace.is_update_available(plugin_id, version):
@@ -628,16 +628,16 @@ class PluginsTab(QWidget):
         # Aggiorna status
         if not is_compatible:
             self.marketplace_status_label.setText(
-                f"⚠️ Richiede app v{requires_version} o superiore"
+                f" Richiede app v{requires_version} o superiore"
             )
             self.marketplace_status_label.setStyleSheet("color: orange;")
             self.install_btn.setEnabled(False)
         elif is_installed and not is_update:
-            self.marketplace_status_label.setText("✓ Installato")
+            self.marketplace_status_label.setText(" Installato")
             self.marketplace_status_label.setStyleSheet("color: green;")
             self.install_btn.setEnabled(False)
         elif is_update:
-            self.marketplace_status_label.setText("🔄 Aggiornamento disponibile")
+            self.marketplace_status_label.setText(" Aggiornamento disponibile")
             self.marketplace_status_label.setStyleSheet("color: blue;")
             self.install_btn.setText("Aggiorna")
             self.install_btn.setEnabled(True)

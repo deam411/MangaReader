@@ -37,7 +37,7 @@ class VolumeView(QWidget):
         layout = QVBoxLayout(self)
 
         # Pulsante per tornare ai dettagli del manga
-        self.back_button = QPushButton('← Back to Manga Details', self)
+        self.back_button = QPushButton(' Back to Manga Details', self)
         self.back_button.setToolTip('Torna ai dettagli del manga (Backspace)')
         self.back_button.clicked.connect(self.back_to_manga)
         layout.addWidget(self.back_button)
