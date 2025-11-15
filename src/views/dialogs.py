@@ -9,7 +9,7 @@ from typing import Dict, Any
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QFormLayout,
     QDialogButtonBox, QScrollArea, QWidget, QPushButton, QCheckBox,
-    QSpinBox, QTextEdit
+    QSpinBox, QTextEdit, QFrame
 )
 from PyQt5.QtCore import Qt
 from src.constants import DIALOG_MIN_WIDTH
@@ -418,11 +418,10 @@ class StatisticsDialog(QDialog):
         main_layout.setSpacing(20)
 
         # Titolo
-        title_label = QLabel(" Le Tue Statistiche di Lettura")
+        title_label = QLabel("Le Tue Statistiche di Lettura")
         title_label.setStyleSheet("""
             font-size: 20px;
             font-weight: bold;
-            color: #4a9eff;
             padding: 10px;
         """)
         title_label.setAlignment(Qt.AlignCenter)
@@ -459,17 +458,17 @@ class StatisticsDialog(QDialog):
         main_stats_card = self._create_stats_card(
             "Statistiche Generali",
             [
-                (" Tempo Totale", f"{stats['total_time_hours']:.1f} ore ({stats['total_time_minutes']} min)"),
-                (" Pagine Lette", f"{stats['total_pages']} pagine"),
-                (" Streak Corrente", f"{stats['current_streak']} giorni consecutivi"),
-                (" Velocità Media", f"{stats['average_speed']:.2f} pagine/minuto"),
+                ("Tempo Totale", f"{stats['total_time_hours']:.1f} ore ({stats['total_time_minutes']} min)"),
+                ("Pagine Lette", f"{stats['total_pages']} pagine"),
+                ("Streak Corrente", f"{stats['current_streak']} giorni consecutivi"),
+                ("Velocità Media", f"{stats['average_speed']:.2f} pagine/minuto"),
             ]
         )
         content_layout.addWidget(main_stats_card)
 
         # Card statistiche oggi
         today_stats_card = self._create_stats_card(
-            " Oggi",
+            "Oggi",
             [
                 ("Tempo di Lettura", f"{stats['today']['time_minutes']} minuti"),
                 ("Pagine Lette", f"{stats['today']['pages']} pagine"),
@@ -480,7 +479,7 @@ class StatisticsDialog(QDialog):
 
         # Card statistiche settimana
         week_stats_card = self._create_stats_card(
-            " Questa Settimana",
+            "Questa Settimana",
             [
                 ("Tempo Totale", f"{stats['this_week']['time_minutes']} minuti"),
                 ("Pagine Lette", f"{stats['this_week']['pages']} pagine"),
@@ -496,19 +495,6 @@ class StatisticsDialog(QDialog):
         # Pulsante chiudi
         button_box = QDialogButtonBox(QDialogButtonBox.Ok)
         button_box.accepted.connect(self.accept)
-        button_box.setStyleSheet("""
-            QPushButton {
-                background-color: #4a9eff;
-                color: white;
-                border: none;
-                padding: 8px 20px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3a7ecf;
-            }
-        """)
         main_layout.addWidget(button_box)
 
     def _create_stats_card(self, title: str, stats_list: list) -> QWidget:
@@ -523,9 +509,9 @@ class StatisticsDialog(QDialog):
             Widget della card
         """
         card = QWidget()
+        card.setFrameShape(QFrame.Box)
         card.setStyleSheet("""
             QWidget {
-                background-color: #2b2b2b;
                 border-radius: 8px;
                 padding: 15px;
             }
@@ -539,15 +525,14 @@ class StatisticsDialog(QDialog):
         title_label.setStyleSheet("""
             font-size: 16px;
             font-weight: bold;
-            color: #ffffff;
             padding-bottom: 5px;
         """)
         layout.addWidget(title_label)
 
         # Linea separatore
-        separator = QLabel()
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
         separator.setFixedHeight(2)
-        separator.setStyleSheet("background-color: #4a9eff;")
         layout.addWidget(separator)
 
         # Statistiche
@@ -555,11 +540,10 @@ class StatisticsDialog(QDialog):
             stat_layout = QHBoxLayout()
 
             label_widget = QLabel(label)
-            label_widget.setStyleSheet("color: #cccccc; font-size: 14px;")
+            label_widget.setStyleSheet("font-size: 14px;")
 
             value_widget = QLabel(str(value))
             value_widget.setStyleSheet("""
-                color: #4a9eff;
                 font-size: 14px;
                 font-weight: bold;
             """)
