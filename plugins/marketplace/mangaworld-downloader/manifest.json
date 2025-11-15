@@ -1,0 +1,8 @@
+{
+  "id": "mangaworld-downloader",
+  "name": "MangaWorld Downloader",
+  "version": "1.0.0",
+  "author": "MangaReader Team",
+  "description": "Scarica manga direttamente da MangaWorld (mangaworld.ac). Permette di cercare manga, visualizzare capitoli disponibili e scaricarli nel database locale.",
+  "requires_version": "0.5.0"
+}
