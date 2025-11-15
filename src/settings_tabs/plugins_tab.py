@@ -2,19 +2,53 @@
 Tab Plugins per Settings Dialog.
 
 Gestisce l'abilitazione/disabilitazione dei plugin e la loro configurazione.
+Include anche il marketplace per scaricare nuovi plugin.
 """
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
     QListWidgetItem, QPushButton, QTextEdit, QGroupBox, QCheckBox,
-    QMessageBox
+    QMessageBox, QTabWidget, QProgressBar
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QThread
 from typing import Optional, TYPE_CHECKING
 from src.views.dialogs import PluginConfigDialog
+from plugins.plugin_marketplace import PluginMarketplace
 
 if TYPE_CHECKING:
     from plugins.plugin_manager import PluginManager
+
+
+class PluginInstallWorker(QThread):
+    """Worker thread per installare plugin in background."""
+
+    progress = pyqtSignal(int, int)  # downloaded, total
+    finished = pyqtSignal(bool, str)  # success, message
+
+    def __init__(self, marketplace: PluginMarketplace, plugin_info: dict):
+        super().__init__()
+        self.marketplace = marketplace
+        self.plugin_info = plugin_info
+
+    def run(self):
+        """Installa il plugin."""
+        try:
+            def progress_callback(downloaded, total):
+                self.progress.emit(downloaded, total)
+
+            success = self.marketplace.install_plugin(
+                self.plugin_info,
+                progress_callback=progress_callback
+            )
+
+            if success:
+                plugin_name = self.plugin_info.get('name', 'Plugin')
+                self.finished.emit(True, f"{plugin_name} installato con successo!")
+            else:
+                self.finished.emit(False, "Errore durante l'installazione")
+
+        except Exception as e:
+            self.finished.emit(False, f"Errore: {str(e)}")
 
 
 class PluginsTab(QWidget):
@@ -22,6 +56,7 @@ class PluginsTab(QWidget):
     Tab per la gestione dei plugin.
 
     Mostra lista plugin disponibili con opzioni per abilitare/disabilitare.
+    Include marketplace per scaricare nuovi plugin.
     """
 
     plugins_changed = pyqtSignal()  # Emesso quando i plugin cambiano
@@ -29,12 +64,34 @@ class PluginsTab(QWidget):
     def __init__(self, plugin_manager: 'PluginManager', parent=None):
         super().__init__(parent)
         self.plugin_manager = plugin_manager
+        self.marketplace = PluginMarketplace(
+            plugin_dir=plugin_manager.plugin_dir,
+            app_version="0.5.0"  # TODO: Get from app
+        )
+        self.install_worker = None
         self.init_ui()
         self.load_plugins()
 
     def init_ui(self):
         """Inizializza l'interfaccia."""
         layout = QVBoxLayout(self)
+
+        # Tab widget per Installati/Disponibili
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+
+        # Tab Plugin Installati
+        self.installed_tab = self.create_installed_tab()
+        self.tab_widget.addTab(self.installed_tab, "Installati")
+
+        # Tab Marketplace
+        self.marketplace_tab = self.create_marketplace_tab()
+        self.tab_widget.addTab(self.marketplace_tab, "Disponibili")
+
+    def create_installed_tab(self):
+        """Crea il tab per i plugin installati."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
 
         # Header
         header_label = QLabel("Plugin installati")
@@ -127,6 +184,108 @@ class PluginsTab(QWidget):
         )
         footer_label.setStyleSheet("color: gray; font-size: 10px;")
         layout.addWidget(footer_label)
+
+        return tab
+
+    def create_marketplace_tab(self):
+        """Crea il tab per il marketplace dei plugin."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        # Header
+        header_label = QLabel("Plugin Disponibili")
+        header_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        layout.addWidget(header_label)
+
+        # Descrizione
+        desc_label = QLabel(
+            "Scarica e installa plugin dalla community. "
+            "I plugin saranno installati nella cartella locale."
+        )
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: gray; margin-bottom: 10px;")
+        layout.addWidget(desc_label)
+
+        # Layout principale
+        content_layout = QHBoxLayout()
+
+        # Lista plugin marketplace (sinistra)
+        self.marketplace_list = QListWidget()
+        self.marketplace_list.currentItemChanged.connect(self.on_marketplace_plugin_selected)
+        content_layout.addWidget(self.marketplace_list, stretch=1)
+
+        # Dettagli plugin marketplace (destra)
+        details_group = QGroupBox("Dettagli Plugin")
+        details_layout = QVBoxLayout()
+
+        # Nome plugin
+        self.marketplace_name_label = QLabel("Seleziona un plugin")
+        self.marketplace_name_label.setStyleSheet("font-size: 13px; font-weight: bold;")
+        details_layout.addWidget(self.marketplace_name_label)
+
+        # Versione e autore
+        self.marketplace_info_label = QLabel("")
+        self.marketplace_info_label.setStyleSheet("color: gray; margin-bottom: 10px;")
+        details_layout.addWidget(self.marketplace_info_label)
+
+        # Descrizione
+        self.marketplace_desc = QTextEdit()
+        self.marketplace_desc.setReadOnly(True)
+        self.marketplace_desc.setMaximumHeight(100)
+        details_layout.addWidget(self.marketplace_desc)
+
+        # Progress bar
+        self.download_progress = QProgressBar()
+        self.download_progress.setVisible(False)
+        details_layout.addWidget(self.download_progress)
+
+        # Status label
+        self.marketplace_status_label = QLabel("")
+        details_layout.addWidget(self.marketplace_status_label)
+
+        # Pulsanti azione
+        button_layout = QHBoxLayout()
+
+        self.install_btn = QPushButton("Installa")
+        self.install_btn.setToolTip("Installa questo plugin")
+        self.install_btn.clicked.connect(self.install_marketplace_plugin)
+        self.install_btn.setEnabled(False)
+        button_layout.addWidget(self.install_btn)
+
+        self.uninstall_btn = QPushButton("Disinstalla")
+        self.uninstall_btn.setToolTip("Rimuovi questo plugin")
+        self.uninstall_btn.clicked.connect(self.uninstall_marketplace_plugin)
+        self.uninstall_btn.setEnabled(False)
+        button_layout.addWidget(self.uninstall_btn)
+
+        details_layout.addLayout(button_layout)
+        details_layout.addStretch()
+
+        details_group.setLayout(details_layout)
+        content_layout.addWidget(details_group, stretch=1)
+
+        layout.addLayout(content_layout)
+
+        # Pulsanti generali
+        general_buttons = QHBoxLayout()
+
+        self.fetch_marketplace_btn = QPushButton("🔄 Aggiorna Marketplace")
+        self.fetch_marketplace_btn.setToolTip("Scarica la lista aggiornata dei plugin disponibili")
+        self.fetch_marketplace_btn.clicked.connect(self.fetch_marketplace)
+        general_buttons.addWidget(self.fetch_marketplace_btn)
+
+        general_buttons.addStretch()
+
+        layout.addLayout(general_buttons)
+
+        # Info footer
+        footer_label = QLabel(
+            f"Repository: {self.marketplace.marketplace_url}"
+        )
+        footer_label.setStyleSheet("color: gray; font-size: 10px;")
+        layout.addWidget(footer_label)
+
+        return tab
 
     def load_plugins(self, select_plugin: Optional[str] = None):
         """
@@ -347,6 +506,223 @@ class PluginsTab(QWidget):
                 "Errore",
                 f"Impossibile aprire la cartella: {e}"
             )
+
+    def fetch_marketplace(self):
+        """Scarica la lista dei plugin dal marketplace."""
+        self.fetch_marketplace_btn.setEnabled(False)
+        self.fetch_marketplace_btn.setText("⏳ Scaricando...")
+
+        success = self.marketplace.fetch_available_plugins()
+
+        if success:
+            self.load_marketplace_plugins()
+            QMessageBox.information(
+                self,
+                "Marketplace Aggiornato",
+                f"Trovati {len(self.marketplace.available_plugins)} plugin disponibili."
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Errore",
+                "Impossibile scaricare la lista dei plugin dal marketplace.\n"
+                "Verifica la connessione internet."
+            )
+
+        self.fetch_marketplace_btn.setEnabled(True)
+        self.fetch_marketplace_btn.setText("🔄 Aggiorna Marketplace")
+
+    def load_marketplace_plugins(self):
+        """Carica la lista dei plugin dal marketplace."""
+        self.marketplace_list.clear()
+
+        plugins = self.marketplace.get_available_plugins()
+
+        if not plugins:
+            item = QListWidgetItem("Nessun plugin disponibile. Clicca 'Aggiorna Marketplace'")
+            item.setFlags(Qt.NoItemFlags)
+            self.marketplace_list.addItem(item)
+            return
+
+        for plugin_info in plugins:
+            display_name = plugin_info.get('name', 'Unknown')
+            version = plugin_info.get('version', '0.0.0')
+            plugin_id = plugin_info.get('id')
+
+            item_text = f"{display_name} v{version}"
+
+            # Controlla se installato
+            if self.marketplace.is_plugin_installed(plugin_id):
+                item_text += " ✓"
+
+                # Controlla se aggiornamento disponibile
+                if self.marketplace.is_update_available(plugin_id, version):
+                    item_text += " (Aggiornamento disponibile)"
+
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.UserRole, plugin_info)
+            self.marketplace_list.addItem(item)
+
+    def on_marketplace_plugin_selected(self, current: Optional[QListWidgetItem], previous: Optional[QListWidgetItem]):
+        """Chiamato quando viene selezionato un plugin dal marketplace."""
+        if current is None:
+            self.clear_marketplace_details()
+            return
+
+        plugin_info = current.data(Qt.UserRole)
+        if plugin_info is None:
+            return
+
+        self.show_marketplace_details(plugin_info)
+
+    def show_marketplace_details(self, plugin_info: dict):
+        """Mostra i dettagli di un plugin del marketplace."""
+        name = plugin_info.get('name', 'Unknown')
+        version = plugin_info.get('version', '0.0.0')
+        author = plugin_info.get('author', 'Unknown')
+        description = plugin_info.get('description', 'Nessuna descrizione disponibile')
+        plugin_id = plugin_info.get('id')
+        requires_version = plugin_info.get('requires_version', '0.0.0')
+
+        self.marketplace_name_label.setText(name)
+
+        info_text = f"v{version} by {author}"
+        self.marketplace_info_label.setText(info_text)
+
+        self.marketplace_desc.setPlainText(description)
+
+        # Verifica compatibilità
+        is_compatible = self.marketplace.is_compatible(requires_version)
+        is_installed = self.marketplace.is_plugin_installed(plugin_id)
+        is_update = self.marketplace.is_update_available(plugin_id, version) if is_installed else False
+
+        # Aggiorna status
+        if not is_compatible:
+            self.marketplace_status_label.setText(
+                f"⚠️ Richiede app v{requires_version} o superiore"
+            )
+            self.marketplace_status_label.setStyleSheet("color: orange;")
+            self.install_btn.setEnabled(False)
+        elif is_installed and not is_update:
+            self.marketplace_status_label.setText("✓ Installato")
+            self.marketplace_status_label.setStyleSheet("color: green;")
+            self.install_btn.setEnabled(False)
+        elif is_update:
+            self.marketplace_status_label.setText("🔄 Aggiornamento disponibile")
+            self.marketplace_status_label.setStyleSheet("color: blue;")
+            self.install_btn.setText("Aggiorna")
+            self.install_btn.setEnabled(True)
+        else:
+            self.marketplace_status_label.setText("")
+            self.install_btn.setText("Installa")
+            self.install_btn.setEnabled(True)
+
+        # Pulsante disinstalla
+        self.uninstall_btn.setEnabled(is_installed)
+
+    def clear_marketplace_details(self):
+        """Pulisce i dettagli del plugin marketplace."""
+        self.marketplace_name_label.setText("Seleziona un plugin")
+        self.marketplace_info_label.setText("")
+        self.marketplace_desc.setPlainText("")
+        self.marketplace_status_label.setText("")
+        self.install_btn.setEnabled(False)
+        self.uninstall_btn.setEnabled(False)
+
+    def install_marketplace_plugin(self):
+        """Installa il plugin selezionato dal marketplace."""
+        current = self.marketplace_list.currentItem()
+        if current is None:
+            return
+
+        plugin_info = current.data(Qt.UserRole)
+        if plugin_info is None:
+            return
+
+        # Disabilita pulsanti durante installazione
+        self.install_btn.setEnabled(False)
+        self.fetch_marketplace_btn.setEnabled(False)
+
+        # Mostra progress bar
+        self.download_progress.setVisible(True)
+        self.download_progress.setValue(0)
+
+        # Avvia worker thread
+        self.install_worker = PluginInstallWorker(self.marketplace, plugin_info)
+        self.install_worker.progress.connect(self.on_install_progress)
+        self.install_worker.finished.connect(self.on_install_finished)
+        self.install_worker.start()
+
+    def on_install_progress(self, downloaded: int, total: int):
+        """Aggiorna la progress bar durante il download."""
+        if total > 0:
+            progress = int((downloaded / total) * 100)
+            self.download_progress.setValue(progress)
+
+    def on_install_finished(self, success: bool, message: str):
+        """Chiamato quando l'installazione è completata."""
+        self.download_progress.setVisible(False)
+        self.install_btn.setEnabled(True)
+        self.fetch_marketplace_btn.setEnabled(True)
+
+        if success:
+            QMessageBox.information(self, "Installazione Completata", message)
+
+            # Ricarica lista plugin installati e marketplace
+            self.plugin_manager.load_all_plugins()
+            self.load_plugins()
+            self.load_marketplace_plugins()
+            self.plugins_changed.emit()
+        else:
+            QMessageBox.warning(self, "Errore Installazione", message)
+
+    def uninstall_marketplace_plugin(self):
+        """Disinstalla il plugin selezionato."""
+        current = self.marketplace_list.currentItem()
+        if current is None:
+            return
+
+        plugin_info = current.data(Qt.UserRole)
+        if plugin_info is None:
+            return
+
+        plugin_id = plugin_info.get('id')
+        plugin_name = plugin_info.get('name')
+
+        reply = QMessageBox.question(
+            self,
+            "Conferma Disinstallazione",
+            f"Sei sicuro di voler disinstallare '{plugin_name}'?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Disabilita e scarica plugin
+            if plugin_id in self.plugin_manager.plugins:
+                self.plugin_manager.disable_plugin(plugin_id)
+                self.plugin_manager.unload_plugin(plugin_id)
+
+            # Rimuovi file
+            success = self.marketplace.uninstall_plugin(plugin_id)
+
+            if success:
+                QMessageBox.information(
+                    self,
+                    "Disinstallazione Completata",
+                    f"'{plugin_name}' è stato disinstallato con successo."
+                )
+
+                # Ricarica liste
+                self.plugin_manager.load_all_plugins()
+                self.load_plugins()
+                self.load_marketplace_plugins()
+                self.plugins_changed.emit()
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Errore",
+                    f"Impossibile disinstallare '{plugin_name}'."
+                )
 
     def get_values(self) -> dict:
         """
