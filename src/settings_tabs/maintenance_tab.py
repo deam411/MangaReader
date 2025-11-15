@@ -186,7 +186,7 @@ class MaintenanceTab(QWidget):
 
         # Pulsante scansione
         scan_layout = QHBoxLayout()
-        self.scan_button = QPushButton(" Scansiona Manga")
+        self.scan_button = QPushButton("🔍 Scansiona Manga")
         self.scan_button.setToolTip("Cerca manga che necessitano riparazione")
         self.scan_button.clicked.connect(self.scan_manga)
         scan_layout.addWidget(self.scan_button)
@@ -214,7 +214,7 @@ class MaintenanceTab(QWidget):
 
         action_layout.addStretch()
 
-        self.repair_button = QPushButton(" Ripara Selezionati")
+        self.repair_button = QPushButton("🔧 Ripara Selezionati")
         self.repair_button.setToolTip("Ripara i manga selezionati aggiungendo le dimensioni delle pagine")
         self.repair_button.clicked.connect(self.repair_selected)
         self.repair_button.setEnabled(False)
