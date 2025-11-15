@@ -38,37 +38,63 @@ class PluginMarketplace:
         self.plugin_dir = plugin_dir
         self.app_version = app_version
         self.marketplace_url = "https://raw.githubusercontent.com/deam411/MangaReader-Plugins/main/plugins.json"
+
+        # Path al file locale del marketplace
+        marketplace_dir = os.path.join(os.path.dirname(plugin_dir), 'marketplace')
+        self.local_marketplace_file = os.path.join(marketplace_dir, 'plugins.json')
+
         self.available_plugins: List[Dict[str, Any]] = []
 
         logger.info(f"PluginMarketplace inizializzato. App version: {app_version}")
+        logger.debug(f"Local marketplace file: {self.local_marketplace_file}")
 
     def fetch_available_plugins(self) -> bool:
         """
-        Scarica la lista dei plugin disponibili dal repository remoto.
+        Carica la lista dei plugin disponibili.
+        Prova prima dal file locale, poi dal repository remoto se non trovato.
 
         Returns:
-            True se scaricata con successo, False altrimenti
+            True se caricata con successo, False altrimenti
         """
+        # Prova prima a caricare dal file locale
+        if os.path.exists(self.local_marketplace_file):
+            try:
+                logger.info(f"Loading plugin list from local file: {self.local_marketplace_file}")
+
+                with open(self.local_marketplace_file, 'r', encoding='utf-8') as f:
+                    marketplace_data = json.load(f)
+
+                self.available_plugins = marketplace_data.get('plugins', [])
+                logger.info(f"Found {len(self.available_plugins)} plugins in local marketplace")
+
+                return True
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in local marketplace: {e}")
+            except Exception as e:
+                logger.error(f"Error reading local marketplace: {e}", exc_info=True)
+
+        # Se il file locale non esiste o fallisce, prova il remoto
         try:
-            logger.info(f"Fetching plugin list from: {self.marketplace_url}")
+            logger.info(f"Fetching plugin list from remote: {self.marketplace_url}")
 
             with urllib.request.urlopen(self.marketplace_url, timeout=10) as response:
                 data = response.read().decode('utf-8')
                 marketplace_data = json.loads(data)
 
             self.available_plugins = marketplace_data.get('plugins', [])
-            logger.info(f"Found {len(self.available_plugins)} plugins in marketplace")
+            logger.info(f"Found {len(self.available_plugins)} plugins in remote marketplace")
 
             return True
 
         except urllib.error.URLError as e:
-            logger.error(f"Network error fetching marketplace: {e}")
+            logger.warning(f"Network error fetching remote marketplace: {e}")
             return False
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in marketplace: {e}")
+            logger.error(f"Invalid JSON in remote marketplace: {e}")
             return False
         except Exception as e:
-            logger.error(f"Error fetching marketplace: {e}", exc_info=True)
+            logger.error(f"Error fetching remote marketplace: {e}", exc_info=True)
             return False
 
     def get_available_plugins(self) -> List[Dict[str, Any]]:
