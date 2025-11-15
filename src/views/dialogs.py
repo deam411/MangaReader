@@ -497,7 +497,7 @@ class StatisticsDialog(QDialog):
         button_box.accepted.connect(self.accept)
         main_layout.addWidget(button_box)
 
-    def _create_stats_card(self, title: str, stats_list: list) -> QWidget:
+    def _create_stats_card(self, title: str, stats_list: list) -> QFrame:
         """
         Crea una card con statistiche.
 
@@ -508,10 +508,10 @@ class StatisticsDialog(QDialog):
         Returns:
             Widget della card
         """
-        card = QWidget()
+        card = QFrame()
         card.setFrameShape(QFrame.Box)
         card.setStyleSheet("""
-            QWidget {
+            QFrame {
                 border-radius: 8px;
                 padding: 15px;
             }
