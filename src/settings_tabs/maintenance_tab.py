@@ -313,8 +313,13 @@ class MaintenanceTab(QWidget):
 
             # Se le colonne non esistono, il manga necessita riparazione
             if not has_width or not has_height:
+                logger.debug(f"{os.path.basename(manga_file)}: Missing columns (width={has_width}, height={has_height})")
                 conn.close()
                 return True
+
+            # Conta tutte le pagine
+            cursor.execute('SELECT COUNT(*) FROM pages')
+            total_pages = cursor.fetchone()[0]
 
             # Controlla se esistono pagine senza width/height
             cursor.execute('''
@@ -324,6 +329,11 @@ class MaintenanceTab(QWidget):
 
             count = cursor.fetchone()[0]
             conn.close()
+
+            if count > 0:
+                logger.debug(f"{os.path.basename(manga_file)}: {count}/{total_pages} pages need dimensions")
+            else:
+                logger.debug(f"{os.path.basename(manga_file)}: OK ({total_pages} pages with dimensions)")
 
             return count > 0
 

@@ -588,12 +588,23 @@ class ChapterManager(BaseManager):
                 # Cancella tutte le pagine esistenti
                 c.execute('DELETE FROM pages WHERE chapter_id = ?', (chapter_id,))
 
-                # Inserisce le pagine nel nuovo ordine
+                # Inserisce le pagine nel nuovo ordine con dimensioni
                 for index, image_data in enumerate(ordered_pages_data):
+                    # Estrai dimensioni dall'immagine
+                    width, height = None, None
+                    try:
+                        from PyQt5.QtGui import QImage
+                        temp_image = QImage()
+                        if temp_image.loadFromData(image_data):
+                            width = temp_image.width()
+                            height = temp_image.height()
+                    except Exception as e:
+                        logger.warning(f"Could not extract dimensions for page {index + 1}: {e}")
+
                     c.execute('''
-                        INSERT INTO pages (chapter_id, page_number, image_data)
-                        VALUES (?, ?, ?)
-                    ''', (chapter_id, index + 1, image_data))
+                        INSERT INTO pages (chapter_id, page_number, image_data, width, height)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (chapter_id, index + 1, image_data, width, height))
 
             logger.info(f"Pages reordered successfully for chapter {chapter_id}")
             return True
