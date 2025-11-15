@@ -157,7 +157,7 @@ class LibraryView(QWidget):
         controls_layout.addWidget(self.sort_combo)
         controls_layout.addStretch()
 
-        self.view_mode_button = QPushButton('📊', self)
+        self.view_mode_button = QPushButton('☰', self)
         self.view_mode_button.setFixedSize(30, 30)
         self.view_mode_button.setToolTip('Cambia visualizzazione (Griglia/Lista)')
         self.view_mode_button.clicked.connect(self.toggle_view_mode)
