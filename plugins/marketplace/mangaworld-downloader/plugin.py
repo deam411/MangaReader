@@ -1,482 +1,297 @@
 """
-MangaWorld Downloader Plugin
+Mangaworld Downloader Plugin - Download manga directly from Mangaworld into Manga Reader.
 
-Plugin per scaricare manga da MangaWorld (mangaworld.ac)
+This plugin integrates with the Manga Creator through Shift+Add Volume to:
+- Download manga from Mangaworld and convert them to .manga format
+- Integrate downloaded volumes directly into existing .manga files
+- Support volume range downloading and cover fetching
+- Show real-time progress during download and database insertion
 """
 
+import sys
 import os
-import re
-import json
-import urllib.request
-import urllib.parse
-from typing import List, Dict, Optional
-from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QListWidget, QLabel, QProgressBar, QMessageBox, QListWidgetItem,
-    QComboBox, QTextEdit
-)
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
-from PyQt5.QtGui import QPixmap
-
-from plugins.plugin_base import PluginBase
-from src.logger import get_logger
-from src.database.manga_manager import MangaManager
-from src.database.chapter_manager import ChapterManager
-
-logger = get_logger(__name__)
-
-
-class MangaWorldSearchWorker(QThread):
-    """Worker thread per la ricerca manga."""
-
-    search_complete = pyqtSignal(list)
-    search_error = pyqtSignal(str)
-
-    def __init__(self, query: str):
-        super().__init__()
-        self.query = query
-        self.base_url = "https://www.mangaworld.ac"
-
-    def run(self):
-        """Esegue la ricerca."""
-        try:
-            # Cerca manga usando l'API di ricerca di MangaWorld
-            search_url = f"{self.base_url}/archive?keyword={urllib.parse.quote(self.query)}"
-
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-
-            request = urllib.request.Request(search_url, headers=headers)
-
-            with urllib.request.urlopen(request, timeout=10) as response:
-                html = response.read().decode('utf-8')
-
-            # Parse risultati (semplificato - in produzione usare BeautifulSoup)
-            results = []
-
-            # Cerca pattern per i manga
-            # Pattern: <a href="/manga/123/nome-manga" class="manga-link">
-            pattern = r'href="(/manga/\d+/[^"]+)"[^>]*>([^<]+)</a>'
-            matches = re.findall(pattern, html)
-
-            for url, title in matches[:20]:  # Limita a 20 risultati
-                results.append({
-                    'title': title.strip(),
-                    'url': self.base_url + url,
-                    'id': url.split('/')[2]
-                })
-
-            self.search_complete.emit(results)
-
-        except Exception as e:
-            logger.error(f"Error searching MangaWorld: {e}")
-            self.search_error.emit(str(e))
-
-
-class MangaWorldChapterWorker(QThread):
-    """Worker thread per ottenere lista capitoli."""
-
-    chapters_loaded = pyqtSignal(list)
-    chapters_error = pyqtSignal(str)
-
-    def __init__(self, manga_url: str):
-        super().__init__()
-        self.manga_url = manga_url
-
-    def run(self):
-        """Carica lista capitoli."""
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-
-            request = urllib.request.Request(self.manga_url, headers=headers)
-
-            with urllib.request.urlopen(request, timeout=10) as response:
-                html = response.read().decode('utf-8')
-
-            chapters = []
-
-            # Cerca capitoli (pattern semplificato)
-            # In produzione, usare BeautifulSoup per parsing robusto
-            pattern = r'href="(/manga/\d+/[^/]+/read/([^"]+))"[^>]*>Capitolo ([^<]+)</a>'
-            matches = re.findall(pattern, html)
-
-            for url, chapter_id, chapter_num in matches:
-                chapters.append({
-                    'number': chapter_num.strip(),
-                    'url': self.manga_url.split('/manga')[0] + url,
-                    'id': chapter_id
-                })
-
-            # Ordina per numero capitolo
-            chapters.reverse()
-
-            self.chapters_loaded.emit(chapters)
-
-        except Exception as e:
-            logger.error(f"Error loading chapters: {e}")
-            self.chapters_error.emit(str(e))
-
-
-class MangaWorldDownloadWorker(QThread):
-    """Worker thread per download capitolo."""
-
-    progress = pyqtSignal(int, int, str)
-    download_complete = pyqtSignal(str, list)
-    download_error = pyqtSignal(str)
-
-    def __init__(self, chapter_url: str, chapter_number: str):
-        super().__init__()
-        self.chapter_url = chapter_url
-        self.chapter_number = chapter_number
-
-    def run(self):
-        """Scarica capitolo."""
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-
-            # Carica pagina capitolo
-            request = urllib.request.Request(self.chapter_url, headers=headers)
-
-            with urllib.request.urlopen(request, timeout=10) as response:
-                html = response.read().decode('utf-8')
-
-            # Trova immagini delle pagine
-            # Pattern semplificato - in produzione usare BeautifulSoup
-            image_pattern = r'<img[^>]*src="(https://[^"]*mangaworld[^"]*\.(jpg|png|jpeg))"'
-            image_urls = re.findall(image_pattern, html)
-
-            if not image_urls:
-                # Prova pattern alternativo
-                image_pattern = r'"(https://cdn\.mangaworld[^"]*\.(jpg|png|jpeg))"'
-                image_urls = re.findall(image_pattern, html)
-
-            if not image_urls:
-                raise Exception("Nessuna immagine trovata nel capitolo")
-
-            # Scarica immagini
-            pages_data = []
-            total_pages = len(image_urls)
-
-            for idx, (img_url, _) in enumerate(image_urls):
-                self.progress.emit(idx + 1, total_pages, f"Scaricando pagina {idx + 1}/{total_pages}")
-
-                img_request = urllib.request.Request(img_url, headers=headers)
-
-                with urllib.request.urlopen(img_request, timeout=15) as img_response:
-                    image_data = img_response.read()
-                    pages_data.append(image_data)
-
-            self.download_complete.emit(self.chapter_number, pages_data)
-
-        except Exception as e:
-            logger.error(f"Error downloading chapter: {e}")
-            self.download_error.emit(str(e))
-
-
-class MangaWorldDownloaderDialog(QDialog):
-    """Dialog per scaricare manga da MangaWorld."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("MangaWorld Downloader")
-        self.setMinimumSize(800, 600)
-
-        self.manga_manager = MangaManager()
-        self.chapter_manager = ChapterManager()
-
-        self.current_manga_url = None
-        self.current_manga_title = None
-        self.current_manga_file = None
-
-        self.setup_ui()
-
-    def setup_ui(self):
-        """Configura l'interfaccia."""
-        layout = QVBoxLayout(self)
-
-        # Sezione ricerca
-        search_layout = QHBoxLayout()
-        search_layout.addWidget(QLabel("🔍 Cerca manga:"))
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Inserisci nome manga...")
-        self.search_input.returnPressed.connect(self.search_manga)
-        search_layout.addWidget(self.search_input)
-
-        self.search_button = QPushButton("Cerca")
-        self.search_button.clicked.connect(self.search_manga)
-        search_layout.addWidget(self.search_button)
-
-        layout.addLayout(search_layout)
-
-        # Lista risultati ricerca
-        layout.addWidget(QLabel("📚 Risultati:"))
-        self.results_list = QListWidget()
-        self.results_list.itemClicked.connect(self.on_manga_selected)
-        layout.addWidget(self.results_list)
-
-        # Lista capitoli
-        layout.addWidget(QLabel("📖 Capitoli disponibili:"))
-        self.chapters_list = QListWidget()
-        self.chapters_list.setSelectionMode(QListWidget.ExtendedSelection)
-        layout.addWidget(self.chapters_list)
-
-        # Sezione download
-        download_layout = QHBoxLayout()
-
-        self.download_button = QPushButton("⬇️ Scarica Selezionati")
-        self.download_button.clicked.connect(self.download_selected_chapters)
-        self.download_button.setEnabled(False)
-        download_layout.addWidget(self.download_button)
-
-        self.download_all_button = QPushButton("⬇️ Scarica Tutti")
-        self.download_all_button.clicked.connect(self.download_all_chapters)
-        self.download_all_button.setEnabled(False)
-        download_layout.addWidget(self.download_all_button)
-
-        layout.addLayout(download_layout)
-
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
-
-        self.status_label = QLabel("")
-        layout.addWidget(self.status_label)
-
-    def search_manga(self):
-        """Cerca manga su MangaWorld."""
-        query = self.search_input.text().strip()
-        if not query:
-            return
-
-        self.search_button.setEnabled(False)
-        self.results_list.clear()
-        self.status_label.setText("🔍 Ricerca in corso...")
-
-        self.search_worker = MangaWorldSearchWorker(query)
-        self.search_worker.search_complete.connect(self.on_search_complete)
-        self.search_worker.search_error.connect(self.on_search_error)
-        self.search_worker.start()
-
-    def on_search_complete(self, results: List[Dict]):
-        """Chiamato quando la ricerca è completata."""
-        self.search_button.setEnabled(True)
-
-        if not results:
-            self.status_label.setText("❌ Nessun risultato trovato")
-            return
-
-        self.status_label.setText(f"✅ Trovati {len(results)} manga")
-
-        for manga in results:
-            item = QListWidgetItem(manga['title'])
-            item.setData(Qt.UserRole, manga)
-            self.results_list.addItem(item)
-
-    def on_search_error(self, error: str):
-        """Chiamato in caso di errore nella ricerca."""
-        self.search_button.setEnabled(True)
-        self.status_label.setText(f"❌ Errore: {error}")
-        QMessageBox.warning(self, "Errore", f"Errore durante la ricerca:\n{error}")
-
-    def on_manga_selected(self, item: QListWidgetItem):
-        """Chiamato quando un manga viene selezionato."""
-        manga = item.data(Qt.UserRole)
-        self.current_manga_url = manga['url']
-        self.current_manga_title = manga['title']
-
-        self.chapters_list.clear()
-        self.download_button.setEnabled(False)
-        self.download_all_button.setEnabled(False)
-        self.status_label.setText(f"📖 Caricamento capitoli di '{manga['title']}'...")
-
-        # Carica capitoli
-        self.chapters_worker = MangaWorldChapterWorker(manga['url'])
-        self.chapters_worker.chapters_loaded.connect(self.on_chapters_loaded)
-        self.chapters_worker.chapters_error.connect(self.on_chapters_error)
-        self.chapters_worker.start()
-
-    def on_chapters_loaded(self, chapters: List[Dict]):
-        """Chiamato quando i capitoli sono stati caricati."""
-        if not chapters:
-            self.status_label.setText("❌ Nessun capitolo trovato")
-            return
-
-        self.status_label.setText(f"✅ Trovati {len(chapters)} capitoli")
-
-        for chapter in chapters:
-            item = QListWidgetItem(f"Capitolo {chapter['number']}")
-            item.setData(Qt.UserRole, chapter)
-            self.chapters_list.addItem(item)
-
-        self.download_button.setEnabled(True)
-        self.download_all_button.setEnabled(True)
-
-    def on_chapters_error(self, error: str):
-        """Chiamato in caso di errore nel caricamento capitoli."""
-        self.status_label.setText(f"❌ Errore: {error}")
-        QMessageBox.warning(self, "Errore", f"Errore caricando capitoli:\n{error}")
-
-    def download_selected_chapters(self):
-        """Scarica i capitoli selezionati."""
-        selected = self.chapters_list.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Attenzione", "Seleziona almeno un capitolo")
-            return
-
-        self.download_chapters([item.data(Qt.UserRole) for item in selected])
-
-    def download_all_chapters(self):
-        """Scarica tutti i capitoli."""
-        chapters = [self.chapters_list.item(i).data(Qt.UserRole)
-                   for i in range(self.chapters_list.count())]
-        self.download_chapters(chapters)
-
-    def download_chapters(self, chapters: List[Dict]):
-        """Scarica i capitoli specificati."""
-        if not chapters:
-            return
-
-        # Crea o trova il manga nel database
-        if not self.current_manga_file:
-            manga_file = self.manga_manager.create_manga(
-                title=self.current_manga_title,
-                author="MangaWorld",
-                status="ongoing"
-            )
-            self.current_manga_file = manga_file
-
-        self.download_button.setEnabled(False)
-        self.download_all_button.setEnabled(False)
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setMaximum(len(chapters))
-        self.progress_bar.setValue(0)
-
-        self.chapters_to_download = chapters
-        self.current_chapter_idx = 0
-
-        self.download_next_chapter()
-
-    def download_next_chapter(self):
-        """Scarica il prossimo capitolo nella coda."""
-        if self.current_chapter_idx >= len(self.chapters_to_download):
-            # Tutti i capitoli scaricati
-            self.progress_bar.setVisible(False)
-            self.download_button.setEnabled(True)
-            self.download_all_button.setEnabled(True)
-            self.status_label.setText("✅ Download completato!")
-            QMessageBox.information(self, "Completato", "Tutti i capitoli sono stati scaricati!")
-            return
-
-        chapter = self.chapters_to_download[self.current_chapter_idx]
-
-        self.status_label.setText(f"⬇️ Scaricando capitolo {chapter['number']}...")
-
-        self.download_worker = MangaWorldDownloadWorker(chapter['url'], chapter['number'])
-        self.download_worker.progress.connect(self.on_download_progress)
-        self.download_worker.download_complete.connect(self.on_chapter_downloaded)
-        self.download_worker.download_error.connect(self.on_download_error)
-        self.download_worker.start()
-
-    def on_download_progress(self, current: int, total: int, message: str):
-        """Aggiorna progress durante download."""
-        self.status_label.setText(message)
-
-    def on_chapter_downloaded(self, chapter_number: str, pages_data: List[bytes]):
-        """Chiamato quando un capitolo è stato scaricato."""
-        try:
-            # Salva nel database
-            chapter_id = self.chapter_manager.add_chapter(
-                self.current_manga_file,
-                f"Capitolo {chapter_number}",
-                pages_data
-            )
-
-            logger.info(f"Chapter {chapter_number} saved with ID {chapter_id}")
-
-            # Prossimo capitolo
-            self.current_chapter_idx += 1
-            self.progress_bar.setValue(self.current_chapter_idx)
-
-            self.download_next_chapter()
-
-        except Exception as e:
-            logger.error(f"Error saving chapter: {e}")
-            self.on_download_error(str(e))
-
-    def on_download_error(self, error: str):
-        """Chiamato in caso di errore nel download."""
-        self.progress_bar.setVisible(False)
-        self.download_button.setEnabled(True)
-        self.download_all_button.setEnabled(True)
-        self.status_label.setText(f"❌ Errore: {error}")
-
-        reply = QMessageBox.question(
-            self,
-            "Errore",
-            f"Errore durante il download:\n{error}\n\nContinuare con il prossimo capitolo?",
-            QMessageBox.Yes | QMessageBox.No
+from typing import Dict, Any
+
+# Add the plugin directory to the Python path to import modules
+plugin_dir = os.path.dirname(os.path.abspath(__file__))
+if plugin_dir not in sys.path:
+    sys.path.insert(0, plugin_dir)
+
+from plugins.plugin_base import PluginBase, PluginMetadata
+
+
+class MangaworldDownloaderPlugin(PluginBase):
+    """Plugin for downloading manga from Mangaworld and integrating into .manga files."""
+
+    @property
+    def metadata(self) -> PluginMetadata:
+        """Metadata del plugin."""
+        return PluginMetadata(
+            name="Mangaworld Downloader",
+            version="1.0.0",
+            author="deam411",
+            description="Download manga from Mangaworld.ac via Shift+Add Volume in Manga Creator",
+            requires_version="0.3.0",
+            url="https://github.com/deam411/Mangareader-Plugin"
         )
 
-        if reply == QMessageBox.Yes:
-            self.current_chapter_idx += 1
-            self.progress_bar.setVisible(True)
-            self.download_next_chapter()
+    def on_startup(self, context: Dict[str, Any]) -> None:
+        """Chiamato all'avvio dell'applicazione."""
+        logger = context.get('logger')
+        if logger:
+            logger.info(f"{self.metadata.name} v{self.metadata.version} loaded successfully!")
+        print(f"[MangaworldDownloader] Plugin caricato! Usa Shift+Aggiungi Volume per scaricare da Mangaworld.")
 
-
-class MangaWorldDownloaderPlugin(PluginBase):
-    """Plugin per scaricare manga da MangaWorld."""
-
-    def __init__(self):
-        super().__init__()
-        self.plugin_id = "mangaworld-downloader"
-        self.plugin_name = "MangaWorld Downloader"
-        self.plugin_version = "1.0.0"
-        self.plugin_author = "MangaReader Team"
-        self.plugin_description = "Scarica manga da MangaWorld"
-
-        self.dialog = None
-
-    def on_enable(self) -> bool:
-        """Attiva il plugin."""
-        logger.info(f"{self.plugin_name} v{self.plugin_version} attivato!")
-        return True
-
-    def on_disable(self) -> bool:
-        """Disattiva il plugin."""
-        if self.dialog:
-            self.dialog.close()
-            self.dialog = None
-
-        logger.info(f"{self.plugin_name} disattivato!")
-        return True
-
-    def get_menu_actions(self) -> list:
-        """Restituisce azioni per il menu."""
-        return [
-            {
-                'name': '⬇️ Scarica da MangaWorld',
-                'callback': self.open_downloader,
-                'shortcut': 'Ctrl+M'
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Schema configurazione del plugin."""
+        return {
+            'auto_import': {
+                'type': 'bool',
+                'default': True,
+                'description': 'Automatically import downloaded manga into library'
+            },
+            'download_path': {
+                'type': 'str',
+                'default': '',
+                'description': 'Custom download path (leave empty to use library path)'
+            },
+            'quality': {
+                'type': 'list',
+                'default': 'High',
+                'options': ['High', 'Medium', 'Low'],
+                'description': 'Download quality for manga images'
+            },
+            'show_notifications': {
+                'type': 'bool',
+                'default': True,
+                'description': 'Show notifications when downloads complete'
+            },
+            'convert_to_manga_format': {
+                'type': 'bool',
+                'default': True,
+                'description': 'Automatically convert downloaded manga to .manga format'
             }
-        ]
+        }
 
-    def open_downloader(self):
-        """Apre la finestra del downloader."""
-        if not self.dialog:
-            self.dialog = MangaWorldDownloaderDialog()
+    @staticmethod
+    def add_volume_to_manga_file(manga_file_path: str, mangaworld_url: str, volume_number: str, volume_name: str = "", progress_callback: dict = None) -> bool:
+        """
+        Funzione helper per aggiungere un volume a un file .manga esistente.
 
-        self.dialog.show()
-        self.dialog.raise_()
-        self.dialog.activateWindow()
+        Args:
+            manga_file_path: Percorso al file .manga
+            mangaworld_url: URL del manga su Mangaworld
+            volume_number: Numero del volume da scaricare (es: "5" o "5-7")
+            volume_name: Nome del volume (opzionale)
+            progress_callback: Dict per tracking progresso (opzionale)
 
+        Returns:
+            True se successo, False altrimenti
+        """
+        try:
+            import asyncio
+            import tempfile
+            import shutil
+            from main import App
 
-def create_plugin():
-    """Factory function per creare il plugin."""
-    return MangaWorldDownloaderPlugin()
+            # Parse volume number
+            start_volume = None
+            end_volume = None
+            if volume_number:
+                if "-" in volume_number:
+                    start_volume, end_volume = map(int, volume_number.split('-'))
+                else:
+                    start_volume = int(volume_number)
+                    end_volume = int(volume_number)
+
+            # Download to temp directory
+            temp_dir = tempfile.mkdtemp(prefix="mangaworld_download_")
+
+            try:
+                # Update progress
+                if progress_callback:
+                    progress_callback['current_step'] = 'Connessione a Mangaworld...'
+
+                import time
+
+                # Use the downloader library to download
+                from manga_downloader_lib.src.config import set_download_folder
+                from manga_downloader_lib.manga_downloader import process_manga_download
+
+                set_download_folder(temp_dir)
+
+                if progress_callback:
+                    progress_callback['current_step'] = 'Download capitoli in corso...'
+
+                # Download the volume
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    # Simula aggiornamenti durante il download
+                    # Avvia il download in background
+                    download_task = loop.create_task(
+                        process_manga_download(
+                            mangaworld_url,
+                            start_index=start_volume,
+                            end_index=end_volume,
+                            volume_mode=True
+                        )
+                    )
+
+                    # Aggiorna il progresso mentre aspettiamo
+                    simulated_progress = 0
+                    while not download_task.done():
+                        loop.run_until_complete(asyncio.sleep(0.5))
+                        if progress_callback and simulated_progress < 50:
+                            simulated_progress += 2
+                            # Usa total_chapters temporaneo per mostrare progresso
+                            progress_callback['total_chapters'] = 100
+                            progress_callback['current_chapter'] = simulated_progress
+                            progress_callback['current_step'] = f'Download da Mangaworld... {simulated_progress}%'
+
+                    # Assicurati che il task sia completato
+                    loop.run_until_complete(download_task)
+
+                finally:
+                    loop.close()
+
+                # Update progress
+                if progress_callback:
+                    progress_callback['current_step'] = 'Download completato! Preparazione integrazione...'
+                    progress_callback['total_chapters'] = 100
+                    progress_callback['current_chapter'] = 60
+
+                # Integrate into .manga file
+                from manga_reader_db_integration.database.manager import MangaDatabaseManager
+                from main import get_manga_covers
+
+                # Get manga title from URL
+                _, manga_title = get_manga_covers(mangaworld_url)
+                if not manga_title:
+                    return False
+
+                downloaded_path = os.path.join(temp_dir, manga_title)
+                if not os.path.exists(downloaded_path):
+                    return False
+
+                # Find volume folder
+                volume_folders = [d for d in os.listdir(downloaded_path)
+                                  if os.path.isdir(os.path.join(downloaded_path, d)) and d.startswith("Volume")]
+
+                if not volume_folders:
+                    return False
+
+                actual_volume_path = os.path.join(downloaded_path, volume_folders[0])
+
+                # Use database manager to insert
+                db_manager = MangaDatabaseManager(manga_file_path)
+
+                # Get existing volumes to determine order
+                existing_volumes = db_manager.chapters.get_volumes()
+                new_order = len(existing_volumes) + 1
+
+                actual_volume_name = volume_name if volume_name else f"Volume {new_order}"
+
+                # Update progress
+                if progress_callback:
+                    progress_callback['current_step'] = 'Download copertina volume...'
+                    progress_callback['total_chapters'] = 100
+                    progress_callback['current_chapter'] = 70
+
+                # Insert volume with cover if available
+                cover_data = None
+                all_covers, _ = get_manga_covers(mangaworld_url)
+                if all_covers and start_volume and 0 < start_volume <= len(all_covers):
+                    import urllib.parse
+                    import requests
+                    specific_cover_url = all_covers[start_volume - 1]
+
+                    try:
+                        response = requests.get(specific_cover_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        response.raise_for_status()
+                        cover_data = response.content
+                    except:
+                        pass
+
+                volume_id = db_manager.chapters.insert_volume(
+                    name=actual_volume_name,
+                    order=new_order,
+                    cover=cover_data
+                )
+
+                if not volume_id:
+                    return False
+
+                # Insert chapters and pages
+                from manga_downloader_lib.src.pdf_generator import extract_number
+
+                chapters = sorted([d for d in os.listdir(actual_volume_path)
+                                   if os.path.isdir(os.path.join(actual_volume_path, d))],
+                                  key=extract_number)
+
+                total_real_chapters = len(chapters)
+
+                # Update progress - inizia da 80% per l'inserimento
+                if progress_callback:
+                    progress_callback['current_step'] = 'Inserimento capitoli nel database...'
+
+                for chapter_order, chapter_dir_name in enumerate(chapters):
+                    chapter_path = os.path.join(actual_volume_path, chapter_dir_name)
+
+                    # Update progress - calcola progresso da 80 a 100%
+                    if progress_callback:
+                        # Progresso base 80% + (20% * progresso_capitoli)
+                        base_progress = 80
+                        chapter_progress = int((chapter_order / total_real_chapters) * 20)
+                        progress_callback['total_chapters'] = 100
+                        progress_callback['current_chapter'] = base_progress + chapter_progress
+                        progress_callback['current_step'] = f'Inserimento capitolo {chapter_order + 1}/{total_real_chapters}...'
+
+                    chapter_id = db_manager.chapters.insert_chapter(
+                        name=chapter_dir_name,
+                        order=chapter_order + 1,
+                        volume_id=volume_id
+                    )
+
+                    if not chapter_id:
+                        continue
+
+                    # Insert pages
+                    pages = sorted([f for f in os.listdir(chapter_path)
+                                    if os.path.isfile(os.path.join(chapter_path, f))],
+                                   key=extract_number)
+
+                    total_pages = len(pages)
+
+                    for page_number, page_filename in enumerate(pages):
+                        page_file_path = os.path.join(chapter_path, page_filename)
+                        with open(page_file_path, 'rb') as f:
+                            page_data = f.read()
+
+                        # Update progress per pagina - micro incrementi
+                        if progress_callback:
+                            # Calcola progresso fine all'interno del capitolo
+                            page_progress_within_chapter = (page_number / total_pages) * (20 / total_real_chapters)
+                            current_total = base_progress + chapter_progress + int(page_progress_within_chapter)
+                            progress_callback['current_chapter'] = min(current_total, 99)
+                            progress_callback['total_pages'] = total_pages
+                            progress_callback['current_page'] = page_number + 1
+
+                        db_manager.chapters.insert_page(
+                            chapter_id=chapter_id,
+                            page_number=page_number + 1,
+                            image_data_or_path=page_data
+                        )
+
+                return True
+
+            finally:
+                # Cleanup temp directory
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+
+        except Exception as e:
+            print(f"[MangaworldDownloader] Error adding volume: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
