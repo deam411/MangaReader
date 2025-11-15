@@ -40,9 +40,9 @@ class PluginMarketplace:
 
         # GitHub repository info
         self.github_repo_owner = "deam411"
-        self.github_repo_name = "MangaReader-Plugins"
+        self.github_repo_name = "MangaReader"
         self.github_branch = "main"
-        self.github_plugins_dir = "plugins"  # Directory nel repo che contiene i plugin
+        self.github_plugins_dir = "plugins/marketplace"  # Directory nel repo che contiene i plugin
 
         self.available_plugins: List[Dict[str, Any]] = []
 
