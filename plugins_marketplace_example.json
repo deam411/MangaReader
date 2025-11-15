@@ -1,0 +1,25 @@
+{
+  "plugins": [
+    {
+      "id": "example-plugin",
+      "name": "Example Plugin",
+      "version": "1.0.0",
+      "author": "Your Name",
+      "description": "This is an example plugin for MangaReader. Replace with your own plugin details.",
+      "download_url": "https://github.com/username/repo/releases/download/v1.0.0/plugin.zip",
+      "requires_version": "0.5.0",
+      "homepage": "https://github.com/username/repo",
+      "icon_url": "https://example.com/icon.png"
+    },
+    {
+      "id": "mangaworld-downloader",
+      "name": "Mangaworld Downloader",
+      "version": "1.0.0",
+      "author": "deam411",
+      "description": "Scarica manga direttamente da Mangaworld e importali in MangaReader.",
+      "download_url": "https://github.com/deam411/MangaReader-Plugins/releases/download/v1.0.0/mangaworld-downloader.zip",
+      "requires_version": "0.3.0",
+      "homepage": "https://github.com/deam411/MangaReader-Plugins"
+    }
+  ]
+}
