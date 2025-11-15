@@ -796,11 +796,17 @@ class ChapterReaderWindow(QMainWindow):
         self.setWindowTitle("Lettore Capitolo")
         self.setGeometry(100, 100, 800, 1000)
 
+        # Nascondi il cursore sulla finestra principale
+        self.setCursor(Qt.BlankCursor)
+
         self.scroll_area = QScrollArea(self)
         self.setCentralWidget(self.scroll_area)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.verticalScrollBar().setFocusPolicy(Qt.NoFocus)
         self.scroll_area.horizontalScrollBar().setFocusPolicy(Qt.NoFocus)
+
+        # Nascondi il cursore anche sulla scroll area
+        self.scroll_area.setCursor(Qt.BlankCursor)
 
         self.page_display_widget = PageDisplayWidget()
         self.scroll_area.setWidget(self.page_display_widget)
