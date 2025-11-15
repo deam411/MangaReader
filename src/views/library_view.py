@@ -172,7 +172,7 @@ class LibraryView(QWidget):
         self.resume_button.setVisible(False)  # Nascosto finché non c'è un manga da riprendere
         controls_layout.addWidget(self.resume_button)
 
-        self.import_button = QPushButton('📥', self)
+        self.import_button = QPushButton('', self)
         self.import_button.setFixedSize(30, 30)
         self.import_button.setToolTip('Importa file .manga (Ctrl+I)')
         self.import_button.clicked.connect(self.import_manga)
@@ -185,7 +185,7 @@ class LibraryView(QWidget):
         self.import_archive_button.clicked.connect(self.import_archive)
         controls_layout.addWidget(self.import_archive_button)
 
-        self.export_button = QPushButton('📤', self)
+        self.export_button = QPushButton('', self)
         self.export_button.setFixedSize(30, 30)
         self.export_button.setToolTip('Esporta manga selezionato (Ctrl+E)')
         self.export_button.clicked.connect(self.export_manga)
