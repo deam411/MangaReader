@@ -50,51 +50,69 @@ class PluginMarketplace:
 
     def fetch_available_plugins(self) -> bool:
         """
-        Carica la lista dei plugin disponibili.
-        Prova prima dal file locale, poi dal repository remoto se non trovato.
+        Scansiona la directory marketplace locale per trovare plugin disponibili.
+        Ogni sottodirectory in plugins/marketplace/ è considerata un plugin.
 
         Returns:
-            True se caricata con successo, False altrimenti
+            True se scansionata con successo, False altrimenti
         """
-        # Prova prima a caricare dal file locale
-        if os.path.exists(self.local_marketplace_file):
-            try:
-                logger.info(f"Loading plugin list from local file: {self.local_marketplace_file}")
-
-                with open(self.local_marketplace_file, 'r', encoding='utf-8') as f:
-                    marketplace_data = json.load(f)
-
-                self.available_plugins = marketplace_data.get('plugins', [])
-                logger.info(f"Found {len(self.available_plugins)} plugins in local marketplace")
-
-                return True
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in local marketplace: {e}")
-            except Exception as e:
-                logger.error(f"Error reading local marketplace: {e}", exc_info=True)
-
-        # Se il file locale non esiste o fallisce, prova il remoto
         try:
-            logger.info(f"Fetching plugin list from remote: {self.marketplace_url}")
+            marketplace_dir = os.path.dirname(self.local_marketplace_file)
 
-            with urllib.request.urlopen(self.marketplace_url, timeout=10) as response:
-                data = response.read().decode('utf-8')
-                marketplace_data = json.loads(data)
+            if not os.path.exists(marketplace_dir):
+                logger.warning(f"Marketplace directory not found: {marketplace_dir}")
+                return False
 
-            self.available_plugins = marketplace_data.get('plugins', [])
-            logger.info(f"Found {len(self.available_plugins)} plugins in remote marketplace")
+            logger.info(f"Scanning marketplace directory: {marketplace_dir}")
 
+            self.available_plugins = []
+
+            # Scansiona tutte le sottodirectory
+            for item in os.listdir(marketplace_dir):
+                item_path = os.path.join(marketplace_dir, item)
+
+                # Salta file (come plugins.json)
+                if not os.path.isdir(item_path):
+                    continue
+
+                # Verifica se è un plugin valido (ha plugin.py o __init__.py)
+                plugin_file = os.path.join(item_path, 'plugin.py')
+                init_file = os.path.join(item_path, '__init__.py')
+                manifest_file = os.path.join(item_path, 'manifest.json')
+
+                if not (os.path.exists(plugin_file) or os.path.exists(init_file)):
+                    logger.debug(f"Skipping {item}: not a valid plugin (no plugin.py or __init__.py)")
+                    continue
+
+                # Carica manifest se esiste, altrimenti usa info di base
+                plugin_info = {
+                    'id': item,
+                    'name': item.replace('_', ' ').replace('-', ' ').title(),
+                    'version': '1.0.0',
+                    'author': 'Unknown',
+                    'description': 'No description available',
+                    'requires_version': '0.0.0',
+                    'local_path': item_path
+                }
+
+                if os.path.exists(manifest_file):
+                    try:
+                        with open(manifest_file, 'r', encoding='utf-8') as f:
+                            manifest = json.load(f)
+                            plugin_info.update(manifest)
+                            plugin_info['local_path'] = item_path
+                            logger.debug(f"Loaded manifest for {item}")
+                    except Exception as e:
+                        logger.warning(f"Could not read manifest for {item}: {e}")
+
+                self.available_plugins.append(plugin_info)
+                logger.debug(f"Found plugin: {plugin_info['name']} v{plugin_info['version']}")
+
+            logger.info(f"Found {len(self.available_plugins)} plugins in marketplace directory")
             return True
 
-        except urllib.error.URLError as e:
-            logger.warning(f"Network error fetching remote marketplace: {e}")
-            return False
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in remote marketplace: {e}")
-            return False
         except Exception as e:
-            logger.error(f"Error fetching remote marketplace: {e}", exc_info=True)
+            logger.error(f"Error scanning marketplace directory: {e}", exc_info=True)
             return False
 
     def get_available_plugins(self) -> List[Dict[str, Any]]:
@@ -299,11 +317,12 @@ class PluginMarketplace:
             True se installato con successo
         """
         plugin_id = plugin_info.get('id')
+        local_path = plugin_info.get('local_path')
         download_url = plugin_info.get('download_url')
         required_version = plugin_info.get('requires_version', '0.0.0')
 
-        if not plugin_id or not download_url:
-            logger.error("Missing plugin_id or download_url")
+        if not plugin_id:
+            logger.error("Missing plugin_id")
             return False
 
         # Verifica compatibilità
@@ -315,6 +334,32 @@ class PluginMarketplace:
             return False
 
         try:
+            # Se è un plugin locale, copialo direttamente
+            if local_path and os.path.exists(local_path):
+                logger.info(f"Installing local plugin from: {local_path}")
+
+                target_path = os.path.join(self.plugin_dir, plugin_id)
+
+                # Rimuovi plugin esistente se presente
+                if os.path.exists(target_path):
+                    logger.info(f"Removing existing plugin at: {target_path}")
+                    shutil.rmtree(target_path)
+
+                # Copia la directory del plugin
+                shutil.copytree(local_path, target_path)
+                logger.info(f"Plugin copied to: {target_path}")
+
+                # Salva manifest
+                self.save_manifest(plugin_id, plugin_info)
+
+                logger.info(f"Local plugin {plugin_id} installed successfully")
+                return True
+
+            # Altrimenti, scarica da URL
+            if not download_url:
+                logger.error("Missing download_url for remote plugin")
+                return False
+
             # Download
             archive_path = self.download_file(download_url, callback=progress_callback)
             if not archive_path:
