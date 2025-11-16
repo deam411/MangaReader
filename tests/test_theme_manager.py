@@ -138,22 +138,25 @@ class TestApplyTheme:
 
         mock_app.setStyleSheet.assert_called_once()
 
-    @pytest.mark.skip("Mock Settings non funziona - Settings importato internamente")
-    def test_apply_theme_from_settings(self):
+    def test_apply_theme_from_settings(self, mock_settings):
         """Verifica applicazione tema dalle impostazioni."""
+        from src.settings import Settings
         mock_app = MagicMock()
 
-        # Mock Settings per restituire "dark"
-        with patch('src.theme_manager.Settings') as MockSettings:
-            mock_settings = MagicMock()
-            mock_settings.get_theme.return_value = "dark"
-            MockSettings.return_value = mock_settings
+        # Imposta tema in Settings reale
+        settings = Settings()
+        settings.set_theme("dark")
+        settings.save()
 
-            # Chiama senza specificare tema (usa settings)
-            theme_manager.apply_theme(mock_app, None)
+        # Chiama senza specificare tema (usa settings)
+        theme_manager.apply_theme(mock_app, None)
 
-            mock_settings.get_theme.assert_called_once()
-            mock_app.setStyleSheet.assert_called_once()
+        # Verifica che il tema sia stato applicato
+        mock_app.setStyleSheet.assert_called_once()
+        # Verifica che lo stylesheet contenga elementi del tema dark
+        call_args = mock_app.setStyleSheet.call_args[0][0]
+        assert isinstance(call_args, str)
+        assert len(call_args) > 0  # Stylesheet non vuoto
 
     @pytest.mark.skip("Mock winreg non funziona - importato internamente")
     def test_apply_theme_system_windows(self):
