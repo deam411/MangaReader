@@ -10,7 +10,6 @@ from unittest.mock import patch, MagicMock
 from src import logger as logger_module
 
 
-@pytest.mark.skip("setup_logger non implementato nel modulo logger")
 class TestSetupLogger:
     """Test per la funzione setup_logger()."""
 
@@ -40,7 +39,7 @@ class TestSetupLogger:
     def test_setup_logger_file_handler(self, temp_dir):
         """Verifica creazione handler per file."""
         # Mock get_data_dir per usare temp_dir
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_file",
                 log_to_file=True,
@@ -94,7 +93,7 @@ class TestSetupLogger:
 
     def test_setup_logger_both_handlers(self, temp_dir):
         """Verifica setup con entrambi file e console handler."""
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_both",
                 log_to_file=True,
@@ -107,7 +106,7 @@ class TestSetupLogger:
     def test_setup_logger_file_error_handling(self):
         """Verifica gestione errore creazione file log."""
         # Mock get_data_dir per restituire path invalido
-        with patch('src.logger.get_data_dir', side_effect=Exception("Mock error")):
+        with patch('src.paths.get_data_dir', side_effect=Exception("Mock error")):
             # Non dovrebbe sollevare eccezione, ma stampare errore
             test_logger = logger_module.setup_logger(
                 name="test_error",
@@ -135,7 +134,6 @@ class TestSetupLogger:
             assert "%(message)s" in format_str
 
 
-@pytest.mark.skip("Problemi con setup logger")
 class TestGetLogger:
     """Test per la funzione get_logger()."""
 
@@ -188,13 +186,12 @@ class TestGetLogger:
         assert len(retrieved.handlers) == handler_count
 
 
-@pytest.mark.skip("Funzioni logger avanzate non implementate")
 class TestLogging:
     """Test funzionalità di logging."""
 
     def test_log_levels(self, temp_dir):
         """Verifica che tutti i livelli di log funzionino."""
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_levels",
                 level=logging.DEBUG,
@@ -224,7 +221,7 @@ class TestLogging:
 
     def test_log_format(self, temp_dir):
         """Verifica formato dei messaggi di log."""
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_format",
                 log_to_file=True,
@@ -246,7 +243,7 @@ class TestLogging:
 
     def test_rotating_file_handler_config(self, temp_dir):
         """Verifica configurazione RotatingFileHandler."""
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_rotating",
                 log_to_file=True,
@@ -268,7 +265,7 @@ class TestLogging:
 
     def test_unicode_logging(self, temp_dir):
         """Verifica gestione caratteri Unicode nei log."""
-        with patch('src.logger.get_data_dir', return_value=str(temp_dir)):
+        with patch('src.paths.get_data_dir', return_value=str(temp_dir)):
             test_logger = logger_module.setup_logger(
                 name="test_unicode",
                 log_to_file=True,
@@ -289,7 +286,6 @@ class TestLogging:
             assert "漫画" in content
 
 
-@pytest.mark.skip("Main logger test complesso")
 class TestMainLogger:
     """Test per il logger principale dell'applicazione."""
 
