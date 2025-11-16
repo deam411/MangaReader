@@ -721,3 +721,376 @@ class TestVolumeChapterOperations:
         assert volumes[1]['name'] == "Volume 3"
         assert volumes[2]['name'] == "Volume 2"
         assert volumes[3]['name'] == "Volume 1"
+
+    def test_update_volumes_order_after_update_volume(self, temp_db):
+        """Test che update_volumes_order funzioni dopo update_volume."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Aggiorna nome di un volume
+        result = db_manager.update_volume(vol2_id, "Volume 2 Updated", 2, None)
+        assert result is True
+
+        # Riordina volumi
+        result = db_manager.update_volumes_order([vol3_id, vol2_id, vol1_id])
+        assert result is True
+
+        # Verifica che il nome aggiornato sia preservato
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 3"
+        assert volumes[1]['name'] == "Volume 2 Updated"
+        assert volumes[2]['name'] == "Volume 1"
+
+    def test_update_volumes_order_before_delete_volume(self, temp_db):
+        """Test che delete_volume funzioni dopo update_volumes_order."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Riordina
+        db_manager.update_volumes_order([vol3_id, vol1_id, vol2_id])
+
+        # Elimina volume centrale
+        result = db_manager.delete_volume(vol1_id)
+        assert result is True
+
+        # Verifica che rimangano solo 2 volumi nell'ordine corretto
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 2
+        assert volumes[0]['name'] == "Volume 3"
+        assert volumes[1]['name'] == "Volume 2"
+
+    def test_update_volumes_order_with_invalid_id(self, temp_db):
+        """Test update_volumes_order con ID non esistente."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+
+        # Usa un ID che non esiste (999)
+        result = db_manager.update_volumes_order([vol1_id, 999, vol2_id])
+
+        # Dovrebbe completare senza crashare (comportamento implementazione-specifico)
+        assert result is True
+
+        # Database dovrebbe rimanere consistente
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 2
+
+    def test_update_volumes_order_independent_from_chapters_order(self, temp_db):
+        """Test che update_volumes_order non influenzi update_chapters_order."""
+        path, db_manager, test_image = temp_db
+
+        # Crea struttura con volumi e capitoli
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+
+        ch1_id = db_manager.insert_chapter("Vol1 Ch1", 1, vol1_id)
+        ch2_id = db_manager.insert_chapter("Vol1 Ch2", 2, vol1_id)
+        ch3_id = db_manager.insert_chapter("Vol2 Ch1", 1, vol2_id)
+
+        # Riordina volumi
+        db_manager.update_volumes_order([vol2_id, vol1_id])
+
+        # Riordina capitoli del volume 1
+        db_manager.update_chapters_order([ch2_id, ch1_id])
+
+        # Verifica che entrambi gli ordini siano corretti
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 2"
+        assert volumes[1]['name'] == "Volume 1"
+
+        chapters = db_manager.get_chapters(vol1_id)
+        assert chapters[0]['name'] == "Vol1 Ch2"
+        assert chapters[1]['name'] == "Vol1 Ch1"
+
+        # Verifica che i capitoli del volume 2 non siano influenzati
+        chapters_vol2 = db_manager.get_chapters(vol2_id)
+        assert len(chapters_vol2) == 1
+        assert chapters_vol2[0]['name'] == "Vol2 Ch1"
+
+    def test_update_volumes_order_maintains_database_integrity(self, temp_db):
+        """Test che update_volumes_order mantenga integrità referenziale."""
+        path, db_manager, test_image = temp_db
+
+        # Crea struttura complessa
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+
+        ch1_id = db_manager.insert_chapter("Ch1", 1, vol1_id)
+        ch2_id = db_manager.insert_chapter("Ch2", 1, vol2_id)
+
+        db_manager.insert_page(ch1_id, 1, test_image)
+        db_manager.insert_page(ch2_id, 1, test_image)
+
+        # Riordina volumi
+        db_manager.update_volumes_order([vol2_id, vol1_id])
+
+        # Verifica integrità completa della gerarchia
+        import sqlite3
+        with sqlite3.connect(path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Verifica che i capitoli siano ancora associati ai volumi corretti
+            cursor.execute('SELECT * FROM chapters WHERE volume_id = ?', (vol1_id,))
+            ch_vol1 = cursor.fetchall()
+            assert len(ch_vol1) == 1
+            assert ch_vol1[0]['name'] == "Ch1"
+
+            cursor.execute('SELECT * FROM chapters WHERE volume_id = ?', (vol2_id,))
+            ch_vol2 = cursor.fetchall()
+            assert len(ch_vol2) == 1
+            assert ch_vol2[0]['name'] == "Ch2"
+
+            # Verifica che le pagine esistano ancora
+            cursor.execute('SELECT COUNT(*) FROM pages')
+            page_count = cursor.fetchone()[0]
+            assert page_count == 2
+
+    def test_update_volumes_order_with_cover_data(self, temp_db):
+        """Test che update_volumes_order preservi cover data."""
+        path, db_manager, test_image = temp_db
+
+        # Crea volumi con cover
+        cover1 = b"cover_data_1"
+        cover2 = b"cover_data_2"
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1, cover1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2, cover2)
+
+        # Riordina
+        db_manager.update_volumes_order([vol2_id, vol1_id])
+
+        # Verifica che le cover siano preservate
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 2"
+        assert volumes[0]['cover'] == cover2
+        assert volumes[1]['name'] == "Volume 1"
+        assert volumes[1]['cover'] == cover1
+
+    def test_update_volumes_order_stress_test(self, temp_db):
+        """Test stress: riordina 50 volumi multiple volte."""
+        path, db_manager, test_image = temp_db
+
+        # Crea 50 volumi
+        volume_ids = []
+        for i in range(1, 51):
+            vol_id = db_manager.insert_volume(f"Volume {i}", i)
+            volume_ids.append(vol_id)
+
+        # Riordina 5 volte con ordini diversi
+        import random
+        for iteration in range(5):
+            shuffled = volume_ids.copy()
+            random.shuffle(shuffled)
+            result = db_manager.update_volumes_order(shuffled)
+            assert result is True
+
+        # Verifica che tutti i volumi esistano ancora
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 50
+
+        # Verifica che gli ordini siano sequenziali 1-50
+        for i, vol in enumerate(volumes):
+            assert vol['order'] == i + 1
+
+    def test_update_volumes_order_idempotency(self, temp_db):
+        """Test che riordinare con stesso ordine sia idempotente."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Riordina
+        new_order = [vol3_id, vol1_id, vol2_id]
+        db_manager.update_volumes_order(new_order)
+
+        # Riordina di nuovo con stesso ordine
+        result = db_manager.update_volumes_order(new_order)
+        assert result is True
+
+        # Verifica che l'ordine sia ancora lo stesso
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 3"
+        assert volumes[1]['name'] == "Volume 1"
+        assert volumes[2]['name'] == "Volume 2"
+
+    def test_update_volumes_order_after_multiple_operations(self, temp_db):
+        """Test riordinamento dopo operazioni CRUD complesse."""
+        path, db_manager, test_image = temp_db
+
+        # Fase 1: Crea 5 volumi
+        vol_ids = [db_manager.insert_volume(f"Vol {i}", i) for i in range(1, 6)]
+
+        # Fase 2: Aggiorna nome di alcuni volumi
+        db_manager.update_volume(vol_ids[1], "Volume 2 Renamed", 2, None)
+        db_manager.update_volume(vol_ids[3], "Volume 4 Renamed", 4, None)
+
+        # Fase 3: Elimina un volume
+        db_manager.delete_volume(vol_ids[2])  # Elimina Volume 3
+        vol_ids.pop(2)  # Rimuovi dalla lista
+
+        # Fase 4: Aggiungi nuovo volume
+        new_vol_id = db_manager.insert_volume("New Volume", 99)
+        vol_ids.append(new_vol_id)
+
+        # Fase 5: Riordina tutti i volumi rimasti
+        import random
+        shuffled = vol_ids.copy()
+        random.shuffle(shuffled)
+        result = db_manager.update_volumes_order(shuffled)
+        assert result is True
+
+        # Verifica consistenza finale
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 5  # 5 volumi originali - 1 eliminato + 1 nuovo
+
+        # Verifica che ordini siano sequenziali
+        for i, vol in enumerate(volumes):
+            assert vol['order'] == i + 1
+
+    def test_update_volumes_order_zero_volumes(self):
+        """Test update_volumes_order su database senza volumi."""
+        import tempfile
+        fd, path = tempfile.mkstemp(suffix='.manga')
+        os.close(fd)
+
+        db_manager = MangaDatabaseManager(path)
+        db_manager.insert_metadata("Test", "Author", "Desc")
+
+        # Riordina lista vuota su database vuoto
+        result = db_manager.update_volumes_order([])
+        assert result is True
+
+        volumes = db_manager.get_volumes()
+        assert volumes == []
+
+        db_manager.close()
+        os.remove(path)
+
+    def test_complete_workflow_with_reordering(self, temp_db):
+        """
+        Smoke test completo: workflow realistico con tutte le operazioni.
+        Se questo test passa, il sistema funziona correttamente end-to-end.
+        """
+        path, db_manager, test_image = temp_db
+
+        # STEP 1: Crea struttura manga completa
+        vol1_id = db_manager.insert_volume("Volume 1: Beginning", 1, b"cover1")
+        vol2_id = db_manager.insert_volume("Volume 2: Rising Action", 2, b"cover2")
+        vol3_id = db_manager.insert_volume("Volume 3: Climax", 3, b"cover3")
+
+        # STEP 2: Aggiungi capitoli a ogni volume
+        v1_ch1 = db_manager.insert_chapter("Chapter 1", 1, vol1_id)
+        v1_ch2 = db_manager.insert_chapter("Chapter 2", 2, vol1_id)
+
+        v2_ch1 = db_manager.insert_chapter("Chapter 3", 1, vol2_id)
+        v2_ch2 = db_manager.insert_chapter("Chapter 4", 2, vol2_id)
+
+        v3_ch1 = db_manager.insert_chapter("Chapter 5", 1, vol3_id)
+
+        # STEP 3: Aggiungi pagine a ogni capitolo
+        for i in range(1, 6):
+            db_manager.insert_page(v1_ch1, i, test_image)
+            db_manager.insert_page(v1_ch2, i, test_image)
+            db_manager.insert_page(v2_ch1, i, test_image)
+            db_manager.insert_page(v2_ch2, i, test_image)
+            db_manager.insert_page(v3_ch1, i, test_image)
+
+        # STEP 4: Riordina volumi (user cambia idea sull'ordine)
+        db_manager.update_volumes_order([vol2_id, vol1_id, vol3_id])
+
+        # STEP 5: Aggiorna nome di un volume
+        db_manager.update_volume(vol1_id, "Volume 1: The Beginning (Revised)", 2, b"cover1")
+
+        # STEP 6: Riordina capitoli in un volume
+        db_manager.update_chapters_order([v1_ch2, v1_ch1])
+
+        # STEP 7: Aggiungi bookmark e reading history
+        bookmark_id = db_manager.add_bookmark(v2_ch1, 3, "Great scene!", "default")
+        db_manager.save_reading_position(v2_ch2, 2, "default")
+
+        # STEP 8: Aggiungi nuovo volume e riordina di nuovo
+        vol4_id = db_manager.insert_volume("Volume 4: Epilogue", 4)
+        db_manager.update_volumes_order([vol2_id, vol1_id, vol3_id, vol4_id])
+
+        # STEP 9: Elimina un capitolo
+        db_manager.delete_chapter_and_pages(v3_ch1)
+
+        # STEP 10: Verifica COMPLETA dello stato finale
+        # ================================================
+
+        # Verifica volumi
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 4
+        assert volumes[0]['name'] == "Volume 2: Rising Action"
+        assert volumes[0]['order'] == 1
+        assert volumes[1]['name'] == "Volume 1: The Beginning (Revised)"
+        assert volumes[1]['order'] == 2
+        assert volumes[2]['name'] == "Volume 3: Climax"
+        assert volumes[2]['order'] == 3
+        assert volumes[3]['name'] == "Volume 4: Epilogue"
+        assert volumes[3]['order'] == 4
+
+        # Verifica cover preservate
+        assert volumes[0]['cover'] == b"cover2"
+        assert volumes[1]['cover'] == b"cover1"
+
+        # Verifica capitoli del volume 1 (riordinati)
+        v1_chapters = db_manager.get_chapters(vol1_id)
+        assert len(v1_chapters) == 2
+        assert v1_chapters[0]['name'] == "Chapter 2"
+        assert v1_chapters[1]['name'] == "Chapter 1"
+
+        # Verifica capitoli del volume 2 (non modificati)
+        v2_chapters = db_manager.get_chapters(vol2_id)
+        assert len(v2_chapters) == 2
+
+        # Verifica capitoli del volume 3 (eliminato)
+        v3_chapters = db_manager.get_chapters(vol3_id)
+        assert len(v3_chapters) == 0
+
+        # Verifica pagine
+        v1_ch1_pages = db_manager.get_pages(v1_ch1)
+        assert len(v1_ch1_pages) == 5
+
+        # Verifica bookmark
+        bookmarks = db_manager.get_bookmarks("default")
+        assert len(bookmarks) == 1
+        assert bookmarks[0]['page_number'] == 3
+
+        # Verifica reading position
+        reading_pos = db_manager.get_last_reading_position("default")
+        assert reading_pos is not None
+        assert reading_pos['page_number'] == 2
+
+        # Verifica integrità database (query diretta)
+        import sqlite3
+        with sqlite3.connect(path) as conn:
+            cursor = conn.cursor()
+
+            # Conta totale entità
+            cursor.execute("SELECT COUNT(*) FROM volumes")
+            assert cursor.fetchone()[0] == 4
+
+            cursor.execute("SELECT COUNT(*) FROM chapters")
+            assert cursor.fetchone()[0] == 4  # 5 originali - 1 eliminato
+
+            cursor.execute("SELECT COUNT(*) FROM pages")
+            assert cursor.fetchone()[0] == 20  # 25 originali - 5 eliminate con chapter
+
+            # Verifica che tutti gli ordini siano validi (no NULL, no negativi)
+            cursor.execute("SELECT COUNT(*) FROM volumes WHERE \"order\" IS NULL OR \"order\" < 1")
+            assert cursor.fetchone()[0] == 0
+
+            cursor.execute("SELECT COUNT(*) FROM chapters WHERE \"order\" IS NULL OR \"order\" < 1")
+            assert cursor.fetchone()[0] == 0
+
+        # Se arriviamo qui, TUTTO funziona correttamente! 🎯
