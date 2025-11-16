@@ -514,3 +514,210 @@ class TestVolumeChapterOperations:
 
         db_manager.close()
         os.remove(path)
+
+    def test_update_volumes_order_basic(self, temp_db):
+        """Test riordinamento base di 3 volumi."""
+        path, db_manager, test_image = temp_db
+
+        # Crea 3 volumi in ordine
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Verifica ordine iniziale
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 1"
+        assert volumes[1]['name'] == "Volume 2"
+        assert volumes[2]['name'] == "Volume 3"
+
+        # Riordina: inverti l'ordine [3, 2, 1]
+        result = db_manager.update_volumes_order([vol3_id, vol2_id, vol1_id])
+        assert result is True
+
+        # Verifica nuovo ordine
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 3
+        assert volumes[0]['name'] == "Volume 3"
+        assert volumes[0]['order'] == 1
+        assert volumes[1]['name'] == "Volume 2"
+        assert volumes[1]['order'] == 2
+        assert volumes[2]['name'] == "Volume 1"
+        assert volumes[2]['order'] == 3
+
+    def test_update_volumes_order_database_persistence(self, temp_db):
+        """Test che l'ordine aggiornato sia persistente nel database."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume A", 1)
+        vol2_id = db_manager.insert_volume("Volume B", 2)
+        vol3_id = db_manager.insert_volume("Volume C", 3)
+
+        # Riordina
+        db_manager.update_volumes_order([vol2_id, vol3_id, vol1_id])
+
+        # Chiudi e riapri il database
+        db_manager.close()
+
+        # Crea nuova connessione
+        db_manager2 = MangaDatabaseManager(path)
+        volumes = db_manager2.get_volumes()
+
+        # Verifica che l'ordine sia persistito
+        assert volumes[0]['name'] == "Volume B"
+        assert volumes[1]['name'] == "Volume C"
+        assert volumes[2]['name'] == "Volume A"
+
+        db_manager2.close()
+
+    def test_update_volumes_order_single_volume(self, temp_db):
+        """Test riordinamento con singolo volume."""
+        path, db_manager, test_image = temp_db
+
+        vol_id = db_manager.insert_volume("Only Volume", 1)
+
+        # Riordina con un solo elemento
+        result = db_manager.update_volumes_order([vol_id])
+        assert result is True
+
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 1
+        assert volumes[0]['name'] == "Only Volume"
+        assert volumes[0]['order'] == 1
+
+    def test_update_volumes_order_empty_list(self, temp_db):
+        """Test riordinamento con lista vuota."""
+        path, db_manager, test_image = temp_db
+
+        db_manager.insert_volume("Volume 1", 1)
+
+        # Riordina con lista vuota
+        result = db_manager.update_volumes_order([])
+        assert result is True  # Dovrebbe completare senza errori
+
+    def test_update_volumes_order_many_volumes(self, temp_db):
+        """Test riordinamento con molti volumi (10)."""
+        path, db_manager, test_image = temp_db
+
+        # Crea 10 volumi
+        volume_ids = []
+        for i in range(1, 11):
+            vol_id = db_manager.insert_volume(f"Volume {i}", i)
+            volume_ids.append(vol_id)
+
+        # Inverti completamente l'ordine
+        reversed_ids = list(reversed(volume_ids))
+        result = db_manager.update_volumes_order(reversed_ids)
+        assert result is True
+
+        # Verifica nuovo ordine
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 10
+        assert volumes[0]['name'] == "Volume 10"
+        assert volumes[9]['name'] == "Volume 1"
+
+        # Verifica che gli ordini siano sequenziali 1-10
+        for i, vol in enumerate(volumes):
+            assert vol['order'] == i + 1
+
+    def test_update_volumes_order_partial_reorder(self, temp_db):
+        """Test riordinamento parziale (swap di 2 volumi centrali)."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+        vol4_id = db_manager.insert_volume("Volume 4", 4)
+
+        # Swap volume 2 e 3
+        result = db_manager.update_volumes_order([vol1_id, vol3_id, vol2_id, vol4_id])
+        assert result is True
+
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "Volume 1"
+        assert volumes[1]['name'] == "Volume 3"
+        assert volumes[2]['name'] == "Volume 2"
+        assert volumes[3]['name'] == "Volume 4"
+
+    def test_update_volumes_order_preserves_chapters(self, temp_db):
+        """Test che il riordinamento volumi preservi i capitoli associati."""
+        path, db_manager, test_image = temp_db
+
+        # Crea volumi con capitoli
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+
+        ch1_id = db_manager.insert_chapter("V1 Chapter 1", 1, vol1_id)
+        ch2_id = db_manager.insert_chapter("V2 Chapter 1", 1, vol2_id)
+
+        # Riordina volumi
+        db_manager.update_volumes_order([vol2_id, vol1_id])
+
+        # Verifica che i capitoli siano ancora associati correttamente
+        chapters_vol1 = db_manager.get_chapters(vol1_id)
+        chapters_vol2 = db_manager.get_chapters(vol2_id)
+
+        assert len(chapters_vol1) == 1
+        assert chapters_vol1[0]['name'] == "V1 Chapter 1"
+
+        assert len(chapters_vol2) == 1
+        assert chapters_vol2[0]['name'] == "V2 Chapter 1"
+
+    def test_update_volumes_order_with_unicode_names(self, temp_db):
+        """Test riordinamento volumi con nomi unicode."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("第一巻", 1)
+        vol2_id = db_manager.insert_volume("第二巻", 2)
+        vol3_id = db_manager.insert_volume("第三巻", 3)
+
+        # Riordina
+        result = db_manager.update_volumes_order([vol3_id, vol1_id, vol2_id])
+        assert result is True
+
+        volumes = db_manager.get_volumes()
+        assert volumes[0]['name'] == "第三巻"
+        assert volumes[1]['name'] == "第一巻"
+        assert volumes[2]['name'] == "第二巻"
+
+    def test_update_volumes_order_duplicate_detection(self, temp_db):
+        """Test che riordinamento gestisca correttamente duplicati nella lista."""
+        path, db_manager, test_image = temp_db
+
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Passa lista con duplicato (vol1 appare 2 volte)
+        # Il comportamento dovrebbe essere deterministico
+        result = db_manager.update_volumes_order([vol1_id, vol2_id, vol1_id])
+        assert result is True  # Non dovrebbe crashare
+
+        # Verifica che il database sia in uno stato consistente
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 3  # Tutti i volumi dovrebbero esistere ancora
+
+    def test_update_volumes_order_complex_scenario(self, temp_db):
+        """Test scenario complesso: riordina, aggiungi, riordina di nuovo."""
+        path, db_manager, test_image = temp_db
+
+        # Fase 1: Crea 3 volumi
+        vol1_id = db_manager.insert_volume("Volume 1", 1)
+        vol2_id = db_manager.insert_volume("Volume 2", 2)
+        vol3_id = db_manager.insert_volume("Volume 3", 3)
+
+        # Fase 2: Riordina
+        db_manager.update_volumes_order([vol3_id, vol1_id, vol2_id])
+
+        # Fase 3: Aggiungi nuovo volume
+        vol4_id = db_manager.insert_volume("Volume 4", 4)
+
+        # Fase 4: Riordina di nuovo includendo il nuovo volume
+        db_manager.update_volumes_order([vol4_id, vol3_id, vol2_id, vol1_id])
+
+        # Verifica ordine finale
+        volumes = db_manager.get_volumes()
+        assert len(volumes) == 4
+        assert volumes[0]['name'] == "Volume 4"
+        assert volumes[1]['name'] == "Volume 3"
+        assert volumes[2]['name'] == "Volume 2"
+        assert volumes[3]['name'] == "Volume 1"
