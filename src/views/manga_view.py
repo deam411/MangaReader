@@ -344,6 +344,7 @@ class MangaView(QWidget):
     def reorder_volumes(self):
         """Aggiorna l'ordine dei volumi nel database dopo drag-and-drop."""
         if not self.manga_file:
+            logger.warning("reorder_volumes called but no manga_file")
             return
 
         try:
@@ -351,14 +352,19 @@ class MangaView(QWidget):
             all_items = [self.volume_list.item(i) for i in range(self.volume_list.count())]
             volume_ids = [item.data(Qt.UserRole) for item in all_items]
 
+            logger.debug(f"Reordering volumes: {volume_ids}")
+
             # Aggiorna l'ordine nel database
             db_manager = MangaDatabaseManager(self.manga_file)
             if db_manager.update_volumes_order(volume_ids):
                 logger.info(f"Volumes reordered successfully: {volume_ids}")
             else:
+                logger.error("update_volumes_order returned False")
                 QMessageBox.critical(self, "Errore", "Impossibile aggiornare l'ordine dei volumi nel database.")
         except Exception as e:
             logger.error(f"Error reordering volumes: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Errore", f"Errore durante il riordino dei volumi:\n{str(e)}")
 
     def reorder_volumes_on_drop(self, parent, start, end, destination, row):
