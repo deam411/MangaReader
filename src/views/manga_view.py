@@ -21,6 +21,7 @@ from src.logger import get_logger
 from src.creator.manga_creator_app import MangaCreatorApp
 from src.views.dialogs import BookmarkDialog, StatisticsDialog
 from src.views.utils import sanitize_filename
+from src.views.widgets import DraggableVolumeList
 
 logger = get_logger(__name__)
 
@@ -91,9 +92,10 @@ class MangaView(QWidget):
         layout.addWidget(self.description_label)
 
         # Aggiungi label per i volumi
-        layout.addWidget(QLabel("<h3>Volumi</h3>"))
-        self.volume_list = QListWidget(self)
-        self.volume_list.setToolTip('Doppio click su un volume per vedere i capitoli')
+        volumes_header = QLabel("<h3>Volumi</h3>")
+        volumes_header.setToolTip('Trascina i volumi per riordinarli')
+        layout.addWidget(volumes_header)
+        self.volume_list = DraggableVolumeList(container_widget)
         self.volume_list.itemDoubleClicked.connect(self.on_volume_selected)
         layout.addWidget(self.volume_list)
 
@@ -337,4 +339,48 @@ class MangaView(QWidget):
         except Exception as e:
             logger.error(f"Error showing statistics: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare le statistiche:\n{str(e)}")
+
+    def on_volume_order_changed(self, order_updates):
+        """
+        Chiamato quando l'ordine dei volumi viene modificato tramite drag-and-drop.
+
+        Args:
+            order_updates: Lista di tuple (volume_id, new_order_value)
+        """
+        if not self.manga_file:
+            return
+
+        try:
+            db_manager = MangaDatabaseManager(self.manga_file)
+
+            # Aggiorna l'ordine di ogni volume nel database
+            for volume_id, new_order in order_updates:
+                # Ottieni i dati attuali del volume per preservare nome e cover
+                cursor = self.db_conn.cursor()
+                cursor.execute("SELECT name, cover FROM volumes WHERE id = ?", (volume_id,))
+                volume_data = cursor.fetchone()
+
+                if volume_data:
+                    # Aggiorna solo l'ordine, mantenendo nome e cover esistenti
+                    db_manager.update_volume(
+                        volume_id=volume_id,
+                        name=volume_data['name'],
+                        order=new_order,
+                        cover=volume_data['cover']
+                    )
+
+            logger.info(f"Volume order updated for {len(order_updates)} volumes")
+            QMessageBox.information(
+                self,
+                "Ordine Aggiornato",
+                f"L'ordine di {len(order_updates)} volumi è stato aggiornato con successo!"
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating volume order: {e}")
+            QMessageBox.critical(
+                self,
+                "Errore",
+                f"Errore durante l'aggiornamento dell'ordine dei volumi:\n{str(e)}"
+            )
 
