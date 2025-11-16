@@ -139,6 +139,10 @@ class MangaDatabaseManager:
         """Get all volumes (delegated to ChapterManager)."""
         return self.chapters.get_volumes()
 
+    def update_volumes_order(self, volume_ids: List[int]) -> bool:
+        """Update volumes order (delegated to ChapterManager)."""
+        return self.chapters.update_volumes_order(volume_ids)
+
     # ========================================================================
     # CHAPTER METHODS (delegated to ChapterManager)
     # ========================================================================
