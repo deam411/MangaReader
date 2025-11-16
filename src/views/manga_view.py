@@ -95,7 +95,6 @@ class MangaView(QWidget):
         volumes_header.setToolTip('Trascina i volumi per riordinarli | Doppio click per aprire')
         layout.addWidget(volumes_header)
         self.volume_list = QListWidget()
-        self.volume_list.setDragEnabled(True)
         self.volume_list.setDragDropMode(QListWidget.InternalMove)
         self.volume_list.model().rowsMoved.connect(self.reorder_volumes_on_drop, Qt.QueuedConnection)
         self.volume_list.itemDoubleClicked.connect(self.on_volume_selected)
