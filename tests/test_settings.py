@@ -52,7 +52,7 @@ class TestSettings:
         settings1.save()
 
         # Resetta il singleton per simulare nuovo avvio app
-        # La fixture mock_settings ha già resettato il singleton
+        Settings._instance = None
 
         # Seconda istanza: carica settings salvate
         settings2 = Settings()
@@ -176,6 +176,9 @@ class TestSettings:
         with open(str(mock_settings), 'w') as f:
             json.dump(old_settings, f)
 
+        # Resetta singleton per forzare ricaricamento del file appena creato
+        Settings._instance = None
+
         # Carica settings
         settings = Settings()
 
@@ -224,7 +227,7 @@ class TestSettings:
         assert saved_data['shortcuts']['fullscreen'] == 'F10'
 
         # Resetta singleton e ricarica
-        # La fixture mock_settings ha già resettato il singleton
+        Settings._instance = None
         settings2 = Settings()
 
         # Verifica che tutto sia stato ricaricato correttamente
@@ -252,7 +255,7 @@ class TestSettings:
         settings.save()
 
         # Verifica che l'ultima modifica sia salvata
-        # La fixture mock_settings ha già resettato il singleton
+        Settings._instance = None
         settings_reloaded = Settings()
 
         assert settings_reloaded.get_theme() == 'light'

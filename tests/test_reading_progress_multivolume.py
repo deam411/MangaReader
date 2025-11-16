@@ -42,8 +42,27 @@ class TestReadingProgressMultiVolume:
 
         # Cleanup
         db_manager.close()
-        if os.path.exists(path):
-            os.remove(path)
+
+        # Force garbage collection to close any lingering connections
+        import gc
+        gc.collect()
+
+        # On Windows, SQLite may leave lock files, retry with delay
+        import time
+        max_retries = 3
+        for i in range(max_retries):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                break
+            except PermissionError:
+                if i < max_retries - 1:
+                    time.sleep(0.1)
+                    gc.collect()
+                else:
+                    # Last attempt failed, ignore
+                    pass
+
         import shutil
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)

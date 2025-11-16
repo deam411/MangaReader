@@ -117,7 +117,9 @@ def mock_settings(temp_dir, monkeypatch):
         return str(temp_dir)
 
     # IMPORTANTE: Applica il monkeypatch PRIMA di resettare Settings
+    # Patcha sia il modulo paths che il modulo settings (che ha già importato la funzione)
     monkeypatch.setattr("src.paths.get_data_dir", mock_get_data_dir)
+    monkeypatch.setattr("src.settings.get_data_dir", mock_get_data_dir)
 
     # Resetta completamente il singleton prima del test
     Settings._instance = None
