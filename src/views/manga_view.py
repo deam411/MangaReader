@@ -21,7 +21,6 @@ from src.logger import get_logger
 from src.creator.manga_creator_app import MangaCreatorApp
 from src.views.dialogs import BookmarkDialog, StatisticsDialog
 from src.views.utils import sanitize_filename
-from src.views.widgets import DraggableVolumeList
 
 logger = get_logger(__name__)
 
@@ -93,9 +92,11 @@ class MangaView(QWidget):
 
         # Aggiungi label per i volumi
         volumes_header = QLabel("<h3>Volumi</h3>")
-        volumes_header.setToolTip('Trascina i volumi per riordinarli')
+        volumes_header.setToolTip('Trascina i volumi per riordinarli | Doppio click per aprire')
         layout.addWidget(volumes_header)
-        self.volume_list = DraggableVolumeList(container_widget)
+        self.volume_list = QListWidget(container_widget)
+        self.volume_list.setDragDropMode(QListWidget.InternalMove)
+        self.volume_list.model().rowsMoved.connect(self.reorder_volumes_on_drop, Qt.QueuedConnection)
         self.volume_list.itemDoubleClicked.connect(self.on_volume_selected)
         layout.addWidget(self.volume_list)
 
@@ -340,47 +341,27 @@ class MangaView(QWidget):
             logger.error(f"Error showing statistics: {e}")
             QMessageBox.critical(self, "Errore", f"Impossibile caricare le statistiche:\n{str(e)}")
 
-    def on_volume_order_changed(self, order_updates):
-        """
-        Chiamato quando l'ordine dei volumi viene modificato tramite drag-and-drop.
-
-        Args:
-            order_updates: Lista di tuple (volume_id, new_order_value)
-        """
+    def reorder_volumes(self):
+        """Aggiorna l'ordine dei volumi nel database dopo drag-and-drop."""
         if not self.manga_file:
             return
 
         try:
+            # Estrai gli ID dei volumi nell'ordine attuale della lista
+            all_items = [self.volume_list.item(i) for i in range(self.volume_list.count())]
+            volume_ids = [item.data(Qt.UserRole) for item in all_items]
+
+            # Aggiorna l'ordine nel database
             db_manager = MangaDatabaseManager(self.manga_file)
-
-            # Aggiorna l'ordine di ogni volume nel database
-            for volume_id, new_order in order_updates:
-                # Ottieni i dati attuali del volume per preservare nome e cover
-                cursor = self.db_conn.cursor()
-                cursor.execute("SELECT name, cover FROM volumes WHERE id = ?", (volume_id,))
-                volume_data = cursor.fetchone()
-
-                if volume_data:
-                    # Aggiorna solo l'ordine, mantenendo nome e cover esistenti
-                    db_manager.update_volume(
-                        volume_id=volume_id,
-                        name=volume_data['name'],
-                        order=new_order,
-                        cover=volume_data['cover']
-                    )
-
-            logger.info(f"Volume order updated for {len(order_updates)} volumes")
-            QMessageBox.information(
-                self,
-                "Ordine Aggiornato",
-                f"L'ordine di {len(order_updates)} volumi è stato aggiornato con successo!"
-            )
-
+            if db_manager.update_volumes_order(volume_ids):
+                logger.info(f"Volumes reordered successfully: {volume_ids}")
+            else:
+                QMessageBox.critical(self, "Errore", "Impossibile aggiornare l'ordine dei volumi nel database.")
         except Exception as e:
-            logger.error(f"Error updating volume order: {e}")
-            QMessageBox.critical(
-                self,
-                "Errore",
-                f"Errore durante l'aggiornamento dell'ordine dei volumi:\n{str(e)}"
-            )
+            logger.error(f"Error reordering volumes: {e}")
+            QMessageBox.critical(self, "Errore", f"Errore durante il riordino dei volumi:\n{str(e)}")
+
+    def reorder_volumes_on_drop(self, parent, start, end, destination, row):
+        """Callback chiamato quando i volumi vengono riordinati tramite drag-and-drop."""
+        self.reorder_volumes()
 

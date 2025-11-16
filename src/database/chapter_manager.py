@@ -190,6 +190,35 @@ class ChapterManager(BaseManager):
             logger.error(f"Error retrieving volumes: {e}")
             return []
 
+    def update_volumes_order(self, volume_ids: List[int]) -> bool:
+        """
+        Aggiorna l'ordine dei volumi.
+
+        Args:
+            volume_ids: Lista di ID volumi nell'ordine desiderato
+
+        Returns:
+            True in caso di successo, False altrimenti
+
+        Example:
+            # Riordina i volumi: [3, 1, 2]
+            success = chapter_mgr.update_volumes_order([3, 1, 2])
+        """
+        try:
+            logger.debug(f"Reordering {len(volume_ids)} volumes")
+
+            with self.get_connection() as conn:
+                c = conn.cursor()
+                for index, volume_id in enumerate(volume_ids):
+                    c.execute('UPDATE volumes SET "order" = ? WHERE id = ?', (index + 1, volume_id))
+
+            logger.info(f"Volumes reordered successfully")
+            return True
+
+        except sqlite3.Error as e:
+            logger.error(f"Error reordering volumes: {e}")
+            return False
+
     # ============================================================================
     # CHAPTER OPERATIONS
     # ============================================================================
