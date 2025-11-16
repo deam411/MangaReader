@@ -38,6 +38,13 @@ class Settings:
         self.settings_file = os.path.join(get_data_dir(), "settings.json")
         self.settings = self._load_settings()
 
+    def _reset_for_testing(self):
+        """Resetta l'istanza per i test. SOLO PER USO NEI TEST!"""
+        self._initialized = False
+        self.settings_file = os.path.join(get_data_dir(), "settings.json")
+        self.settings = self._load_settings()
+        self._initialized = True
+
     def _get_default_settings(self) -> Dict[str, Any]:
         """Restituisce le impostazioni di default."""
         return {

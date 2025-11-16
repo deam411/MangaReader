@@ -62,17 +62,17 @@ def run_tests(verbose=False, quick=False):
         print("=" * 80)
 
         if result.returncode == 0:
-            print("  ✓ TUTTI I TEST SONO PASSATI!")
+            print("  [OK] TUTTI I TEST SONO PASSATI!")
         elif result.returncode == 1:
-            print("  ✗ ALCUNI TEST SONO FALLITI")
+            print("  [FAIL] ALCUNI TEST SONO FALLITI")
         elif result.returncode == 2:
-            print("  ✗ ERRORE DI ESECUZIONE TEST (es. syntax error)")
+            print("  [ERROR] ERRORE DI ESECUZIONE TEST (es. syntax error)")
         elif result.returncode == 3:
-            print("  ⚠ TEST INTERROTTI DALL'UTENTE")
+            print("  [WARN] TEST INTERROTTI DALL'UTENTE")
         elif result.returncode == 4:
-            print("  ✗ ERRORE INTERNO DI PYTEST")
+            print("  [ERROR] ERRORE INTERNO DI PYTEST")
         elif result.returncode == 5:
-            print("  ⚠ NESSUN TEST TROVATO")
+            print("  [WARN] NESSUN TEST TROVATO")
 
         print("=" * 80)
         print()

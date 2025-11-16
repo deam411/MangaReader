@@ -278,16 +278,16 @@ class TestBookmarkManagerExtended:
         bookmark_mgr = BookmarkManager(path)
 
         import time
-        before = int(time.time())
+        before = int(time.time() * 1000)  # Millisecondi
 
         bookmark_mgr.add_bookmark(1, 5, "Test", "default")
 
-        after = int(time.time())
+        after = int(time.time() * 1000)  # Millisecondi
 
         bookmarks = bookmark_mgr.get_bookmarks("default")
         timestamp = bookmarks[0]['timestamp']
 
-        # Timestamp dovrebbe essere nell'intervallo
+        # Timestamp dovrebbe essere nell'intervallo (in millisecondi)
         assert before <= timestamp <= after
 
     def test_bookmark_with_unicode_name(self, temp_manga_db):

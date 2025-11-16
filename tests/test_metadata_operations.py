@@ -152,7 +152,8 @@ class TestMetadataOperations:
         assert result is True
 
         metadata = db_manager.get_metadata()
-        assert metadata['title'] == long_title
+        # Il titolo viene troncato a MAX_TITLE_LENGTH (200 caratteri)
+        assert metadata['title'] == "A" * 200
 
     def test_set_metadata_very_long_description(self, temp_db):
         """Test metadata con descrizione molto lunga."""
@@ -169,7 +170,8 @@ class TestMetadataOperations:
         assert result is True
 
         metadata = db_manager.get_metadata()
-        assert metadata['description'] == long_description
+        # La descrizione viene troncata a MAX_DESCRIPTION_LENGTH (2000 caratteri)
+        assert metadata['description'] == long_description[:2000]
 
     def test_set_metadata_year_valid(self, temp_db):
         """Test anno valido."""
@@ -263,12 +265,8 @@ class TestMetadataOperations:
             description="Description"
         )
 
-        # Aggiorna
-        result = db_manager.insert_metadata(
-            title="Updated Title",
-            author="Author",
-            description="Description"
-        )
+        # Usa update_metadata invece di insert_metadata per aggiornamenti
+        result = db_manager.update_metadata(title="Updated Title")
 
         assert result is True
 
@@ -285,12 +283,12 @@ class TestMetadataOperations:
             description="Description"
         )
 
-        # Aggiorna author
-        db_manager.insert_metadata(
+        # Usa update_metadata per aggiornamenti (title è obbligatorio)
+        result = db_manager.update_metadata(
             title="Title",
-            author="Updated Author",
-            description="Description"
+            author="Updated Author"
         )
+        assert result is True
 
         metadata = db_manager.get_metadata()
         assert metadata['author'] == "Updated Author"
@@ -309,13 +307,12 @@ class TestMetadataOperations:
             cover=original_cover
         )
 
-        # Aggiorna cover
-        db_manager.insert_metadata(
+        # Usa update_metadata per aggiornamenti (title è obbligatorio)
+        result = db_manager.update_metadata(
             title="Title",
-            author="Author",
-            description="Description",
             cover=updated_cover
         )
+        assert result is True
 
         metadata = db_manager.get_metadata()
         assert metadata['cover'] == updated_cover

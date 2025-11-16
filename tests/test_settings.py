@@ -17,8 +17,7 @@ class TestSettings:
 
     def test_singleton_pattern(self, mock_settings):
         """Test che Settings sia un Singleton."""
-        # Resetta il singleton per il test
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings1 = Settings()
         settings2 = Settings()
@@ -29,8 +28,7 @@ class TestSettings:
 
     def test_default_settings(self, mock_settings):
         """Test valori default delle impostazioni."""
-        # Resetta il singleton
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings = Settings()
 
@@ -45,7 +43,7 @@ class TestSettings:
     def test_settings_persistence(self, mock_settings):
         """Test che le impostazioni vengano salvate e caricate correttamente."""
         # Resetta il singleton
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Prima istanza: crea settings
         settings1 = Settings()
@@ -54,7 +52,7 @@ class TestSettings:
         settings1.save()
 
         # Resetta il singleton per simulare nuovo avvio app
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Seconda istanza: carica settings salvate
         settings2 = Settings()
@@ -65,7 +63,7 @@ class TestSettings:
 
     def test_get_and_set_theme(self, mock_settings):
         """Test get/set tema."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings = Settings()
 
         # Test default
@@ -83,7 +81,7 @@ class TestSettings:
 
     def test_get_and_set_library_path(self, mock_settings):
         """Test get/set library path."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings = Settings()
 
         # Test default (None = usa path di default)
@@ -96,7 +94,7 @@ class TestSettings:
 
     def test_performance_settings(self, mock_settings):
         """Test impostazioni performance."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings = Settings()
 
         # Verifica valori default
@@ -117,7 +115,7 @@ class TestSettings:
 
     def test_shortcuts_settings(self, mock_settings):
         """Test impostazioni shortcuts."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings = Settings()
 
         # Verifica shortcuts default
@@ -133,7 +131,7 @@ class TestSettings:
 
     def test_save_creates_directory(self, mock_settings, temp_dir):
         """Test che save() crei la directory se non esiste."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Usa una sottodirectory che non esiste
         nested_dir = temp_dir / "nested" / "path"
@@ -151,7 +149,7 @@ class TestSettings:
 
     def test_load_corrupted_settings_file(self, mock_settings):
         """Test caricamento file settings corrotto."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Crea un file settings corrotto
         settings_file = mock_settings
@@ -166,7 +164,7 @@ class TestSettings:
 
     def test_merge_with_default_settings(self, mock_settings):
         """Test che le nuove chiavi default vengano aggiunte a settings esistenti."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Crea settings file con versione vecchia (senza alcune chiavi)
         old_settings = {
@@ -191,7 +189,7 @@ class TestSettings:
 
     def test_settings_file_location(self, mock_settings):
         """Test che il file settings sia nella posizione corretta."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings = Settings()
 
@@ -201,7 +199,7 @@ class TestSettings:
 
     def test_save_and_reload(self, mock_settings):
         """Test ciclo completo save/reload."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         # Crea e configura settings
         settings1 = Settings()
@@ -226,7 +224,7 @@ class TestSettings:
         assert saved_data['shortcuts']['fullscreen'] == 'F10'
 
         # Resetta singleton e ricarica
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings2 = Settings()
 
         # Verifica che tutto sia stato ricaricato correttamente
@@ -237,7 +235,7 @@ class TestSettings:
 
     def test_multiple_save_operations(self, mock_settings):
         """Test multiple operazioni di salvataggio."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings = Settings()
 
@@ -254,7 +252,7 @@ class TestSettings:
         settings.save()
 
         # Verifica che l'ultima modifica sia salvata
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings_reloaded = Settings()
 
         assert settings_reloaded.get_theme() == 'light'
@@ -262,7 +260,7 @@ class TestSettings:
 
     def test_version_tracking(self, mock_settings):
         """Test che la versione sia tracciata correttamente."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings = Settings()
 
@@ -271,7 +269,7 @@ class TestSettings:
 
     def test_last_opened_manga(self, mock_settings):
         """Test tracciamento ultimo manga aperto."""
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
 
         settings = Settings()
 
@@ -283,7 +281,7 @@ class TestSettings:
         settings.save()
 
         # Ricarica e verifica
-        Settings._instance = None
+        # La fixture mock_settings ha già resettato il singleton
         settings2 = Settings()
 
         assert settings2.settings['last_opened_manga'] == '/path/to/manga.manga'

@@ -102,15 +102,35 @@ def mock_settings(temp_dir, monkeypatch):
     Yields:
         Path: Percorso al file settings.json di test
     """
+    # Importa Settings qui per evitare circular import
+    from src.settings import Settings
+    import os
+
     settings_file = temp_dir / "settings.json"
+
+    # Cancella il file settings.json se esiste (da test precedenti)
+    if settings_file.exists():
+        os.remove(settings_file)
 
     # Mock della funzione get_data_dir per usare temp_dir
     def mock_get_data_dir():
         return str(temp_dir)
 
+    # IMPORTANTE: Applica il monkeypatch PRIMA di resettare Settings
     monkeypatch.setattr("src.paths.get_data_dir", mock_get_data_dir)
 
+    # Resetta completamente il singleton prima del test
+    Settings._instance = None
+
+    # Crea una nuova istanza con il monkeypatch attivo
+    settings_instance = Settings()
+    # Resetta l'istanza per ricaricare con il nuovo path
+    settings_instance._reset_for_testing()
+
     yield settings_file
+
+    # Cleanup: resetta il singleton dopo il test
+    Settings._instance = None
 
 
 @pytest.fixture(scope="session")

@@ -393,7 +393,8 @@ class TestVolumeChapterOperations:
         assert volume_id > 0
 
         volumes = db_manager.get_volumes()
-        assert volumes[0]['name'] == long_name
+        # Il nome viene troncato a MAX_VOLUME_NAME_LENGTH (100 caratteri)
+        assert volumes[0]['name'] == "A" * 100
 
     def test_insert_chapter_with_long_name(self, temp_db):
         """Test capitolo con nome molto lungo."""
@@ -407,7 +408,8 @@ class TestVolumeChapterOperations:
         assert chapter_id > 0
 
         chapters = db_manager.get_chapters(volume_id)
-        assert chapters[0]['name'] == long_name
+        # Il nome viene troncato a MAX_CHAPTER_NAME_LENGTH (200 caratteri)
+        assert chapters[0]['name'] == "B" * 200
 
     def test_volume_chapter_page_ids_unique(self, temp_db):
         """Test che ID siano univoci e incrementali."""
