@@ -100,6 +100,58 @@ class DeselectableListWidget(QListWidget):
         super().mousePressEvent(event)
 
 
+class DraggableVolumeList(QListWidget):
+    """
+    QListWidget per volumi con supporto drag-and-drop per riordinare.
+
+    Emette il segnale order_changed(list) quando l'ordine viene modificato,
+    passando la nuova lista di (volume_id, new_order).
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Abilita drag-and-drop
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QListWidget.InternalMove)
+        # Tooltip per informare l'utente
+        self.setToolTip('Trascina i volumi per riordinarli | Doppio click per aprire')
+
+    def mousePressEvent(self, event):
+        """Deseleziona se click sullo sfondo."""
+        item = self.itemAt(event.pos())
+        if item is None:
+            self.clearSelection()
+        super().mousePressEvent(event)
+
+    def dropEvent(self, event):
+        """Override per gestire il drop e notificare il cambio di ordine."""
+        # Ottieni l'ordine prima del drop
+        old_order = [(self.item(i).data(Qt.UserRole), i) for i in range(self.count())]
+
+        # Esegui il drop standard
+        super().dropEvent(event)
+
+        # Ottieni il nuovo ordine dopo il drop
+        new_order = [(self.item(i).data(Qt.UserRole), i) for i in range(self.count())]
+
+        # Se l'ordine è cambiato, emetti il segnale
+        if old_order != new_order:
+            # Prepara lista di (volume_id, new_order_value)
+            order_updates = []
+            for idx in range(self.count()):
+                volume_id = self.item(idx).data(Qt.UserRole)
+                # L'ordine in database parte da 1, non da 0
+                new_order_value = idx + 1
+                order_updates.append((volume_id, new_order_value))
+
+            # Notifica al parent (MangaView) di aggiornare il database
+            parent = self.parent()
+            if hasattr(parent, 'on_volume_order_changed'):
+                parent.on_volume_order_changed(order_updates)
+
+
 class MangaItemDelegate(QStyledItemDelegate):
     """
     Custom delegate per rendering manga items.
