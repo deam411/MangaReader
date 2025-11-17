@@ -322,7 +322,7 @@ class ReaderView(QWidget):
             new_mode = self.page_display_widget.toggle_view_mode()
             # Opzionale: mostra messaggio temporaneo all'utente
             mode_text = "Doppia Pagina" if new_mode == "double" else "Singola Pagina"
-            print(f"Modalità vista cambiata: {mode_text}")
+            logger.info(f"Modalità vista cambiata: {mode_text}")
 
     def add_bookmark(self):
         """Aggiunge un segnalibro alla posizione corrente."""

@@ -64,6 +64,10 @@ DELEGATE_COVER_HEIGHT = 375
 # Dimensioni separatore capitoli nel reader
 CHAPTER_SEPARATOR_WIDTH = 800
 CHAPTER_SEPARATOR_HEIGHT = 400
+CHAPTER_SEPARATOR_FALLBACK_HEIGHT = 400  # Altezza di fallback per separatore
+
+# Ratio tipico manga (larghezza:altezza)
+MANGA_PAGE_ASPECT_RATIO = 1.4  # 1:1.4 (es. 700x980)
 
 # Dimensioni icone pagine
 PAGE_ICON_SIZE = 100
@@ -147,3 +151,6 @@ LOG_BACKUP_COUNT = 5
 
 # Progress bar update interval (ms)
 PROGRESS_UPDATE_INTERVAL = 100
+
+# Update/Release notes
+MAX_RELEASE_NOTES_LENGTH = 500  # Caratteri massimi per note di rilascio nella dialog

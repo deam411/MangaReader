@@ -29,6 +29,10 @@ def get_manga_dir():
 
     Ora supporta la libreria custom tramite le settings.
     """
+    # Import lazy per evitare circular import
+    from .logger import get_logger
+    logger = get_logger(__name__)
+
     # Prova a importare settings
     try:
         from .settings import Settings
@@ -42,14 +46,14 @@ def get_manga_dir():
                 try:
                     os.makedirs(manga_dir)
                 except Exception as e:
-                    print(f"Impossibile creare directory custom: {e}")
+                    logger.error(f"Impossibile creare directory custom: {e}")
                     # Se fallisce la creazione, usa il default
                     manga_dir = None
 
             if manga_dir:
                 return manga_dir
     except Exception as e:
-        print(f"Errore caricamento settings: {e}")
+        logger.error(f"Errore caricamento settings: {e}")
 
     # Fallback al percorso di default SOLO se non c'è una directory custom
     manga_dir = os.path.join(get_project_root(), "manga")

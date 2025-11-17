@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import platform
 from typing import Optional, Dict, Tuple
-from .constants import APP_VERSION
+from .constants import APP_VERSION, MAX_RELEASE_NOTES_LENGTH
 from .logger import get_logger
 from .exceptions import ValidationError
 
@@ -459,8 +459,8 @@ def get_update_info_text(update_info: Dict) -> str:
     published = update_info.get('published_at', '')
 
     # Limita lunghezza note
-    if len(notes) > 500:
-        notes = notes[:500] + "...\n\n(Vedi release completa su GitHub)"
+    if len(notes) > MAX_RELEASE_NOTES_LENGTH:
+        notes = notes[:MAX_RELEASE_NOTES_LENGTH] + "...\n\n(Vedi release completa su GitHub)"
 
     text = f"Nuova versione disponibile: v{version}\n\n"
     text += f"Pubblicata: {published[:10]}\n\n"

@@ -1,0 +1,105 @@
+[MASTER]
+# Use multiple processes to speed up Pylint
+jobs=0
+
+# Pickle collected data for later comparisons
+persistent=yes
+
+# List of plugins
+load-plugins=
+
+# Allow loading of arbitrary C extensions
+unsafe-load-any-extension=no
+
+[MESSAGES CONTROL]
+# Disable specific warnings
+disable=
+    C0103,  # Invalid name (snake_case vs camelCase for Qt methods)
+    C0111,  # Missing docstring (we have many UI methods without docs)
+    R0902,  # Too many instance attributes (Qt widgets have many)
+    R0913,  # Too many arguments (Qt callbacks often have many)
+    R0914,  # Too many local variables
+    W0212,  # Access to protected member (Qt uses _foo pattern)
+    W0201,  # Attribute defined outside __init__ (Qt dynamic attributes)
+    E1101,  # Qt dynamic attributes not recognized
+    C0301,  # Line too long (handled by black)
+    R0801,  # Similar lines (acceptable for UI code)
+    W0511,  # TODO/FIXME comments (we want to keep them)
+    C0330,  # Wrong hanging indentation (conflicts with black)
+
+[REPORTS]
+# Set the output format
+output-format=colorized
+
+# Reports evaluation score
+score=yes
+
+[BASIC]
+# Good variable names
+good-names=i,j,k,ex,_,x,y,db,ui,app,logger
+
+# Regular expression for good names
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+
+# Regular expression for constant names
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+[FORMAT]
+# Maximum line length (match black)
+max-line-length=100
+
+# Maximum lines in a module
+max-module-lines=1500
+
+# String used for indentation
+indent-string='    '
+
+[DESIGN]
+# Maximum number of arguments
+max-args=8
+
+# Maximum number of attributes
+max-attributes=15
+
+# Maximum number of boolean expressions
+max-bool-expr=5
+
+# Maximum number of branches
+max-branches=15
+
+# Maximum number of locals
+max-locals=20
+
+# Maximum number of parents
+max-parents=7
+
+# Maximum number of public methods
+max-public-methods=25
+
+# Maximum number of return/yield statements
+max-returns=6
+
+# Maximum number of statements
+max-statements=60
+
+[SIMILARITIES]
+# Minimum lines of similar code
+min-similarity-lines=10
+
+# Ignore imports
+ignore-imports=yes
+
+[TYPECHECK]
+# List of class names for which member attributes should not be checked
+ignored-classes=PyQt5,QObject,QWidget,QMainWindow,QApplication,QThread
+
+# List of members to not check
+ignored-modules=PyQt5
+
+[IMPORTS]
+# Allow wildcard imports from PyQt5
+allow-wildcard-with-all=yes
+
+[EXCEPTIONS]
+# Exception names to check
+overgeneral-exceptions=Exception

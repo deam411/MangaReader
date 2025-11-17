@@ -513,7 +513,7 @@ class MangaCreatorApp(QMainWindow):
                         )
                         self.finished.emit(success)
                     except Exception as e:
-                        print(f"Errore nel worker thread: {e}")
+                        logger.error(f"Errore nel worker thread: {e}")
                         import traceback
                         traceback.print_exc()
                         self.finished.emit(False)

@@ -13,6 +13,8 @@ from .constants import (
     WINDOW_SIZE,
     CHAPTER_SEPARATOR_WIDTH,
     CHAPTER_SEPARATOR_HEIGHT,
+    CHAPTER_SEPARATOR_FALLBACK_HEIGHT,
+    MANGA_PAGE_ASPECT_RATIO,
     BLUE_LIGHT_FILTER_COLOR,
     BLUE_LIGHT_FILTER_OPACITY
 )
@@ -426,7 +428,7 @@ class PageDisplayWidget(QWidget):
         if self.page_metadata and page_idx < len(self.page_metadata):
             metadata = self.page_metadata[page_idx]
             if metadata.get('type') == 'separator':
-                return int(400 * self.zoom_factor)
+                return int(CHAPTER_SEPARATOR_FALLBACK_HEIGHT * self.zoom_factor)
 
         # Se abbiamo dimensioni salvate per questa pagina, usale
         if hasattr(self, 'page_dimensions') and page_idx < len(self.page_dimensions):
@@ -436,8 +438,8 @@ class PageDisplayWidget(QWidget):
                 scaled_height = int(height * (target_width / width))
                 return scaled_height
 
-        # Fallback: usa ratio tipico manga (1:1.4)
-        return int(target_width * 1.4)
+        # Fallback: usa ratio tipico manga
+        return int(target_width * MANGA_PAGE_ASPECT_RATIO)
 
     def _update_layout_single(self, parent_width, scroll_area_width):
         """Layout per vista singola pagina (verticale)."""
@@ -497,7 +499,7 @@ class PageDisplayWidget(QWidget):
 
             if is_separator:
                 # Separatore occupa l'intera larghezza
-                separator_height = int(400 * self.zoom_factor)
+                separator_height = int(CHAPTER_SEPARATOR_FALLBACK_HEIGHT * self.zoom_factor)
                 x_offset = x_offset_base
                 self.page_positions.append(QRect(x_offset, y_offset, total_double_width, separator_height))
                 y_offset += separator_height + int(self.page_spacing * self.zoom_factor)
@@ -558,7 +560,7 @@ class PageDisplayWidget(QWidget):
         if self.page_metadata and page_idx < len(self.page_metadata):
             metadata = self.page_metadata[page_idx]
             if metadata.get('type') == 'separator':
-                return int(400 * self.zoom_factor)
+                return int(CHAPTER_SEPARATOR_FALLBACK_HEIGHT * self.zoom_factor)
 
         # Prova a caricare i dati dell'immagine per ottenere dimensioni reali
         if page_idx == 0 or self.loaded_pages_cache.get(page_idx) is not None:
@@ -571,7 +573,7 @@ class PageDisplayWidget(QWidget):
                     return int(original_size.height() * (target_width / original_size.width()))
 
         # Usa dimensioni standard se non disponibili
-        return int(target_width * 1.4)  # Ratio tipico manga
+        return int(target_width * MANGA_PAGE_ASPECT_RATIO)
 
     def paintEvent(self, event):
         painter = QPainter(self)
