@@ -226,7 +226,7 @@ class TestArchiveImport:
         self.create_test_cbz(cbz_path, num_pages=5)
 
         importer = ArchiveImporter()
-        result = importer.import_archive(
+        success, error_msg = importer.import_archive(
             archive_path=cbz_path,
             output_path=output_path,
             title="Test Manga",
@@ -235,7 +235,8 @@ class TestArchiveImport:
             chapter_name="Chapter 1"
         )
 
-        assert result is True
+        assert success is True
+        assert error_msg == ""
         assert os.path.exists(output_path)
 
         # Verifica che il database contenga i dati
@@ -264,13 +265,14 @@ class TestArchiveImport:
         self.create_test_cbz(cbz_path, num_pages=3)
 
         importer = ArchiveImporter()
-        result = importer.import_archive(
+        success, error_msg = importer.import_archive(
             archive_path=cbz_path,
             output_path=output_path
             # Usa tutti i default
         )
 
-        assert result is True
+        assert success is True
+        assert error_msg == ""
         assert os.path.exists(output_path)
 
     def test_import_nonexistent_file(self, temp_dir):
@@ -279,12 +281,13 @@ class TestArchiveImport:
         output_path = os.path.join(temp_dir, "output.manga")
 
         importer = ArchiveImporter()
-        result = importer.import_archive(
+        success, error_msg = importer.import_archive(
             archive_path=cbz_path,
             output_path=output_path
         )
 
-        assert result is False
+        assert success is False
+        assert error_msg != ""  # Deve contenere un messaggio di errore
 
 
 if __name__ == "__main__":
