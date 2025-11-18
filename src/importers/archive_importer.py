@@ -210,7 +210,7 @@ class ArchiveImporter:
         author: Optional[str] = None,
         volume_name: Optional[str] = None,
         chapter_name: Optional[str] = None
-    ) -> bool:
+    ) -> Tuple[bool, str]:
         """
         Importa un archivio manga e lo converte in formato .manga.
 
@@ -223,14 +223,21 @@ class ArchiveImporter:
             chapter_name: Nome capitolo (default: "Chapter 1")
 
         Returns:
-            True se l'import è riuscito, False altrimenti
+            Tupla (success, error_message) dove:
+            - success: True se l'import è riuscito, False altrimenti
+            - error_message: Messaggio di errore dettagliato (vuoto se success=True)
         """
         # Rileva tipo archivio
         archive_type = self.detect_archive_type(archive_path)
 
         if not archive_type:
+            error_msg = (
+                "Tipo di archivio non riconosciuto.\n\n"
+                "Il file deve essere un archivio CBZ (ZIP) o CBR (RAR) valido.\n"
+                "Verifica che il file non sia corrotto."
+            )
             logger.error(f"Tipo archivio non riconosciuto: {archive_path}")
-            return False
+            return False, error_msg
 
         logger.info(f"Importazione {archive_type.upper()} da: {archive_path}")
 
@@ -238,14 +245,33 @@ class ArchiveImporter:
         if archive_type == 'cbz':
             images = self.extract_images_from_zip(archive_path)
         elif archive_type == 'cbr':
+            if not RAR_AVAILABLE:
+                error_msg = (
+                    "Impossibile importare file CBR/RAR.\n\n"
+                    "Il modulo 'rarfile' non è installato.\n"
+                    "Usa file CBZ oppure installa rarfile con:\n"
+                    "pip install rarfile"
+                )
+                logger.error("rarfile non disponibile per CBR")
+                return False, error_msg
             images = self.extract_images_from_rar(archive_path)
         else:
-            logger.error(f"Tipo archivio non supportato: {archive_type}")
-            return False
+            error_msg = f"Tipo archivio non supportato: {archive_type}"
+            logger.error(error_msg)
+            return False, error_msg
 
         if not images:
+            error_msg = (
+                "Nessuna immagine trovata nell'archivio.\n\n"
+                "Possibili cause:\n"
+                "• L'archivio è vuoto o corrotto\n"
+                "• Non contiene immagini in formati supportati\n"
+                "  (PNG, JPG, JPEG, GIF, BMP, WebP, JFIF)\n"
+                "• Le immagini superano il limite di 50MB ciascuna\n"
+                "• I nomi dei file contengono caratteri non validi"
+            )
             logger.error("Nessuna immagine trovata nell'archivio")
-            return False
+            return False, error_msg
 
         # Determina metadata di default
         if not title:
@@ -264,8 +290,12 @@ class ArchiveImporter:
         # Valida output_path per prevenire path traversal
         output_dir = os.path.dirname(os.path.abspath(output_path))
         if not os.path.exists(output_dir):
+            error_msg = (
+                f"Directory di destinazione non trovata:\n{output_dir}\n\n"
+                "Verifica che il percorso della libreria nelle impostazioni sia valido."
+            )
             logger.error(f"Directory output non esiste: {output_dir}")
-            return False
+            return False, error_msg
 
         # Crea database manga
         try:
@@ -319,7 +349,7 @@ class ArchiveImporter:
                         logger.error(f"Errore inserimento pagina {page_num}")
 
                 logger.info(f"Import completato: {len(images)} pagine importate")
-                return True
+                return True, ""
 
             finally:
                 # Pulisci directory temporanea
@@ -327,7 +357,67 @@ class ArchiveImporter:
                     shutil.rmtree(self.temp_dir, ignore_errors=True)
                     self.temp_dir = None
 
+        except zipfile.BadZipFile:
+            error_msg = (
+                "File ZIP corrotto o invalido.\n\n"
+                "Il file non può essere aperto come archivio ZIP.\n"
+                "Prova a scaricare nuovamente il file."
+            )
+            logger.error(f"BadZipFile: {archive_path}")
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+            return False, error_msg
         except Exception as e:
+            # Cattura anche rarfile.BadRarFile se disponibile
+            if RAR_AVAILABLE and 'BadRarFile' in str(type(e).__name__):
+                error_msg = (
+                    "File RAR corrotto o invalido.\n\n"
+                    "Il file non può essere aperto come archivio RAR.\n"
+                    "Prova a scaricare nuovamente il file."
+                )
+                logger.error(f"BadRarFile: {archive_path}")
+                if os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+                return False, error_msg
+            raise  # Re-raise per gli altri catch
+        except PermissionError as e:
+            error_msg = (
+                "Permessi insufficienti.\n\n"
+                f"Impossibile accedere al file:\n{str(e)}\n\n"
+                "Verifica i permessi di lettura/scrittura."
+            )
+            logger.error(f"PermissionError durante import: {e}")
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+            return False, error_msg
+        except OSError as e:
+            error_msg = (
+                "Errore di sistema durante l'importazione.\n\n"
+                f"Dettagli: {str(e)}\n\n"
+                "Verifica lo spazio su disco e i permessi."
+            )
+            logger.error(f"OSError durante import: {e}")
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except:
+                    pass
+            return False, error_msg
+        except Exception as e:
+            error_msg = (
+                "Errore inatteso durante l'importazione.\n\n"
+                f"Dettagli tecnici:\n{str(e)}\n\n"
+                "Verifica il file di log per maggiori informazioni."
+            )
             logger.error(f"Errore durante import: {e}")
             # Rimuovi file .manga parziale
             if os.path.exists(output_path):
@@ -335,7 +425,7 @@ class ArchiveImporter:
                     os.remove(output_path)
                 except:
                     pass
-            return False
+            return False, error_msg
 
     @staticmethod
     def get_supported_formats() -> List[str]:

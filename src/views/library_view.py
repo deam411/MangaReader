@@ -670,7 +670,7 @@ class LibraryView(QWidget):
                     return
 
             # Esegui import
-            success = importer.import_archive(
+            success, error_message = importer.import_archive(
                 archive_path=file_path,
                 output_path=output_path,
                 title=metadata['title'],
@@ -689,10 +689,11 @@ class LibraryView(QWidget):
                 )
                 self.load_library()
             else:
+                # Mostra messaggio di errore dettagliato
                 QMessageBox.critical(
                     self,
                     'Errore Import',
-                    'Errore durante l\'importazione dell\'archivio. Verifica il file e riprova.'
+                    error_message
                 )
 
         except Exception as e:
