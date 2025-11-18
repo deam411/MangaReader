@@ -645,3 +645,68 @@ class ChapterManager(BaseManager):
         except sqlite3.Error as e:
             logger.error(f"Error swapping pages in chapter {chapter_id}: {e}")
             return False
+
+    def insert_pages_batch(self, chapter_id: int, pages_data: List[bytes], start_page_number: int = 1, batch_size: int = 50) -> bool:
+        """
+        Inserisce multiple pagine in batch per performance ottimali.
+
+        Questo metodo è ottimizzato per inserire grandi quantità di pagine (100+)
+        riducendo il numero di transazioni e commit.
+
+        Args:
+            chapter_id: ID del capitolo
+            pages_data: Lista di bytes contenenti i dati delle immagini
+            start_page_number: Numero pagina iniziale (default: 1)
+            batch_size: Numero di pagine per batch (default: 50, ottimale per SQLite)
+
+        Returns:
+            True in caso di successo, False altrimenti
+
+        Example:
+            # Inserisci 200 pagine in batch
+            pages = [page1_data, page2_data, ..., page200_data]
+            success = chapter_mgr.insert_pages_batch(
+                chapter_id=1,
+                pages_data=pages,
+                start_page_number=1
+            )
+        """
+        try:
+            total_pages = len(pages_data)
+            logger.debug(f"Batch inserting {total_pages} pages for chapter {chapter_id} (batch_size={batch_size})")
+
+            # Dividi in batch per evitare transazioni troppo grandi
+            for batch_start in range(0, total_pages, batch_size):
+                batch_end = min(batch_start + batch_size, total_pages)
+                batch_pages = pages_data[batch_start:batch_end]
+
+                logger.debug(f"Processing batch {batch_start//batch_size + 1}/{(total_pages + batch_size - 1)//batch_size}")
+
+                with self.get_connection() as conn:
+                    c = conn.cursor()
+
+                    # Prepara tutti i dati per executemany
+                    batch_data = [
+                        (chapter_id, start_page_number + batch_start + i, page_data)
+                        for i, page_data in enumerate(batch_pages)
+                    ]
+
+                    # Inserisci tutte le pagine del batch in una singola transazione
+                    c.executemany('''
+                        INSERT INTO pages (chapter_id, page_number, image_data)
+                        VALUES (?, ?, ?)
+                    ''', batch_data)
+
+                    # Commit esplicito avviene automaticamente alla fine del context manager
+
+                logger.debug(f"Batch {batch_start//batch_size + 1} inserted successfully ({len(batch_pages)} pages)")
+
+            logger.info(f"All {total_pages} pages inserted successfully for chapter {chapter_id}")
+            return True
+
+        except sqlite3.Error as e:
+            logger.error(f"Error batch inserting pages for chapter {chapter_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error during batch insert: {e}")
+            return False

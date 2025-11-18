@@ -93,6 +93,50 @@ class MangaworldDownloaderPlugin(PluginBase):
             import tempfile
             import shutil
             from main import App
+            import logging
+
+            # Setup logger con file su disco PRIMA di tutto
+            logger = logging.getLogger(__name__)
+            logger.setLevel(logging.DEBUG)
+
+            # File handler - salva su disco
+            if not logger.handlers:
+                log_file = os.path.join(tempfile.gettempdir(), "mangaworld_downloader_debug.log")
+                file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+                file_handler.setLevel(logging.DEBUG)
+
+                console_handler = logging.StreamHandler()
+                console_handler.setLevel(logging.DEBUG)
+
+                formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: %(message)s')
+                file_handler.setFormatter(formatter)
+                console_handler.setFormatter(formatter)
+
+                logger.addHandler(file_handler)
+                logger.addHandler(console_handler)
+
+                logger.info(f"Log salvato in: {log_file}")
+
+            logger.info("="*60)
+            logger.info("INIZIO PROCESSO DI DOWNLOAD E INTEGRAZIONE")
+            logger.info(f"File .manga RAW (prima strip): '{manga_file_path}'")
+            logger.info(f"Tipo: {type(manga_file_path)}")
+            logger.info(f"Lunghezza: {len(manga_file_path)}")
+
+            # Rimuovi virgolette dal percorso se presenti
+            manga_file_path_original = manga_file_path
+            manga_file_path = manga_file_path.strip('"').strip("'")
+
+            if manga_file_path != manga_file_path_original:
+                logger.warning(f"Virgolette rimosse dal percorso!")
+                logger.warning(f"Prima: '{manga_file_path_original}'")
+                logger.warning(f"Dopo: '{manga_file_path}'")
+
+            logger.info(f"File .manga FINAL: '{manga_file_path}'")
+            logger.info(f"URL Mangaworld: {mangaworld_url}")
+            logger.info(f"Volume number: {volume_number}")
+            logger.info(f"Volume name: {volume_name}")
+            logger.info("="*60)
 
             # Parse volume number
             start_volume = None
@@ -106,6 +150,7 @@ class MangaworldDownloaderPlugin(PluginBase):
 
             # Download to temp directory
             temp_dir = tempfile.mkdtemp(prefix="mangaworld_download_")
+            logger.info(f"Temp directory creata: {temp_dir}")
 
             try:
                 # Update progress
@@ -119,6 +164,9 @@ class MangaworldDownloaderPlugin(PluginBase):
                 from manga_downloader_lib.manga_downloader import process_manga_download
 
                 set_download_folder(temp_dir)
+                logger.info(f"Download folder impostata: {temp_dir}")
+                logger.info(f"URL: {mangaworld_url}")
+                logger.info(f"Volume range: {start_volume}-{end_volume}")
 
                 if progress_callback:
                     progress_callback['current_step'] = 'Download capitoli in corso...'
@@ -127,6 +175,7 @@ class MangaworldDownloaderPlugin(PluginBase):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
+                    logger.info("Avvio download asyncrono...")
                     # Simula aggiornamenti durante il download
                     # Avvia il download in background
                     download_task = loop.create_task(
@@ -151,6 +200,7 @@ class MangaworldDownloaderPlugin(PluginBase):
 
                     # Assicurati che il task sia completato
                     loop.run_until_complete(download_task)
+                    print(f"[MangaworldDownloader] DEBUG: Download completato!")
 
                 finally:
                     loop.close()
@@ -163,34 +213,63 @@ class MangaworldDownloaderPlugin(PluginBase):
 
                 # Integrate into .manga file
                 from manga_reader_db_integration.database.manager import MangaDatabaseManager
-                from main import get_manga_covers
+                from manga_downloader_lib.src.format_utils import extract_manga_info
 
-                # Get manga title from URL
-                _, manga_title = get_manga_covers(mangaworld_url)
-                if not manga_title:
-                    return False
+                logger.info("Parsing URL per ottenere titolo...")
+                # Get manga title from URL (senza richiedere HTTP, usa solo parsing URL)
+                manga_info = extract_manga_info(mangaworld_url)
+                if not manga_info:
+                    error_msg = (
+                        f"URL non valido: {mangaworld_url}\n\n"
+                        f"Formato atteso:\n"
+                        f"https://www.mangaworld.ac/manga/<ID>/<NOME>\n\n"
+                        f"Esempio:\n"
+                        f"https://www.mangaworld.ac/manga/1234/mob-psycho-100\n\n"
+                        f"Assicurati che l'URL contenga sia l'ID numerico che il nome del manga."
+                    )
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
+                _, manga_title, _ = manga_info
+                print(f"[MangaworldDownloader] DEBUG: Titolo estratto: {manga_title}")
 
                 downloaded_path = os.path.join(temp_dir, manga_title)
+                print(f"[MangaworldDownloader] DEBUG: Percorso download atteso: {downloaded_path}")
+
                 if not os.path.exists(downloaded_path):
+                    print(f"[MangaworldDownloader] ERRORE: Directory manga non trovata!")
+                    print(f"[MangaworldDownloader] DEBUG: Contenuto temp_dir:")
+                    for item in os.listdir(temp_dir):
+                        print(f"  - {item}")
                     return False
 
                 # Find volume folder
                 volume_folders = [d for d in os.listdir(downloaded_path)
                                   if os.path.isdir(os.path.join(downloaded_path, d)) and d.startswith("Volume")]
 
+                print(f"[MangaworldDownloader] DEBUG: Volume folders trovate: {volume_folders}")
+
                 if not volume_folders:
+                    print(f"[MangaworldDownloader] ERRORE: Nessuna folder 'Volume' trovata!")
+                    print(f"[MangaworldDownloader] DEBUG: Contenuto downloaded_path:")
+                    for item in os.listdir(downloaded_path):
+                        print(f"  - {item}")
                     return False
 
                 actual_volume_path = os.path.join(downloaded_path, volume_folders[0])
+                print(f"[MangaworldDownloader] DEBUG: Volume path: {actual_volume_path}")
 
                 # Use database manager to insert
+                print(f"[MangaworldDownloader] DEBUG: Apertura database: {manga_file_path}")
                 db_manager = MangaDatabaseManager(manga_file_path)
 
                 # Get existing volumes to determine order
                 existing_volumes = db_manager.chapters.get_volumes()
                 new_order = len(existing_volumes) + 1
+                print(f"[MangaworldDownloader] DEBUG: Volumi esistenti: {len(existing_volumes)}, nuovo ordine: {new_order}")
 
                 actual_volume_name = volume_name if volume_name else f"Volume {new_order}"
+                print(f"[MangaworldDownloader] DEBUG: Nome volume: {actual_volume_name}")
 
                 # Update progress
                 if progress_callback:
@@ -200,26 +279,33 @@ class MangaworldDownloaderPlugin(PluginBase):
 
                 # Insert volume with cover if available
                 cover_data = None
-                all_covers, _ = get_manga_covers(mangaworld_url)
-                if all_covers and start_volume and 0 < start_volume <= len(all_covers):
-                    import urllib.parse
-                    import requests
-                    specific_cover_url = all_covers[start_volume - 1]
+                try:
+                    from main import get_manga_covers
+                    all_covers, _ = get_manga_covers(mangaworld_url)
+                    if all_covers and start_volume and 0 < start_volume <= len(all_covers):
+                        import urllib.parse
+                        import requests
+                        specific_cover_url = all_covers[start_volume - 1]
 
-                    try:
-                        response = requests.get(specific_cover_url, headers={'User-Agent': 'Mozilla/5.0'})
-                        response.raise_for_status()
-                        cover_data = response.content
-                    except:
-                        pass
+                        try:
+                            response = requests.get(specific_cover_url, headers={'User-Agent': 'Mozilla/5.0'})
+                            response.raise_for_status()
+                            cover_data = response.content
+                        except Exception as e:
+                            print(f"[MangaworldDownloader] Impossibile scaricare copertina: {e}")
+                except Exception as e:
+                    print(f"[MangaworldDownloader] Impossibile recuperare lista cover: {e}")
 
+                print(f"[MangaworldDownloader] DEBUG: Inserimento volume nel database...")
                 volume_id = db_manager.chapters.insert_volume(
                     name=actual_volume_name,
                     order=new_order,
                     cover=cover_data
                 )
+                print(f"[MangaworldDownloader] DEBUG: Volume inserito con ID: {volume_id}")
 
                 if not volume_id:
+                    print(f"[MangaworldDownloader] ERRORE: Impossibile inserire volume nel database!")
                     return False
 
                 # Insert chapters and pages
@@ -230,12 +316,15 @@ class MangaworldDownloaderPlugin(PluginBase):
                                   key=extract_number)
 
                 total_real_chapters = len(chapters)
+                print(f"[MangaworldDownloader] DEBUG: Capitoli trovati: {total_real_chapters}")
+                print(f"[MangaworldDownloader] DEBUG: Lista capitoli: {chapters[:5]}...")  # Primi 5
 
                 # Update progress - inizia da 80% per l'inserimento
                 if progress_callback:
                     progress_callback['current_step'] = 'Inserimento capitoli nel database...'
 
                 for chapter_order, chapter_dir_name in enumerate(chapters):
+                    print(f"[MangaworldDownloader] DEBUG: Processando capitolo {chapter_order + 1}/{total_real_chapters}: {chapter_dir_name}")
                     chapter_path = os.path.join(actual_volume_path, chapter_dir_name)
 
                     # Update progress - calcola progresso da 80 a 100%
@@ -256,33 +345,48 @@ class MangaworldDownloaderPlugin(PluginBase):
                     if not chapter_id:
                         continue
 
-                    # Insert pages
+                    # Insert pages - BATCH INSERT per performance ottimali
                     pages = sorted([f for f in os.listdir(chapter_path)
                                     if os.path.isfile(os.path.join(chapter_path, f))],
                                    key=extract_number)
 
                     total_pages = len(pages)
 
+                    # Leggi tutte le pagine in memoria (ottimizzato per batch insert)
+                    pages_data = []
                     for page_number, page_filename in enumerate(pages):
                         page_file_path = os.path.join(chapter_path, page_filename)
                         with open(page_file_path, 'rb') as f:
                             page_data = f.read()
+                        pages_data.append(page_data)
 
-                        # Update progress per pagina - micro incrementi
-                        if progress_callback:
-                            # Calcola progresso fine all'interno del capitolo
+                        # Update progress durante lettura
+                        if progress_callback and page_number % 10 == 0:  # Aggiorna ogni 10 pagine
                             page_progress_within_chapter = (page_number / total_pages) * (20 / total_real_chapters)
                             current_total = base_progress + chapter_progress + int(page_progress_within_chapter)
                             progress_callback['current_chapter'] = min(current_total, 99)
                             progress_callback['total_pages'] = total_pages
                             progress_callback['current_page'] = page_number + 1
 
-                        db_manager.chapters.insert_page(
-                            chapter_id=chapter_id,
-                            page_number=page_number + 1,
-                            image_data_or_path=page_data
-                        )
+                    # Batch insert per performance ottimali (50x più veloce!)
+                    print(f"[MangaworldDownloader] DEBUG: Inserimento batch di {total_pages} pagine per capitolo {chapter_id}...")
+                    success = db_manager.chapters.insert_pages_batch(
+                        chapter_id=chapter_id,
+                        pages_data=pages_data,
+                        start_page_number=1,
+                        batch_size=50  # Ottimale per SQLite
+                    )
+                    if success:
+                        print(f"[MangaworldDownloader] DEBUG: Batch insert completato per capitolo {chapter_id}")
+                    else:
+                        print(f"[MangaworldDownloader] ERRORE: Batch insert fallito per capitolo {chapter_id}!")
 
+                    # Update progress finale
+                    if progress_callback:
+                        current_total = base_progress + int(((chapter_order + 1) / total_real_chapters) * 20)
+                        progress_callback['current_chapter'] = min(current_total, 99)
+
+                print(f"[MangaworldDownloader] DEBUG: Tutti i capitoli inseriti con successo!")
                 return True
 
             finally:

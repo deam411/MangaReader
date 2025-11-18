@@ -482,6 +482,8 @@ class MangaCreatorApp(QMainWindow):
                     self.url = url
                     self.vol_num = vol_num
                     self.vol_name = vol_name
+                    self.error_message = None
+                    self.error_traceback = None
                     self.progress_data = {
                         'current_step': 'Inizializzazione...',
                         'current_chapter': 0,
@@ -516,6 +518,9 @@ class MangaCreatorApp(QMainWindow):
                         logger.error(f"Errore nel worker thread: {e}")
                         import traceback
                         traceback.print_exc()
+                        # Salva l'errore per mostrarlo nel messaggio
+                        self.error_message = str(e)
+                        self.error_traceback = traceback.format_exc()
                         self.finished.emit(False)
 
                 def get_progress(self):
@@ -583,10 +588,20 @@ class MangaCreatorApp(QMainWindow):
                         f"Volume {volume_num} scaricato e aggiunto con successo!"
                     )
                 else:
+                    error_msg = f"Errore durante il download del volume {volume_num}."
+                    if worker.error_message:
+                        error_msg += f"\n\nDettagli errore:\n{worker.error_message}"
+                    else:
+                        error_msg += "\n\nVerifica l'URL e riprova."
+
+                    # Mostra anche il traceback nella console
+                    if worker.error_traceback:
+                        logger.error(f"Traceback completo:\n{worker.error_traceback}")
+
                     QMessageBox.critical(
                         self,
                         "Errore",
-                        f"Errore durante il download del volume {volume_num}.\nVerifica l'URL e riprova."
+                        error_msg
                     )
 
             # Connetti segnali

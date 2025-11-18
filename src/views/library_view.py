@@ -20,15 +20,11 @@ from src.settings import Settings
 from src.settings_dialog import SettingsDialog
 from src.constants import APP_VERSION, APP_NAME, DIALOG_MIN_WIDTH, GRID_ITEM_WIDTH, GRID_ITEM_HEIGHT
 from src.database import MangaDatabaseManager
-from src.importers import ArchiveImporter
 from src.logger import get_logger
-from src.views.dialogs import ArchiveImportDialog
-from src.views.widgets import LibraryLoaderThread, MangaItemDelegate, DeselectableListWidget
+from src.views.widgets import MangaItemDelegate, DeselectableListWidget
 from src.creator.manga_creator_app import MangaCreatorApp
-from src.updater import check_for_updates, download_update, install_update, get_update_info_text
-from src.views.utils import sanitize_filename
 from src.stats.stats_widget import StatsWidget
-from src.collections import CollectionManager
+from src.controllers import LibraryController, ImportExportController, UpdateController, CollectionController
 
 logger = get_logger(__name__)
 
@@ -44,7 +40,12 @@ class LibraryView(QWidget):
         self.is_loading = False  # Flag per prevenire caricamenti multipli simultanei
         self.settings = Settings()  # Per accedere alle impostazioni di sfondo
         self.background_pixmap = None  # Pixmap per lo sfondo personalizzato
-        self.collection_manager = CollectionManager()  # Gestore collections (v0.3.0)
+
+        # Initialize controllers
+        self.library_controller = LibraryController(self)
+        self.import_export_controller = ImportExportController(self)
+        self.update_controller = UpdateController(self)
+        self.collection_controller = CollectionController(self)
 
         # Imposta attributi per permettere custom painting dello sfondo
         self.setAttribute(Qt.WA_StyledBackground, False)
@@ -276,175 +277,27 @@ class LibraryView(QWidget):
 
     def load_library(self):
         """Carica la libreria usando un thread in background."""
-        # Previeni caricamenti multipli simultanei (es. F5 premuto ripetutamente)
-        if self.is_loading:
-            logger.debug("Caricamento già in corso, ignorando richiesta")
-            return
-
-        self.is_loading = True
-        self.manga_grid_view.clear()
-        self.all_manga_data = []
-
-        try:
-            manga_dir = get_manga_dir()
-        except Exception as e:
-            self.is_loading = False  # Reset flag in caso di errore
-            QMessageBox.critical(
-                self,
-                'Errore Directory',
-                f'Impossibile accedere alla directory della libreria:\n{str(e)}\n\n'
-                'Controlla le impostazioni e assicurati che la directory esista.'
-            )
-            return
-
-        if not os.path.exists(manga_dir):
-            QMessageBox.warning(
-                self,
-                'Directory non trovata',
-                f'La directory della libreria non esiste:\n{manga_dir}\n\n'
-                'Verrà creata automaticamente.'
-            )
-            try:
-                os.makedirs(manga_dir, exist_ok=True)
-            except Exception as e:
-                self.is_loading = False  # Reset flag in caso di errore
-                QMessageBox.critical(
-                    self,
-                    'Errore',
-                    f'Impossibile creare la directory:\n{str(e)}'
-                )
-                return
-
-        # Mostra la progress bar
-        self.progress_bar.setValue(0)
-        self.progress_bar.setVisible(True)
-
-        # Avvia il thread di caricamento
-        self.loader_thread = LibraryLoaderThread(manga_dir)
-        self.loader_thread.manga_loaded.connect(self.on_manga_loaded)
-        self.loader_thread.progress_update.connect(self.on_progress_update)
-        self.loader_thread.loading_complete.connect(self.on_loading_complete)
-        self.loader_thread.start()
+        self.library_controller.load_library()
 
     def on_manga_loaded(self, manga_info):
         """Callback quando un manga viene caricato."""
-        self.all_manga_data.append(manga_info)
-        self._add_manga_to_view(manga_info)
+        self.library_controller.on_manga_loaded(manga_info)
 
     def on_progress_update(self, current, total):
         """Aggiorna la progress bar."""
-        if total > 0:
-            self.progress_bar.setValue(int((current / total) * 100))
+        self.library_controller.on_progress_update(current, total)
 
     def populate_tag_filter(self):
         """Popola la combobox tag e autori con tutti i valori unici dalla libreria (v0.3.0)."""
-        all_tags = set()
-        all_authors = set()
-
-        for manga in self.all_manga_data:
-            if 'tags' in manga and manga['tags']:
-                tags = [t.strip() for t in manga['tags'].split(',') if t.strip()]
-                all_tags.update(tags)
-
-            if 'author' in manga and manga['author'] and manga['author'] != 'Sconosciuto':
-                all_authors.add(manga['author'])
-
-        # Salva selezioni correnti
-        current_tag_selection = self.tag_filter_combo.currentText()
-        current_author_selection = self.author_filter_combo.currentText()
-
-        # Aggiorna la combobox tag
-        self.tag_filter_combo.clear()
-        self.tag_filter_combo.addItem("All Tags")
-
-        for tag in sorted(all_tags):
-            self.tag_filter_combo.addItem(tag)
-
-        # Ripristina selezione tag se possibile
-        index = self.tag_filter_combo.findText(current_tag_selection)
-        if index >= 0:
-            self.tag_filter_combo.setCurrentIndex(index)
-
-        # Aggiorna la combobox autori (v0.3.0)
-        self.author_filter_combo.clear()
-        self.author_filter_combo.addItem("Tutti gli autori")
-
-        for author in sorted(all_authors):
-            self.author_filter_combo.addItem(author)
-
-        # Ripristina selezione autore se possibile
-        index = self.author_filter_combo.findText(current_author_selection)
-        if index >= 0:
-            self.author_filter_combo.setCurrentIndex(index)
+        self.library_controller.populate_tag_filter()
 
     def on_loading_complete(self, corrupted_files):
         """Callback quando il caricamento è completato."""
-        # Fix: Pulisci il thread per prevenire memory leak
-        if hasattr(self, 'loader_thread') and self.loader_thread:
-            self.loader_thread.deleteLater()
-            self.loader_thread = None
-
-        # Reset flag per permettere un nuovo caricamento
-        self.is_loading = False
-
-        self.progress_bar.setVisible(False)
-
-        # Aggiorna stats widget (v0.3.0)
-        self._update_stats()
-
-        # Ottimizzazione: Crea dizionario per lookup O(1) in filter_manga
-        self.manga_data_map = {manga['file_name']: manga for manga in self.all_manga_data}
-
-        # Mostra pulsante Riprendi se c'è almeno un manga in corso
-        has_in_progress = any(
-            manga.get('progress') and 0 < manga['progress']['percentage'] < 100
-            for manga in self.all_manga_data
-        )
-        self.resume_button.setVisible(has_in_progress)
-
-        # Popola combobox tag con tutti i tag unici
-        self.populate_tag_filter()
-
-        if corrupted_files:
-            QMessageBox.warning(
-                self,
-                'File corrotti',
-                f'I seguenti file .manga non possono essere caricati:\n\n' +
-                '\n'.join(corrupted_files) +
-                '\n\nPotrebbero essere corrotti o non validi.'
-            )
-
-        self.sort_manga(self.sort_combo.currentIndex())
-
-        # Mostra un messaggio se la libreria è vuota (solo al primo caricamento)
-        if len(self.all_manga_data) == 0 and self.first_load:
-            self.first_load = False
-            QMessageBox.information(
-                self,
-                'Libreria vuota',
-                'La libreria è vuota!\n\n'
-                'Puoi:\n'
-                '• Importare file .manga esistenti (pulsante  o Ctrl+I)\n'
-                '• Creare un nuovo manga (pulsante + o Ctrl+N)\n'
-                '• Cambiare la directory della libreria nelle Impostazioni\n\n'
-                f'Directory corrente: {get_manga_dir()}'
-            )
-
-    def _add_manga_to_view(self, manga_info):
-        """Aggiunge un singolo manga alla vista."""
-        item = QListWidgetItem(manga_info['title'])
-        item.setData(Qt.UserRole, manga_info['file_name'])
-        item.setData(Qt.UserRole + 1, manga_info['description'])
-        item.setData(Qt.UserRole + 2, manga_info.get('progress'))  # Progresso di lettura
-        if manga_info['cover']:
-            item.setData(Qt.DecorationRole, manga_info['cover'])
-        self.manga_grid_view.addItem(item)
+        self.library_controller.on_loading_complete(corrupted_files)
 
     def _populate_view(self, data_list):
         """Popola la vista con una lista di manga."""
-        self.manga_grid_view.clear()
-        for manga_info in data_list:
-            self._add_manga_to_view(manga_info)
+        self.library_controller.populate_view(data_list)
 
     def filter_manga(self, text=None):
         """Filtra i manga per testo, tag, stato e autore (v0.3.0 enhanced)."""
