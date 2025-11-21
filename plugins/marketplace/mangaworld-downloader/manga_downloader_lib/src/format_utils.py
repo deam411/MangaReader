@@ -21,7 +21,7 @@ def extract_manga_info(url: str) -> tuple:
     path_parts = parsed_url.path.strip("/").split("/")
 
     if len(path_parts) < NUM_URL_PATH_PARTS or path_parts[0] != "manga":
-        logging.error("Invalid URL format: Expected '/manga/<id>/<name>'")
+        logging.error(f"Invalid URL format: Expected '/manga/<id>/<name>', got parts: {path_parts}")
         return None
 
     manga_id = path_parts[1]

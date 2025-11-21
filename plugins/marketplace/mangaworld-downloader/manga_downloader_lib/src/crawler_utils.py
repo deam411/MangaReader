@@ -36,13 +36,20 @@ from .pdf_generator import extract_number
 
 def clean_chapter_title(raw_title: str) -> str:
     """Cleans the raw chapter title to extract only the relevant part (e.g., 'Capitolo X')."""
-    # Regex to find "Capitolo X" or "Volume X" (including decimals)
-    match = re.search(r'(capitolo|volume)\s+\d+(?:\.\d+)?', raw_title, re.IGNORECASE)
+    # Regex to find "Capitolo X", "Chapter X", or "Volume X" (including decimals)
+    match = re.search(r'(capitolo|chapter|volume)\s+\d+(?:\.\d+)?', raw_title, re.IGNORECASE)
     if match:
-        return match.group(0).capitalize() # Capitalize the first letter (Capitolo/Volume)
+        # Standardize to "Capitolo" if it's "Chapter", otherwise keep "Volume"
+        prefix = match.group(1).lower()
+        number_part = match.group(0).split()[-1]
+        
+        if prefix == 'volume':
+            return f"Volume {number_part}"
+        return f"Capitolo {number_part}"
     
     # Fallback if no specific pattern is found, try to extract just numbers
-    numbers = re.findall(r'\d+', raw_title)
+    # Handle decimals correctly (e.g., 10.5)
+    numbers = re.findall(r'\d+(?:\.\d+)?', raw_title)
     if numbers:
         return f"Capitolo {numbers[-1]}" # Assume the last number is the chapter number
     

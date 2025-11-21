@@ -1,6 +1,0 @@
-customtkinter
-aiohttp==3.9.1
-beautifulsoup4==4.13.4
-Pillow==11.3.0
-Requests==2.32.4
-rich==14.1.0

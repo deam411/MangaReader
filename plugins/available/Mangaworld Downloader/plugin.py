@@ -28,7 +28,7 @@ class MangaworldDownloaderPlugin(PluginBase):
         """Metadata del plugin."""
         return PluginMetadata(
             name="Mangaworld Downloader",
-            version="1.0.0",
+            version="1.0.1",
             author="deam411",
             description="Download manga from Mangaworld.ac via Shift+Add Volume in Manga Creator",
             requires_version="0.3.0",
@@ -131,6 +131,12 @@ class MangaworldDownloaderPlugin(PluginBase):
                 logger.warning(f"Virgolette rimosse dal percorso!")
                 logger.warning(f"Prima: '{manga_file_path_original}'")
                 logger.warning(f"Dopo: '{manga_file_path}'")
+            
+            # Clean URL
+            mangaworld_url = mangaworld_url.strip().strip('"').strip("'")
+            if not mangaworld_url.startswith("http"):
+                mangaworld_url = "https://" + mangaworld_url
+                logger.info(f"Aggiunto protocollo https: {mangaworld_url}")
 
             logger.info(f"File .manga FINAL: '{manga_file_path}'")
             logger.info(f"URL Mangaworld: {mangaworld_url}")
@@ -222,9 +228,10 @@ class MangaworldDownloaderPlugin(PluginBase):
                     error_msg = (
                         f"URL non valido: {mangaworld_url}\n\n"
                         f"Formato atteso:\n"
-                        f"https://www.mangaworld.ac/manga/<ID>/<NOME>\n\n"
+                        f"https://www.mangaworld.ac/manga/<ID>/<NOME>\n"
+                        f"(o altri domini supportati come .mx, .cc)\n\n"
                         f"Esempio:\n"
-                        f"https://www.mangaworld.ac/manga/1234/mob-psycho-100\n\n"
+                        f"https://www.mangaworld.mx/manga/1234/mob-psycho-100\n\n"
                         f"Assicurati che l'URL contenga sia l'ID numerico che il nome del manga."
                     )
                     logger.error(error_msg)

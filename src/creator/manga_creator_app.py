@@ -369,6 +369,16 @@ class MangaCreatorApp(QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
+        elif event.key() == Qt.Key_Delete:
+            # Check if page list has focus
+            if self.page_list.hasFocus():
+                self.remove_page(confirm=False)
+            # Check if chapter list has focus
+            elif self.chapter_list.hasFocus():
+                self.remove_chapter()
+            # Check if volume list has focus
+            elif self.volume_list.hasFocus():
+                self.remove_volume()
         else:
             super().keyPressEvent(event)
 
@@ -890,7 +900,7 @@ class MangaCreatorApp(QMainWindow):
                     QMessageBox.critical(self, "Errore", f"Impossibile aggiungere la pagina '{os.path.basename(file_path)}'.")
             self.load_pages(self.current_chapter_id) # Ricarica le pagine dopo l'aggiunta
 
-    def remove_page(self):
+    def remove_page(self, confirm=True):
         if not self.db_manager or self.current_chapter_id is None:
             QMessageBox.warning(self, "Errore", "Nessun capitolo selezionato.")
             return
@@ -898,17 +908,33 @@ class MangaCreatorApp(QMainWindow):
         selected_item = self.page_list.currentItem()
         if selected_item:
             page_number = selected_item.data(Qt.UserRole)
-            reply = QMessageBox.question(self, 'Conferma Rimozione',
-                                         f"Sei sicuro di voler rimuovere la pagina {page_number}?",
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply == QMessageBox.Yes:
-                if self.db_manager.delete_page(self.current_chapter_id, page_number):
+            
+            if confirm:
+                reply = QMessageBox.question(self, 'Conferma Rimozione',
+                                             f"Sei sicuro di voler rimuovere la pagina {page_number}?",
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply != QMessageBox.Yes:
+                    return
+
+            if self.db_manager.delete_page(self.current_chapter_id, page_number):
+                # Only show success message if confirmed (manual action), otherwise silent for speed
+                if confirm:
                     QMessageBox.information(self, "Successo", f"Pagina {page_number} rimossa.")
-                    self.load_pages(self.current_chapter_id) # Ricarica per aggiornare la lista
-                    self.reorder_pages_after_delete(self.current_chapter_id)
-                    self.set_dirty(True)
-                else:
-                    QMessageBox.critical(self, "Errore", f"Impossibile rimuovere la pagina {page_number}.")
+                
+                self.load_pages(self.current_chapter_id) # Ricarica per aggiornare la lista
+                self.reorder_pages_after_delete(self.current_chapter_id)
+                self.set_dirty(True)
+                
+                # Select the next item or the previous one if it was the last
+                count = self.page_list.count()
+                if count > 0:
+                    row = self.page_list.currentRow()
+                    if row >= count:
+                        self.page_list.setCurrentRow(count - 1)
+                    else:
+                        self.page_list.setCurrentRow(row)
+            else:
+                QMessageBox.critical(self, "Errore", f"Impossibile rimuovere la pagina {page_number}.")
         else:
             QMessageBox.warning(self, "Selezione", "Seleziona una pagina da rimuovere.")
 
@@ -1007,6 +1033,3 @@ if __name__ == '__main__':
     ex = MangaCreatorApp()
     ex.showFullScreen()
     sys.exit(app.exec_())
-
-
-        

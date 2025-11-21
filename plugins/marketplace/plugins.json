@@ -6,7 +6,7 @@
       "version": "1.0.1",
       "author": "deam411",
       "description": "Scarica manga direttamente da Mangaworld e importali in MangaReader. Usa Shift+Aggiungi Volume per accedere alla funzionalità.",
-      "download_url": "https://github.com/deam411/MangaReader-Plugins/releases/download/v1.0.0/mangaworld-downloader.zip",
+      "download_url": "https://github.com/deam411/MangaReader-Plugins/releases/download/v1.0.1/mangaworld-downloader.zip",
       "requires_version": "0.3.0",
       "homepage": "https://github.com/deam411/MangaReader"
     }
