@@ -118,6 +118,8 @@ class MangaCreatorApp(QMainWindow):
 
         self.volume_layout.addWidget(QLabel('<h2>Volumi</h2>'))
         self.volume_list = QListWidget()
+        self.volume_list.setDragDropMode(QListWidget.InternalMove)
+        self.volume_list.model().rowsMoved.connect(self.reorder_volumes_on_drop, Qt.QueuedConnection)
         self.volume_layout.addWidget(self.volume_list)
         self.volume_list.currentRowChanged.connect(self.volume_selection_changed)
 
@@ -759,6 +761,29 @@ class MangaCreatorApp(QMainWindow):
                     QMessageBox.critical(self, "Errore", "Nessun metadato trovato per aggiornare la copertina.")
             except Exception as e:
                 QMessageBox.critical(self, "Errore", f"Errore durante la lettura del file di copertina: {e}")
+
+    def reorder_volumes(self):
+        """Aggiorna l'ordine dei volumi nel database dopo drag-and-drop."""
+        if not self.db_manager:
+            return
+
+        try:
+            # Estrai gli ID dei volumi nell'ordine attuale della lista
+            all_items = [self.volume_list.item(i) for i in range(self.volume_list.count())]
+            volume_ids = [item.data(Qt.UserRole) for item in all_items]
+
+            # Aggiorna l'ordine nel database
+            if self.db_manager.update_volumes_order(volume_ids):
+                self.set_dirty(True)
+            else:
+                QMessageBox.critical(self, "Errore", "Impossibile aggiornare l'ordine dei volumi nel database.")
+        except Exception as e:
+            logger.error(f"Error reordering volumes: {e}")
+            QMessageBox.critical(self, "Errore", f"Errore durante il riordino dei volumi:\n{str(e)}")
+
+    def reorder_volumes_on_drop(self, parent, start, end, destination, row):
+        """Callback chiamato quando i volumi vengono riordinati tramite drag-and-drop."""
+        self.reorder_volumes()
 
     # --- Metodi per la gestione Capitoli ---
     def load_chapters(self, volume_id):

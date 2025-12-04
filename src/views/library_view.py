@@ -512,7 +512,7 @@ class LibraryView(QWidget):
         collections_menu.addSeparator()
 
         # Aggiungi collection esistenti
-        existing_collections = self.collection_manager.get_all_collections()
+        existing_collections = self.collection_controller.get_all_collections()
         collection_actions = {}
 
         if existing_collections:
@@ -989,9 +989,9 @@ class LibraryView(QWidget):
         collection_name = collection_name.strip()
 
         # Crea la collection
-        if self.collection_manager.create_collection(collection_name):
+        if self.collection_controller.collection_manager.create_collection(collection_name):
             # Aggiungi il manga alla collection
-            self.collection_manager.add_to_collection(collection_name, manga_file)
+            self.collection_controller.collection_manager.add_to_collection(collection_name, manga_file)
 
             QMessageBox.information(
                 self,
@@ -1008,7 +1008,7 @@ class LibraryView(QWidget):
 
     def _add_to_collection(self, manga_file, collection_name):
         """Aggiunge il manga a una collection esistente (v0.3.0)."""
-        self.collection_manager.add_to_collection(collection_name, manga_file)
+        self.collection_controller.collection_manager.add_to_collection(collection_name, manga_file)
 
         QMessageBox.information(
             self,

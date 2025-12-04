@@ -11,7 +11,7 @@ Gestisce:
 import sqlite3
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
                               QListWidget, QListWidgetItem, QScrollArea, QFileDialog,
-                              QMessageBox, QMenu, QDialog)
+                              QMessageBox, QMenu, QDialog, QApplication)
 from PyQt5.QtGui import QPixmap, QColor
 from PyQt5.QtCore import Qt, QSize, QTimer
 
@@ -98,6 +98,8 @@ class MangaView(QWidget):
         self.volume_list.setDragDropMode(QListWidget.InternalMove)
         self.volume_list.model().rowsMoved.connect(self.reorder_volumes_on_drop, Qt.QueuedConnection)
         self.volume_list.itemDoubleClicked.connect(self.on_volume_selected)
+        self.volume_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.volume_list.customContextMenuRequested.connect(self.show_volume_context_menu)
         layout.addWidget(self.volume_list)
 
         # Aggiungi sezione segnalibri
@@ -370,4 +372,117 @@ class MangaView(QWidget):
     def reorder_volumes_on_drop(self, parent, start, end, destination, row):
         """Callback chiamato quando i volumi vengono riordinati tramite drag-and-drop."""
         self.reorder_volumes()
+
+    def show_volume_context_menu(self, position):
+        """Mostra il menu contestuale per i volumi."""
+        item = self.volume_list.itemAt(position)
+        if not item:
+            return
+
+        # Seleziona l'item visivamente
+        self.volume_list.setCurrentItem(item)
+        item.setSelected(True)
+
+        volume_id = item.data(Qt.UserRole)
+        volume_name = item.text()
+
+        menu = QMenu(self)
+        
+        # Submenu Export
+        export_menu = menu.addMenu("Esporta")
+        pdf_action = export_menu.addAction("Esporta come PDF")
+        pdf_action.triggered.connect(lambda: self.export_volume_as_pdf(volume_id, volume_name))
+
+        menu.exec_(self.volume_list.viewport().mapToGlobal(position))
+
+    def export_volume_as_pdf(self, volume_id, volume_name):
+        """Esporta il volume selezionato come PDF."""
+        if not self.manga_file:
+            return
+
+        # Chiedi dove salvare il file
+        safe_name = sanitize_filename(f"{self.title_label.text()} - {volume_name}")
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Esporta Volume come PDF",
+            f"{safe_name}.pdf",
+            "PDF Files (*.pdf);;All Files (*)"
+        )
+
+        if not file_path:
+            return
+
+        # Mostra progress bar
+        from PyQt5.QtWidgets import QProgressDialog
+        progress = QProgressDialog("Generazione PDF in corso...", "Annulla", 0, 100, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+
+        try:
+            from PIL import Image
+            import io
+
+            self._cleanup_connection()
+            self.db_conn = sqlite3.connect(self.manga_file)
+            self.db_conn.row_factory = sqlite3.Row
+            cursor = self.db_conn.cursor()
+
+            # 1. Ottieni tutti i capitoli del volume ordinati
+            cursor.execute("SELECT id FROM chapters WHERE volume_id = ? ORDER BY `order`", (volume_id,))
+            chapters = cursor.fetchall()
+
+            if not chapters:
+                QMessageBox.warning(self, "Attenzione", "Il volume selezionato non contiene capitoli.")
+                return
+
+            images = []
+            total_chapters = len(chapters)
+            
+            for i, chapter in enumerate(chapters):
+                if progress.wasCanceled():
+                    return
+                
+                progress.setLabelText(f"Elaborazione capitolo {i+1} di {total_chapters}...")
+                progress.setValue(int((i / total_chapters) * 50))
+                QApplication.processEvents()
+
+                # 2. Ottieni tutte le pagine del capitolo
+                cursor.execute("SELECT image_data FROM pages WHERE chapter_id = ? ORDER BY page_number", (chapter['id'],))
+                pages = cursor.fetchall()
+
+                for page in pages:
+                    if page['image_data']:
+                        try:
+                            img = Image.open(io.BytesIO(page['image_data']))
+                            if img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            images.append(img)
+                        except Exception as e:
+                            logger.error(f"Errore conversione immagine: {e}")
+
+            if not images:
+                QMessageBox.warning(self, "Errore", "Nessuna immagine trovata nel volume.")
+                return
+
+            progress.setLabelText("Salvataggio PDF...")
+            progress.setValue(75)
+            QApplication.processEvents()
+
+            # 3. Salva come PDF
+            # La prima immagine è quella principale, le altre vengono appese
+            first_image = images[0]
+            other_images = images[1:]
+            
+            first_image.save(file_path, "PDF", resolution=100.0, save_all=True, append_images=other_images)
+
+            progress.setValue(100)
+            QMessageBox.information(self, "Successo", f"PDF esportato correttamente in:\n{file_path}")
+
+        except Exception as e:
+            logger.error(f"Errore export PDF: {e}")
+            QMessageBox.critical(self, "Errore", f"Errore durante l'esportazione PDF:\n{str(e)}")
+        finally:
+            progress.close()
+            self._cleanup_connection()
+
 
